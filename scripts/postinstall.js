@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { execSync } = require("child_process");
 
-const provider = process.env.DATABASE_PROVIDER || "sqlite";
+const provider = (process.env.DATABASE_PROVIDER || "sqlite").trim();
 console.log(`[postinstall] Detected DATABASE_PROVIDER = "${provider}"`);
 
 try {

@@ -3,13 +3,15 @@ const { PrismaMssql } = require("@prisma/adapter-mssql");
 const crypto = require("node:crypto");
 
 function createPrismaClient() {
-  if (process.env.DATABASE_PROVIDER === "sqlserver") {
-    if (!process.env.AZURE_DATABASE_URL) {
+  const provider = (process.env.DATABASE_PROVIDER || "").trim();
+  const url = (process.env.AZURE_DATABASE_URL || "").trim();
+  if (provider === "sqlserver") {
+    if (!url) {
       throw new Error("AZURE_DATABASE_URL is required when DATABASE_PROVIDER=sqlserver");
     }
 
     return new PrismaClient({
-      adapter: new PrismaMssql(process.env.AZURE_DATABASE_URL)
+      adapter: new PrismaMssql(url)
     });
   }
 

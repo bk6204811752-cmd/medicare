@@ -4,11 +4,12 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-const useAzureSql = process.env.DATABASE_PROVIDER === "sqlserver";
+const provider = (process.env.DATABASE_PROVIDER || "").trim();
+const useAzureSql = provider === "sqlserver";
 
 function createPrismaClient() {
   if (useAzureSql) {
-    const url = process.env.AZURE_DATABASE_URL;
+    const url = (process.env.AZURE_DATABASE_URL || "").trim();
     if (!url) {
       throw new Error(
         "AZURE_DATABASE_URL is required when DATABASE_PROVIDER=sqlserver.\n" +

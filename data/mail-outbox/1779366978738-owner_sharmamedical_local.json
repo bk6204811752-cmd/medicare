@@ -1,0 +1,8 @@
+{
+  "to": "owner@sharmamedical.local",
+  "subject": "MedCare daily report - Sharma Medical Store - 2026-05-20",
+  "text": "Daily report for Sharma Medical Store\nDate: 2026-05-20\nBills: 2\nSales: ₹197.00\nGST: ₹21.12\nLow stock items: 3\nExpiring batches: 3",
+  "html": "\n        <h2>Daily report for Sharma Medical Store</h2>\n        <p>Date: <strong>2026-05-20</strong></p>\n        <ul>\n          <li>Bills: <strong>2</strong></li>\n          <li>Sales: <strong>₹197.00</strong></li>\n          <li>GST: <strong>₹21.12</strong></li>\n          <li>Low stock items: <strong>3</strong></li>\n          <li>Expiring batches: <strong>3</strong></li>\n        </ul>\n      ",
+  "from": "MedCare <no-reply@medcare.local>",
+  "createdAt": "2026-05-21T12:36:18.739Z"
+}

@@ -1,0 +1,25 @@
+
+> dev
+> next dev --port 3004
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3004
+- Network:       http://10.234.172.103:3004
+- Environments: .env
+✓ Ready in 1078ms
+Creating turbopack project {
+  dir: 'C:\\Users\\basan\\OneDrive\\Desktop\\Medicare',
+  testMode: true
+}
+
+ GET /api/customers 200 in 914ms (next.js: 841ms, application-code: 73ms)
+ GET /api/search?q=dolo 200 in 1062ms (next.js: 1039ms, application-code: 23ms)
+ GET /api/inventory/adjustments 200 in 1057ms (next.js: 1041ms, application-code: 16ms)
+ GET /shop/inventory 307 in 1853ms (next.js: 1369ms, application-code: 484ms)
+ POST /api/customers 400 in 25ms (next.js: 7ms, application-code: 18ms)
+ POST /api/inventory/adjustments 400 in 18ms (next.js: 5ms, application-code: 13ms)
+ POST /api/suppliers 400 in 236ms (next.js: 222ms, application-code: 15ms)
+ GET /api/inventory/adjustments 200 in 153ms (next.js: 93ms, application-code: 60ms)
+ GET /api/search?q=dolo 200 in 51ms (next.js: 37ms, application-code: 14ms)
+ GET / 200 in 1485ms (next.js: 231ms, application-code: 1254ms)
+ GET /manifest.webmanifest 200 in 280ms (next.js: 263ms, application-code: 17ms)

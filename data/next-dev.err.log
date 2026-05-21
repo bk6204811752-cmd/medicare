@@ -1,0 +1,519 @@
+⚠ Found a change in next.config.mjs. Restarting the server to apply the changes...
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en">
+                          <body
+                            className="dm_sans_1c871f37-module__30ab_W__variable plus_jakarta_sans_9e765dc7-module__xP..."
+-                           __processed_dbca7c96-c29c-4583-b82e-55ece78890ed__="true"
+-                           bis_register="W3sibWFzdGVyIjp0cnVlLCJleHRlbnNpb25JZCI6ImVwcGlvY2VtaG1ubGJoanBsY2drb2ZjaWll..."
+                          >
+                  ...
+ 
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en">
+                          <body
+                            className="dm_sans_1c871f37-module__30ab_W__variable plus_jakarta_sans_9e765dc7-module__xP..."
+-                           __processed_9f4686e9-6768-4b23-af1b-4b7f8249e2b0__="true"
+-                           bis_register="W3sibWFzdGVyIjp0cnVlLCJleHRlbnNpb25JZCI6ImVwcGlvY2VtaG1ubGJoanBsY2drb2ZjaWll..."
+                          >
+                  ...
+ 
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/login'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+[browser] Uncaught PrismaClientInitializationError: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib/prisma.ts:23:12)
+    at module evaluation (lib/prisma.ts:34:49)
+    at module evaluation (lib/local-db.ts:4:1)
+    at module evaluation (lib/auth.ts:3:1)
+    at module evaluation (app/auth-actions.ts:5:1)
+    at module evaluation (app/login/page.tsx:2:1)
+    at module evaluation (app/login/page.tsx:37:1)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     });
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+[browser] Uncaught PrismaClientInitializationError: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib/prisma.ts:23:12)
+    at module evaluation (lib/prisma.ts:34:49)
+    at module evaluation (lib/local-db.ts:4:1)
+    at module evaluation (lib/auth.ts:3:1)
+    at module evaluation (app/auth-actions.ts:5:1)
+    at module evaluation (app/login/page.tsx:2:1)
+    at module evaluation (app/login/page.tsx:37:1)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     });
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+⨯ Error [PrismaClientInitializationError]: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib\prisma.ts:23:12)
+    at module evaluation (lib\prisma.ts:34:49)
+    at module evaluation (lib\local-db.ts:4:1)
+    at module evaluation (lib\auth.ts:3:1)
+    at module evaluation (app\auth-actions.ts:5:1)
+    at module evaluation (app\login\page.tsx:2:1)
+    at module evaluation (C:\Users\basan\OneDrive\Desktop\Medicare\.next\dev\server\chunks\ssr\[root-of-the-server]__0c_tfdm._.js:180:47)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     }); {
+  clientVersion: '6.19.0',
+  errorCode: undefined,
+  retryable: undefined,
+  page: '/shop/dashboard'
+}
+[browser] Uncaught PrismaClientInitializationError: The Driver Adapter `@prisma/adapter-mssql`, based on `sqlserver`, is not compatible with the provider `sqlite` specified in the Prisma schema.
+    at createPrismaClient (lib/prisma.ts:23:12)
+    at module evaluation (lib/prisma.ts:34:49)
+    at module evaluation (lib/local-db.ts:4:1)
+    at module evaluation (lib/auth.ts:3:1)
+    at module evaluation (app/auth-actions.ts:5:1)
+    at module evaluation (app/login/page.tsx:2:1)
+    at module evaluation (app/login/page.tsx:37:1)
+  21 |     const { PrismaMssql } = require("@prisma/adapter-mssql");
+  22 |
+> 23 |     return new PrismaClient({
+     |            ^
+  24 |       adapter: new PrismaMssql(url),
+  25 |       log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  26 |     });

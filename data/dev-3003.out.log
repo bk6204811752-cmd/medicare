@@ -1,0 +1,20 @@
+
+> dev
+> next dev --port 3003
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3003
+- Network:       http://10.234.172.103:3003
+- Environments: .env
+✓ Ready in 504ms
+Creating turbopack project {
+  dir: 'C:\\Users\\basan\\OneDrive\\Desktop\\Medicare',
+  testMode: true
+}
+
+ GET / 200 in 1005ms (next.js: 548ms, application-code: 456ms)
+ GET / 200 in 228ms (next.js: 5ms, application-code: 223ms)
+ GET / 200 in 586ms (next.js: 5ms, application-code: 581ms)
+ GET /login 200 in 665ms (next.js: 243ms, application-code: 422ms)
+ GET /register 200 in 107ms (next.js: 37ms, application-code: 70ms)
+[?25h

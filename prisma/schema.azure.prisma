@@ -1,0 +1,392 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("AZURE_DATABASE_URL")
+}
+
+model Tenant {
+  id              String              @id @default(cuid()) @db.NVarChar(64)
+  name            String              @db.NVarChar(255)
+  slug            String              @unique @db.NVarChar(191)
+  ownerName       String?             @db.NVarChar(255)
+  phone           String              @db.NVarChar(32)
+  email           String?             @db.NVarChar(320)
+  city            String?             @db.NVarChar(120)
+  state           String?             @db.NVarChar(120)
+  gstin           String?             @db.NVarChar(32)
+  drugLicenseNo   String?             @db.NVarChar(64)
+  plan            String              @default("free") @db.NVarChar(32)
+  isActive        Boolean             @default(true)
+  approvalStatus  String              @default("approved") @db.NVarChar(32)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  customers       Customer[]
+  inventory       InventoryItem[]
+  sales           Sale[]
+  scheduleHItems  ScheduleHRegister[]
+  stockMovements  StockMovement[]
+  suppliers       Supplier[]
+  users           User[]
+  reportLogs      DailyReportLog[]
+  purchaseOrders  PurchaseOrder[]
+  saleReturns     SaleReturn[]
+  purchaseReturns PurchaseReturn[]
+}
+
+model User {
+  id           String             @id @default(cuid()) @db.NVarChar(64)
+  tenantId     String?            @db.NVarChar(64)
+  name         String             @db.NVarChar(255)
+  email        String             @unique @db.NVarChar(320)
+  phone        String?            @db.NVarChar(32)
+  passwordHash String             @db.NVarChar(255)
+  role         String             @default("shop_admin") @db.NVarChar(32)
+  isActive     Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  tenant       Tenant?            @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sessions     AuthSession[]
+  resetOtps    PasswordResetOtp[]
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+model AuthSession {
+  id        String   @id @db.NVarChar(128)
+  userId    String   @db.NVarChar(64)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetOtp {
+  id        String    @id @default(cuid()) @db.NVarChar(64)
+  userId    String    @db.NVarChar(64)
+  otpHash   String    @db.NVarChar(128)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DailyReportLog {
+  id         String   @id @default(cuid()) @db.NVarChar(64)
+  tenantId   String   @db.NVarChar(64)
+  reportDate String   @db.NVarChar(16)
+  sentTo     String   @db.NVarChar(320)
+  sentAt     DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId])
+}
+
+model Medicine {
+  id                   String          @id @default(cuid()) @db.NVarChar(64)
+  name                 String          @db.NVarChar(255)
+  genericName          String?         @db.NVarChar(255)
+  manufacturer         String?         @db.NVarChar(255)
+  category             String?         @db.NVarChar(120)
+  composition          String?         @db.NVarChar(1000)
+  dosageForm           String?         @db.NVarChar(120)
+  strength             String?         @db.NVarChar(120)
+  packSize             String?         @db.NVarChar(120)
+  hsnCode              String?         @db.NVarChar(32)
+  gstRate              Int             @default(12)
+  mrpPaisa             Int
+  schedule             String          @default("OTC") @db.NVarChar(16)
+  barcode              String?         @unique @db.NVarChar(100)
+  requiresPrescription Boolean         @default(false)
+  createdAt            DateTime        @default(now())
+  inventory            InventoryItem[]
+
+  @@index([name])
+  @@index([genericName])
+}
+
+model InventoryItem {
+  id                String              @id @default(cuid()) @db.NVarChar(64)
+  tenantId          String              @db.NVarChar(64)
+  medicineId        String              @db.NVarChar(64)
+  batchNo           String              @db.NVarChar(100)
+  mfgDate           DateTime?
+  expiryDate        DateTime
+  purchaseRatePaisa Int
+  mrpPaisa          Int
+  saleRatePaisa     Int
+  gstRate           Int
+  hsnCode           String?             @db.NVarChar(32)
+  quantity          Int                 @default(0)
+  reorderLevel      Int                 @default(10)
+  rackLocation      String?             @db.NVarChar(64)
+  supplierId        String?             @db.NVarChar(64)
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  medicine          Medicine            @relation(fields: [medicineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  saleItems         SaleItem[]
+  stockMovements    StockMovement[]
+  supplier          Supplier?           @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchaseItems     PurchaseOrderItem[]
+  saleReturnItems   SaleReturnItem[]
+  purchaseReturnItems PurchaseReturnItem[]
+
+  @@index([tenantId])
+  @@index([medicineId])
+  @@index([supplierId])
+  @@unique([tenantId, medicineId, batchNo])
+}
+
+model Supplier {
+  id              String            @id @default(cuid()) @db.NVarChar(64)
+  tenantId        String            @db.NVarChar(64)
+  name            String            @db.NVarChar(255)
+  phone           String?           @db.NVarChar(32)
+  email           String?           @db.NVarChar(320)
+  address         String?           @db.NVarChar(1000)
+  gstin           String?           @db.NVarChar(32)
+  creditDays      Int               @default(30)
+  balancePaisa    Int               @default(0)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  inventory       InventoryItem[]
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  purchaseOrders  PurchaseOrder[]
+  purchaseReturns PurchaseReturn[]
+
+  @@index([tenantId])
+}
+
+model Customer {
+  id               String   @id @default(cuid()) @db.NVarChar(64)
+  tenantId         String   @db.NVarChar(64)
+  name             String   @db.NVarChar(255)
+  phone            String?  @db.NVarChar(32)
+  email            String?  @db.NVarChar(320)
+  address          String?  @db.NVarChar(1000)
+  doctorName       String?  @db.NVarChar(255)
+  outstandingPaisa Int      @default(0)
+  loyaltyPoints    Int      @default(0)
+  createdAt        DateTime @default(now())
+  sales            Sale[]
+  saleReturns      SaleReturn[]
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId])
+  @@index([phone])
+}
+
+model Sale {
+  id              String       @id @default(cuid()) @db.NVarChar(64)
+  tenantId        String       @db.NVarChar(64)
+  invoiceNo       String       @unique @db.NVarChar(100)
+  invoiceDate     DateTime     @default(now())
+  customerId      String?      @db.NVarChar(64)
+  customerName    String?      @db.NVarChar(255)
+  customerPhone   String?      @db.NVarChar(32)
+  prescriptionNo  String?      @db.NVarChar(100)
+  doctorName      String?      @db.NVarChar(255)
+  paymentMode     String       @default("cash") @db.NVarChar(32)
+  subtotalPaisa   Int
+  discountPaisa   Int          @default(0)
+  taxablePaisa    Int
+  cgstPaisa       Int          @default(0)
+  sgstPaisa       Int          @default(0)
+  igstPaisa       Int          @default(0)
+  gstPaisa        Int
+  roundOffPaisa   Int          @default(0)
+  totalPaisa      Int
+  amountPaidPaisa Int          @default(0)
+  amountDuePaisa  Int          @default(0)
+  status          String       @default("completed") @db.NVarChar(32)
+  createdAt       DateTime     @default(now())
+  customer        Customer?    @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items           SaleItem[]
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  saleReturns     SaleReturn[]
+
+  @@index([tenantId])
+  @@index([customerId])
+}
+
+model SaleItem {
+  id              String             @id @default(cuid()) @db.NVarChar(64)
+  saleId          String             @db.NVarChar(64)
+  tenantId        String             @db.NVarChar(64)
+  inventoryId     String             @db.NVarChar(64)
+  medicineName    String             @db.NVarChar(255)
+  batchNo         String             @db.NVarChar(100)
+  expiryDate      DateTime
+  quantity        Int
+  mrpPaisa        Int
+  saleRatePaisa   Int
+  discountPercent Int                @default(0)
+  discountPaisa   Int                @default(0)
+  hsnCode         String?            @db.NVarChar(32)
+  gstRate         Int
+  gstPaisa        Int
+  cgstPaisa       Int                @default(0)
+  sgstPaisa       Int                @default(0)
+  igstPaisa       Int                @default(0)
+  taxablePaisa    Int
+  totalPaisa      Int
+  schedule        String             @default("OTC") @db.NVarChar(16)
+  inventory       InventoryItem      @relation(fields: [inventoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sale            Sale               @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scheduleHEntry  ScheduleHRegister?
+  saleReturnItems SaleReturnItem[]
+
+  @@index([saleId])
+  @@index([tenantId])
+  @@index([inventoryId])
+}
+
+model ScheduleHRegister {
+  id             String   @id @default(cuid()) @db.NVarChar(64)
+  tenantId       String   @db.NVarChar(64)
+  saleItemId     String   @unique @db.NVarChar(64)
+  medicineName   String   @db.NVarChar(255)
+  quantity       Int
+  customerName   String?  @db.NVarChar(255)
+  customerPhone  String?  @db.NVarChar(32)
+  doctorName     String?  @db.NVarChar(255)
+  prescriptionNo String?  @db.NVarChar(100)
+  saleDate       DateTime @default(now())
+  saleItem       SaleItem @relation(fields: [saleItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId])
+}
+
+model StockMovement {
+  id             String        @id @default(cuid()) @db.NVarChar(64)
+  tenantId       String        @db.NVarChar(64)
+  inventoryId    String        @db.NVarChar(64)
+  adjustmentType String        @db.NVarChar(32)
+  quantityDelta  Int
+  reason         String        @db.NVarChar(500)
+  referenceNo    String?       @db.NVarChar(100)
+  notes          String?       @db.NVarChar(1000)
+  createdAt      DateTime      @default(now())
+  inventory      InventoryItem @relation(fields: [inventoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId])
+  @@index([inventoryId])
+}
+
+// ─── Purchase Orders ────────────────────────────────────────
+
+model PurchaseOrder {
+  id             String              @id @default(cuid()) @db.NVarChar(64)
+  tenantId       String              @db.NVarChar(64)
+  poNumber       String              @unique @db.NVarChar(100)
+  supplierId     String              @db.NVarChar(64)
+  status         String              @default("draft") @db.NVarChar(32)
+  totalPaisa     Int                 @default(0)
+  notes          String?             @db.NVarChar(1000)
+  orderDate      DateTime            @default(now())
+  expectedDate   DateTime?
+  receivedDate   DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplier       Supplier            @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items          PurchaseOrderItem[]
+
+  @@index([tenantId])
+  @@index([supplierId])
+}
+
+model PurchaseOrderItem {
+  id                String         @id @default(cuid()) @db.NVarChar(64)
+  purchaseOrderId   String         @db.NVarChar(64)
+  inventoryId       String?        @db.NVarChar(64)
+  medicineName      String         @db.NVarChar(255)
+  quantity          Int
+  receivedQuantity  Int            @default(0)
+  ratePaisa         Int
+  totalPaisa        Int
+  purchaseOrder     PurchaseOrder  @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  inventory         InventoryItem? @relation(fields: [inventoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([purchaseOrderId])
+}
+
+// ─── Sale Returns ───────────────────────────────────────────
+
+model SaleReturn {
+  id             String           @id @default(cuid()) @db.NVarChar(64)
+  tenantId       String           @db.NVarChar(64)
+  returnNo       String           @unique @db.NVarChar(100)
+  saleId         String           @db.NVarChar(64)
+  customerId     String?          @db.NVarChar(64)
+  reason         String           @db.NVarChar(500)
+  refundPaisa    Int              @default(0)
+  status         String           @default("completed") @db.NVarChar(32)
+  createdAt      DateTime         @default(now())
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sale           Sale             @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items          SaleReturnItem[]
+
+  @@index([tenantId])
+  @@index([saleId])
+}
+
+model SaleReturnItem {
+  id             String        @id @default(cuid()) @db.NVarChar(64)
+  saleReturnId   String        @db.NVarChar(64)
+  saleItemId     String        @db.NVarChar(64)
+  inventoryId    String        @db.NVarChar(64)
+  medicineName   String        @db.NVarChar(255)
+  batchNo        String        @db.NVarChar(100)
+  quantity       Int
+  refundPaisa    Int
+  saleReturn     SaleReturn    @relation(fields: [saleReturnId], references: [id], onDelete: Cascade)
+  saleItem       SaleItem      @relation(fields: [saleItemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  inventory      InventoryItem @relation(fields: [inventoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([saleReturnId])
+}
+
+// ─── Purchase Returns ───────────────────────────────────────
+
+model PurchaseReturn {
+  id             String               @id @default(cuid()) @db.NVarChar(64)
+  tenantId       String               @db.NVarChar(64)
+  returnNo       String               @unique @db.NVarChar(100)
+  supplierId     String               @db.NVarChar(64)
+  reason         String               @db.NVarChar(500)
+  totalPaisa     Int                  @default(0)
+  status         String               @default("completed") @db.NVarChar(32)
+  createdAt      DateTime             @default(now())
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  supplier       Supplier             @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items          PurchaseReturnItem[]
+
+  @@index([tenantId])
+  @@index([supplierId])
+}
+
+model PurchaseReturnItem {
+  id               String         @id @default(cuid()) @db.NVarChar(64)
+  purchaseReturnId String         @db.NVarChar(64)
+  inventoryId      String         @db.NVarChar(64)
+  medicineName     String         @db.NVarChar(255)
+  batchNo          String         @db.NVarChar(100)
+  quantity         Int
+  ratePaisa        Int
+  totalPaisa       Int
+  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  inventory        InventoryItem  @relation(fields: [inventoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([purchaseReturnId])
+}

@@ -1,0 +1,6 @@
+.next
+node_modules
+dev.db
+dev.db-journal
+.env
+*.tsbuildinfo

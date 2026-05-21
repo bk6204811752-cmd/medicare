@@ -31,7 +31,8 @@ function schemaSql() {
       cwd: process.cwd(),
       env: process.env,
       encoding: "utf8",
-      stdio: ["ignore", "pipe", "inherit"]
+      stdio: ["ignore", "pipe", "inherit"],
+      shell: true
     }
   );
 }

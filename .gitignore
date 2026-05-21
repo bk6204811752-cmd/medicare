@@ -4,3 +4,6 @@ dev.db
 dev.db-journal
 .env
 *.tsbuildinfo
+
+.vercel
+.env*.local

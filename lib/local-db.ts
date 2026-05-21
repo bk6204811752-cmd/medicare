@@ -184,6 +184,12 @@ const demoCustomers = [
 let bootstrapPromise: Promise<void> | null = null;
 
 async function ensureDefaultData() {
+  const provider = (process.env.DATABASE_PROVIDER || "").trim();
+  if (provider === "sqlserver") {
+    // Azure SQL is seeded once during setup. Skipping runtime check to prevent redundant round-trips.
+    return;
+  }
+
   bootstrapPromise ??= seedDefaultData().catch((error) => {
     bootstrapPromise = null;
     throw error;

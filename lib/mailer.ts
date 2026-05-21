@@ -36,10 +36,15 @@ export async function sendMail(input: MailInput) {
     return { delivered: true, mode: "smtp" as const };
   }
 
-  const outboxDir = path.join(process.cwd(), "data", "mail-outbox");
-  await fs.mkdir(outboxDir, { recursive: true });
-  const fileName = `${Date.now()}-${input.to.replace(/[^a-z0-9]/gi, "_")}.json`;
-  await fs.writeFile(path.join(outboxDir, fileName), JSON.stringify({ ...input, from: getFromAddress(), createdAt: new Date().toISOString() }, null, 2));
+  try {
+    const outboxDir = path.join(process.cwd(), "data", "mail-outbox");
+    await fs.mkdir(outboxDir, { recursive: true });
+    const fileName = `${Date.now()}-${input.to.replace(/[^a-z0-9]/gi, "_")}.json`;
+    await fs.writeFile(path.join(outboxDir, fileName), JSON.stringify({ ...input, from: getFromAddress(), createdAt: new Date().toISOString() }, null, 2));
+  } catch (error) {
+    console.log("Fallback mail delivery to outbox failed (e.g. read-only filesystem on Vercel):", (error as Error).message || error);
+    console.log("Mock Email Content:", JSON.stringify(input, null, 2));
+  }
   return { delivered: true, mode: "local-outbox" as const };
 }
 

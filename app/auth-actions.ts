@@ -6,6 +6,7 @@ import { clearAuthSession, requireSuperAdmin, setAuthSession } from "@/lib/auth"
 import {
   createPasswordResetOtp,
   getAllTenants,
+  getTenantById,
   getUserByEmailWithPassword,
   registerPendingShop,
   resetPasswordWithOtp,
@@ -71,7 +72,7 @@ export async function loginAction(formData: FormData) {
   const data = parsed.data;
 
   const user = await getUserByEmailWithPassword(data.email);
-  if (!user || !verifyPassword(data.password, String(user.password_hash))) {
+  if (!user || !(await verifyPassword(data.password, String(user.password_hash)))) {
     redirectWith("/login", "error", "Invalid email or password");
   }
   const validUser = user;
@@ -138,7 +139,7 @@ export async function approveTenantAction(formData: FormData) {
 
   const tenantId = formValue(formData, "tenantId");
   await updateTenantApproval(tenantId, "approved");
-  const tenant = (await getAllTenants()).find((item) => item.id === tenantId);
+  const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
     await sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: true });
   }
@@ -152,7 +153,7 @@ export async function rejectTenantAction(formData: FormData) {
 
   const tenantId = formValue(formData, "tenantId");
   await updateTenantApproval(tenantId, "rejected");
-  const tenant = (await getAllTenants()).find((item) => item.id === tenantId);
+  const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
     await sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: false });
   }

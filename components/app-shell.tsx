@@ -71,9 +71,11 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
   useEffect(() => {
     if (searchQuery.length < 2) { setSearchResults([]); return; }
     const controller = new AbortController();
-    fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`, { signal: controller.signal })
-      .then((r) => r.json()).then((d) => setSearchResults(d.data ?? [])).catch(() => {});
-    return () => controller.abort();
+    const timer = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(searchQuery)}`, { signal: controller.signal })
+        .then((r) => r.json()).then((d) => setSearchResults(d.data ?? [])).catch(() => {});
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [searchQuery]);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);

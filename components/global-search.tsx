@@ -16,23 +16,32 @@ export function GlobalSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (query.trim().length < 2) {
+      setResults([]);
       return;
     }
 
+    setLoading(true);
     const controller = new AbortController();
-    fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
-      .then((response) => response.json())
-      .then((result) => {
-        setResults(result.data ?? []);
-        setOpen(true);
-      })
-      .catch(() => undefined);
+    const timer = setTimeout(() => {
+      fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+        .then((response) => response.json())
+        .then((result) => {
+          setResults(result.data ?? []);
+          setOpen(true);
+          setLoading(false);
+        })
+        .catch(() => setLoading(false));
+    }, 300);
 
-    return () => controller.abort();
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   useEffect(() => {
@@ -59,6 +68,7 @@ export function GlobalSearch() {
           onChange={(event) => setQuery(event.target.value)}
           onFocus={() => setOpen(true)}
         />
+        {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-med-green" />}
       </div>
       {open && query.trim().length >= 2 ? (
         <div className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
@@ -77,7 +87,7 @@ export function GlobalSearch() {
               <span className="block text-sm text-slate-500">{result.subtitle}</span>
             </Link>
           ))}
-          {!visibleResults.length ? <div className="p-3 text-sm text-slate-500">No matches found.</div> : null}
+          {!visibleResults.length && !loading ? <div className="p-3 text-sm text-slate-500">No matches found.</div> : null}
         </div>
       ) : null}
     </div>

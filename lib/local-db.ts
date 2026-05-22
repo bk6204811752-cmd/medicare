@@ -214,7 +214,7 @@ async function seedDefaultData() {
         name: "Super Admin",
         email: "admin@medcare.local",
         phone: "+91 90000 00000",
-        passwordHash: hashPassword("Admin@12345"),
+        passwordHash: await hashPassword("Admin@12345"),
         role: "super_admin",
         isActive: true
       }
@@ -227,7 +227,7 @@ async function seedDefaultData() {
         name: "Basant Kumar",
         email: "owner@sharmamedical.local",
         phone: "+91 98765 43210",
-        passwordHash: hashPassword("Shop@12345"),
+        passwordHash: await hashPassword("Shop@12345"),
         role: "shop_admin",
         isActive: true
       }
@@ -269,7 +269,7 @@ async function ensureDefaultUsers() {
       data: {
         id: "user-super-admin", tenantId: null, name: "Super Admin",
         email: "admin@medcare.local", phone: "+91 90000 00000",
-        passwordHash: hashPassword("Admin@12345"), role: "super_admin", isActive: true
+        passwordHash: await hashPassword("Admin@12345"), role: "super_admin", isActive: true
       }
     });
   }
@@ -282,7 +282,7 @@ async function ensureDefaultUsers() {
       data: {
         id: "user-sharma-owner", tenantId: DEMO_TENANT_ID, name: "Basant Kumar",
         email: "owner@sharmamedical.local", phone: "+91 98765 43210",
-        passwordHash: hashPassword("Shop@12345"), role: "shop_admin", isActive: true
+        passwordHash: await hashPassword("Shop@12345"), role: "shop_admin", isActive: true
       }
     });
   }
@@ -433,16 +433,20 @@ function sortInventory(rows: LocalInventoryRow[]) {
 
 // ─── Auth helpers ────────────────────────────────────────────
 
-export function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = crypto.randomBytes(16).toString("hex");
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
+  const hash = await new Promise<Buffer>((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (err, key) => (err ? reject(err) : resolve(key)));
+  });
+  return `${salt}:${hash.toString("hex")}`;
 }
 
-export function verifyPassword(password: string, storedHash: string) {
+export async function verifyPassword(password: string, storedHash: string) {
   const [salt, hash] = storedHash.split(":");
   if (!salt || !hash) return false;
-  const candidate = crypto.scryptSync(password, salt, 64);
+  const candidate = await new Promise<Buffer>((resolve, reject) => {
+    crypto.scrypt(password, salt, 64, (err, key) => (err ? reject(err) : resolve(key)));
+  });
   const stored = Buffer.from(hash, "hex");
   return stored.length === candidate.length && crypto.timingSafeEqual(stored, candidate);
 }
@@ -517,7 +521,7 @@ export async function registerPendingShop(input: {
     await tx.user.create({
       data: {
         id: userId, tenantId, name: input.ownerName, email: input.email,
-        phone: input.phone, passwordHash: hashPassword(input.password),
+        phone: input.phone, passwordHash: await hashPassword(input.password),
         role: "shop_admin", isActive: false
       }
     });
@@ -553,6 +557,12 @@ export async function updateTenantApproval(tenantId: string, status: "approved" 
   ]);
 }
 
+export async function getTenantById(tenantId: string) {
+  await ensureDefaultData();
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+  return tenant ? mapTenant(tenant) : null;
+}
+
 export async function createPasswordResetOtp(userId: string, otp: string) {
   const expiresAt = new Date(Date.now() + 1000 * 60 * 10);
   await prisma.passwordResetOtp.create({ data: { id: uid("otp"), userId, otpHash: hashOtp(otp), expiresAt } });
@@ -568,7 +578,7 @@ export async function resetPasswordWithOtp(email: string, otp: string, password:
   });
   if (!otpRow) return false;
   await prisma.$transaction([
-    prisma.user.update({ where: { id: String(user.id) }, data: { passwordHash: hashPassword(password) } }),
+    prisma.user.update({ where: { id: String(user.id) }, data: { passwordHash: await hashPassword(password) } }),
     prisma.passwordResetOtp.update({ where: { id: otpRow.id }, data: { usedAt: new Date() } })
   ]);
   return true;
@@ -588,14 +598,22 @@ export async function getInventoryRows(tenantId: string) {
 export async function searchInventory(tenantId: string, q: string) {
   const normalized = q.trim().toLowerCase();
   if (!normalized) return [];
-  const rows = await getInventoryRows(tenantId);
-  return rows
-    .filter((row) =>
-      [row.medicine.name, row.medicine.genericName, row.batchNo, row.medicine.barcode]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(normalized))
-    )
-    .slice(0, 10);
+  await ensureDefaultData();
+  const rows = await prisma.inventoryItem.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      OR: [
+        { medicine: { name: { contains: normalized, mode: "insensitive" } } },
+        { medicine: { genericName: { contains: normalized, mode: "insensitive" } } },
+        { medicine: { barcode: { contains: normalized, mode: "insensitive" } } },
+        { batchNo: { contains: normalized, mode: "insensitive" } },
+      ],
+    },
+    include: { medicine: true, supplier: true },
+    take: 10,
+  });
+  return rows.map(mapInventory);
 }
 
 export async function getMedicines() {
@@ -891,28 +909,44 @@ export async function getSaleByIdOrInvoice(tenantId: string, idOrInvoice: string
 
 export async function getSalesSummary(tenantId: string) {
   await ensureDefaultData();
-  const sales = await prisma.sale.findMany({ where: { tenantId } });
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const todaySales = sales.filter((s) => s.createdAt >= today && s.createdAt < tomorrow);
-  const sum = (rows: Sale[], key: keyof Pick<Sale, "totalPaisa" | "gstPaisa" | "amountDuePaisa" | "discountPaisa">) =>
-    rows.reduce((total, s) => total + Number(s[key] || 0), 0);
+
+  const [allAgg, allCount, todayAgg, todayCount] = await Promise.all([
+    prisma.sale.aggregate({
+      where: { tenantId },
+      _sum: { totalPaisa: true, gstPaisa: true, amountDuePaisa: true, discountPaisa: true },
+    }),
+    prisma.sale.count({ where: { tenantId } }),
+    prisma.sale.aggregate({
+      where: { tenantId, createdAt: { gte: today, lt: tomorrow } },
+      _sum: { totalPaisa: true, gstPaisa: true, amountDuePaisa: true },
+    }),
+    prisma.sale.count({ where: { tenantId, createdAt: { gte: today, lt: tomorrow } } }),
+  ]);
 
   return {
-    bills: sales.length, totalPaisa: sum(sales, "totalPaisa"),
-    gstPaisa: sum(sales, "gstPaisa"), duePaisa: sum(sales, "amountDuePaisa"),
-    discountPaisa: sum(sales, "discountPaisa"),
-    todayBills: todaySales.length, todaySalesPaisa: sum(todaySales, "totalPaisa"),
-    todayGstPaisa: sum(todaySales, "gstPaisa"), todayDuePaisa: sum(todaySales, "amountDuePaisa")
+    bills: allCount, totalPaisa: allAgg._sum.totalPaisa ?? 0,
+    gstPaisa: allAgg._sum.gstPaisa ?? 0, duePaisa: allAgg._sum.amountDuePaisa ?? 0,
+    discountPaisa: allAgg._sum.discountPaisa ?? 0,
+    todayBills: todayCount, todaySalesPaisa: todayAgg._sum.totalPaisa ?? 0,
+    todayGstPaisa: todayAgg._sum.gstPaisa ?? 0, todayDuePaisa: todayAgg._sum.amountDuePaisa ?? 0,
   };
 }
 
 export async function getSalesTrend(tenantId: string, days = 7) {
   await ensureDefaultData();
   const formatter = new Intl.DateTimeFormat("en-IN", { weekday: "short" });
-  const sales = await prisma.sale.findMany({ where: { tenantId } });
+  const startRange = new Date();
+  startRange.setHours(0, 0, 0, 0);
+  startRange.setDate(startRange.getDate() - (days - 1));
+
+  const sales = await prisma.sale.findMany({
+    where: { tenantId, createdAt: { gte: startRange } },
+    select: { totalPaisa: true, createdAt: true },
+  });
 
   return Array.from({ length: days }, (_, index) => {
     const start = new Date();
@@ -981,53 +1015,77 @@ export async function logDailyReport(tenantId: string, reportDate: string, sentT
 
 export async function getPlatformSummary() {
   await ensureDefaultData();
-  const [tenants, users, sales] = await Promise.all([prisma.tenant.findMany(), prisma.user.count(), prisma.sale.findMany()]);
+  const [totalShops, activeShops, pendingShops, rejectedShops, users, salesAgg] = await Promise.all([
+    prisma.tenant.count(),
+    prisma.tenant.count({ where: { approvalStatus: "approved", isActive: true } }),
+    prisma.tenant.count({ where: { approvalStatus: "pending" } }),
+    prisma.tenant.count({ where: { approvalStatus: "rejected" } }),
+    prisma.user.count(),
+    prisma.sale.aggregate({ _count: true, _sum: { totalPaisa: true } }),
+  ]);
   return {
-    totalShops: tenants.length,
-    activeShops: tenants.filter((t) => t.approvalStatus === "approved" && t.isActive).length,
-    pendingShops: tenants.filter((t) => t.approvalStatus === "pending").length,
-    rejectedShops: tenants.filter((t) => t.approvalStatus === "rejected").length,
-    users, bills: sales.length,
-    gmvPaisa: sales.reduce((sum, s) => sum + s.totalPaisa, 0)
+    totalShops, activeShops, pendingShops, rejectedShops,
+    users, bills: salesAgg._count,
+    gmvPaisa: salesAgg._sum.totalPaisa ?? 0,
   };
 }
 
 // ─── Notifications (tenant-scoped) ───────────────────────────
 
 export async function getNotifications(tenantId: string) {
-  const rows = await getInventoryRows(tenantId);
-  const lowStock = rows
+  await ensureDefaultData();
+  const now = new Date();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + 60);
+
+  const [lowStockItems, expiringItems] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { tenantId, isActive: true },
+      include: { medicine: true, supplier: true },
+    }),
+    prisma.inventoryItem.findMany({
+      where: { tenantId, isActive: true, expiryDate: { lte: cutoff } },
+      include: { medicine: true, supplier: true },
+    }),
+  ]);
+
+  const lowStock = lowStockItems
     .filter((r) => r.quantity <= r.reorderLevel)
     .map((r) => ({
       id: `low-${r.id}`, type: "low_stock", title: "Low stock",
       message: `${r.medicine.name} has ${r.quantity} units left. Reorder level is ${r.reorderLevel}.`,
-      severity: "warning", createdAt: new Date().toISOString()
+      severity: "warning", createdAt: now.toISOString()
     }));
 
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() + 60);
-  const expiring = rows
-    .filter((r) => new Date(r.expiryDate) <= cutoff)
-    .map((r) => ({
-      id: `exp-${r.id}`, type: "expiry_alert", title: "Expiry alert",
-      message: `${r.medicine.name} batch ${r.batchNo} expires on ${r.expiryDate}.`,
-      severity: new Date(r.expiryDate) < new Date() ? "danger" : "warning",
-      createdAt: new Date().toISOString()
-    }));
+  const expiring = expiringItems.map((r) => ({
+    id: `exp-${r.id}`, type: "expiry_alert", title: "Expiry alert",
+    message: `${r.medicine.name} batch ${r.batchNo} expires on ${isoDate(r.expiryDate)}.`,
+    severity: r.expiryDate < now ? "danger" : "warning",
+    createdAt: now.toISOString()
+  }));
 
   return [...expiring, ...lowStock];
 }
 
 export async function getLowStockRows(tenantId: string) {
-  return (await getInventoryRows(tenantId)).filter((r) => r.quantity <= r.reorderLevel);
+  await ensureDefaultData();
+  const rows = await prisma.inventoryItem.findMany({
+    where: { tenantId, isActive: true },
+    include: { medicine: true, supplier: true },
+  });
+  return sortInventory(rows.filter((r) => r.quantity <= r.reorderLevel).map(mapInventory));
 }
 
 export async function getExpiringRows(tenantId: string, days = 90) {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const cutoff = new Date(now);
+  await ensureDefaultData();
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
   cutoff.setDate(cutoff.getDate() + days);
-  return (await getInventoryRows(tenantId)).filter((r) => new Date(r.expiryDate) <= cutoff);
+  const rows = await prisma.inventoryItem.findMany({
+    where: { tenantId, isActive: true, expiryDate: { lte: cutoff } },
+    include: { medicine: true, supplier: true },
+  });
+  return sortInventory(rows.map(mapInventory));
 }
 
 // ─── Purchase Orders (tenant-scoped) ─────────────────────────

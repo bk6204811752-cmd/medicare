@@ -63,16 +63,19 @@ export function BillingPos() {
 
   useEffect(() => {
     if (query.length < 2) {
+      setRows([]);
       return;
     }
 
     const controller = new AbortController();
-    fetch(`/api/medicines/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
-      .then((response) => response.json())
-      .then((result) => setRows(result.data ?? []))
-      .catch(() => undefined);
+    const timer = setTimeout(() => {
+      fetch(`/api/medicines/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+        .then((response) => response.json())
+        .then((result) => setRows(result.data ?? []))
+        .catch(() => undefined);
+    }, 300);
 
-    return () => controller.abort();
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [query]);
 
   const matches = query.length < 2 ? [] : rows;

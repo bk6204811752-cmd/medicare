@@ -19,7 +19,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MedCare Pharmacy SaaS",
+  title: "Medicare Pharmacy SaaS",
   description: "Cloud-first pharmacy management for Indian chemists."
 };
 

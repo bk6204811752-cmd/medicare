@@ -163,7 +163,7 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
           {!collapsed && (
             <Link href={isAdmin ? "/admin/dashboard" : "/shop/dashboard"} className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-med-green text-white font-bold text-sm">M</div>
-              <span className="font-display text-lg font-bold text-med-navy">MedCare</span>
+              <span className="font-display text-lg font-bold text-med-navy">Medicare</span>
             </Link>
           )}
           <button onClick={toggleCollapsed} className="hidden lg:flex h-8 w-8 items-center justify-center rounded-md hover:bg-slate-100 text-slate-400">

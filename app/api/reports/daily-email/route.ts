@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const report = await getDailyReport(tenant.id);
     await sendMail({
       to,
-      subject: `MedCare daily report - ${tenant.name} - ${report.reportDate}`,
+      subject: `Medicare daily report - ${tenant.name} - ${report.reportDate}`,
       text: [
         `Daily report for ${tenant.name}`,
         `Date: ${report.reportDate}`,

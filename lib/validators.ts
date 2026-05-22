@@ -106,3 +106,24 @@ export const resetPasswordSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"]
   });
+
+export const sendVerificationOtpSchema = z.object({
+  shopName: z.string().trim().min(2, "Shop name is required"),
+  ownerName: z.string().trim().min(2, "Owner name is required"),
+  phone: z.string().trim().min(8, "Phone number is required"),
+  email: z.string().trim().email("Valid email is required").toLowerCase(),
+  password: passwordSchema,
+  confirmPassword: z.string(),
+  city: z.string().trim().optional(),
+  state: z.string().trim().optional(),
+  gstin: z.string().trim().optional(),
+  drugLicenseNo: z.string().trim().optional()
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"]
+});
+
+export const verifyEmailOtpSchema = z.object({
+  email: z.string().trim().email("Valid email is required").toLowerCase(),
+  otp: z.string().trim().length(6, "OTP must be 6 digits").regex(/^\d+$/, "OTP must be numeric")
+});

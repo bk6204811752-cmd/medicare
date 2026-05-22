@@ -1,6 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import nodemailer from "nodemailer";
+import {
+  emailVerificationTemplate,
+  registrationSuccessTemplate,
+  adminApprovalTemplate,
+  adminRejectionTemplate,
+  passwordResetOtpTemplate,
+  newShopApprovalRequestTemplate
+} from "@/lib/email-templates";
 
 type MailInput = {
   to: string;
@@ -10,7 +18,7 @@ type MailInput = {
 };
 
 // Cache from address at module level — no need to read process.env every call
-const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || "MedCare <no-reply@medcare.local>";
+const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || "Medicare <hojai4828@gmail.com>";
 
 // Module-level singleton transport — reuses TCP connection + TLS handshake
 let _transport: nodemailer.Transporter | null = null;
@@ -59,34 +67,65 @@ export async function sendMail(input: MailInput) {
   return { delivered: true, mode: "local-outbox" as const };
 }
 
-export async function sendPasswordResetOtp(to: string, otp: string) {
+// ─── Email Verification OTP ─────────────────────────────────
+
+export async function sendEmailVerificationOtp(to: string, otp: string, ownerName: string) {
+  const template = emailVerificationTemplate(otp, ownerName);
   return sendMail({
     to,
-    subject: "Your MedCare password reset OTP",
-    text: `Your MedCare password reset OTP is ${otp}. It is valid for 10 minutes.`,
-    html: `<p>Your MedCare password reset OTP is <strong>${otp}</strong>.</p><p>It is valid for 10 minutes.</p>`
+    subject: template.subject,
+    text: template.text,
+    html: template.html
   });
 }
+
+// ─── Registration Success ────────────────────────────────────
+
+export async function sendRegistrationSuccessMail(to: string, shopName: string, ownerName: string) {
+  const template = registrationSuccessTemplate(shopName, ownerName);
+  return sendMail({
+    to,
+    subject: template.subject,
+    text: template.text,
+    html: template.html
+  });
+}
+
+// ─── Password Reset OTP ─────────────────────────────────────
+
+export async function sendPasswordResetOtp(to: string, otp: string, userName?: string) {
+  const template = passwordResetOtpTemplate(otp, userName || "User");
+  return sendMail({
+    to,
+    subject: template.subject,
+    text: template.text,
+    html: template.html
+  });
+}
+
+// ─── Admin Notification: New Shop Registered ─────────────────
 
 export async function sendApprovalRequestMail(input: { shopName: string; ownerName: string; email: string; phone: string }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@medcare.local";
+  const adminEmail = process.env.ADMIN_EMAIL || "hojai4828@gmail.com";
+  const template = newShopApprovalRequestTemplate(input.shopName, input.ownerName, input.email, input.phone);
   return sendMail({
     to: adminEmail,
-    subject: `New MedCare shop approval needed: ${input.shopName}`,
-    text: `${input.ownerName} registered ${input.shopName}. Email: ${input.email}. Phone: ${input.phone}. Open /admin/shops to approve or reject.`,
-    html: `<p><strong>${input.ownerName}</strong> registered <strong>${input.shopName}</strong>.</p><p>Email: ${input.email}<br/>Phone: ${input.phone}</p><p>Open <code>/admin/shops</code> to approve or reject.</p>`
+    subject: template.subject,
+    text: template.text,
+    html: template.html
   });
 }
 
-export async function sendShopApprovalStatusMail(input: { to: string; shopName: string; approved: boolean }) {
+// ─── Shop Approval / Rejection ───────────────────────────────
+
+export async function sendShopApprovalStatusMail(input: { to: string; shopName: string; ownerName: string; approved: boolean }) {
+  const template = input.approved
+    ? adminApprovalTemplate(input.shopName, input.ownerName)
+    : adminRejectionTemplate(input.shopName, input.ownerName);
   return sendMail({
     to: input.to,
-    subject: input.approved ? "Your MedCare shop is approved" : "Your MedCare shop registration needs admin help",
-    text: input.approved
-      ? `${input.shopName} has been approved. You can now login to MedCare.`
-      : `${input.shopName} was not approved yet. Please contact the MedCare admin.`,
-    html: input.approved
-      ? `<p><strong>${input.shopName}</strong> has been approved.</p><p>You can now login to MedCare.</p>`
-      : `<p><strong>${input.shopName}</strong> was not approved yet.</p><p>Please contact the MedCare admin.</p>`
+    subject: template.subject,
+    text: template.text,
+    html: template.html
   });
 }

@@ -11,7 +11,7 @@ export default function PricingPage() {
   return (
     <main className="min-h-screen bg-med-mist px-5 py-10">
       <div className="mx-auto max-w-6xl">
-        <Link href="/" className="text-sm font-semibold text-med-greenDark">MedCare</Link>
+        <Link href="/" className="text-sm font-semibold text-med-greenDark">Medicare</Link>
         <h1 className="mt-4 font-display text-4xl font-bold text-med-navy">Start free, upgrade only when it earns its keep</h1>
         <div className="mt-8 grid gap-4 md:grid-cols-3">
           {plans.map(([name, price, ...items]) => (

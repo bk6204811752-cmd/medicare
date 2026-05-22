@@ -4,17 +4,33 @@ import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { clearAuthSession, requireSuperAdmin, setAuthSession } from "@/lib/auth";
 import {
+  createEmailVerificationOtp,
   createPasswordResetOtp,
   getAllTenants,
   getTenantById,
   getUserByEmailWithPassword,
+  getUserNameByEmail,
   registerPendingShop,
   resetPasswordWithOtp,
   updateTenantApproval,
+  verifyEmailOtp,
   verifyPassword
 } from "@/lib/local-db";
-import { sendApprovalRequestMail, sendPasswordResetOtp, sendShopApprovalStatusMail } from "@/lib/mailer";
-import { forgotPasswordSchema, loginSchema, registerShopSchema, resetPasswordSchema } from "@/lib/validators";
+import {
+  sendApprovalRequestMail,
+  sendEmailVerificationOtp,
+  sendPasswordResetOtp,
+  sendRegistrationSuccessMail,
+  sendShopApprovalStatusMail
+} from "@/lib/mailer";
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  registerShopSchema,
+  resetPasswordSchema,
+  sendVerificationOtpSchema,
+  verifyEmailOtpSchema
+} from "@/lib/validators";
 import { getCurrentUser } from "@/lib/auth";
 
 function formValue(formData: FormData, key: string) {
@@ -25,8 +41,10 @@ function redirectWith(path: string, type: "success" | "error", message: string):
   redirect(`${path}?${type}=${encodeURIComponent(message)}`);
 }
 
-export async function registerShopAction(formData: FormData) {
-  const parsed = registerShopSchema.safeParse({
+// ─── Step 1: Send Email Verification OTP ─────────────────────
+
+export async function sendVerificationOtpAction(formData: FormData) {
+  const parsed = sendVerificationOtpSchema.safeParse({
     shopName: formValue(formData, "shopName"),
     ownerName: formValue(formData, "ownerName"),
     phone: formValue(formData, "phone"),
@@ -44,9 +62,67 @@ export async function registerShopAction(formData: FormData) {
   }
   const data = parsed.data;
 
+  // Check if email already exists
+  const existingUser = await getUserByEmailWithPassword(data.email);
+  if (existingUser) {
+    redirectWith("/register", "error", "This email is already registered. Please login instead.");
+  }
+
+  // Generate and store OTP
+  const otp = crypto.randomInt(100000, 999999).toString();
+  await createEmailVerificationOtp(data.email, otp);
+
+  // Send verification email
+  sendEmailVerificationOtp(data.email, otp, data.ownerName).catch(console.error);
+
+  // Redirect back to register with verification step
+  redirect(`/register?step=verify&email=${encodeURIComponent(data.email)}&success=${encodeURIComponent("Verification code sent to your email. Please check your inbox.")}`);
+}
+
+// ─── Step 2: Verify OTP & Complete Registration ──────────────
+
+export async function registerShopAction(formData: FormData) {
+  const email = formValue(formData, "email");
+  const otp = formValue(formData, "otp");
+
+  // Validate the OTP first
+  const otpParsed = verifyEmailOtpSchema.safeParse({ email, otp });
+  if (!otpParsed.success) {
+    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&error=${encodeURIComponent(otpParsed.error.issues[0]?.message || "Invalid OTP")}`);
+  }
+
+  // Verify the OTP
+  const otpValid = await verifyEmailOtp(email, otp);
+  if (!otpValid) {
+    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&error=${encodeURIComponent("Invalid or expired verification code. Please request a new one.")}`);
+  }
+
+  // Now parse full registration data
+  const parsed = registerShopSchema.safeParse({
+    shopName: formValue(formData, "shopName"),
+    ownerName: formValue(formData, "ownerName"),
+    phone: formValue(formData, "phone"),
+    email,
+    password: formValue(formData, "password"),
+    confirmPassword: formValue(formData, "confirmPassword"),
+    city: formValue(formData, "city"),
+    state: formValue(formData, "state"),
+    gstin: formValue(formData, "gstin"),
+    drugLicenseNo: formValue(formData, "drugLicenseNo")
+  });
+
+  if (!parsed.success) {
+    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&error=${encodeURIComponent(parsed.error.issues[0]?.message || "Please check registration details")}`);
+  }
+  const data = parsed.data;
+
   try {
     await registerPendingShop(data);
-    // Fire-and-forget — don't block user redirect on email delivery
+
+    // Send registration success email to user
+    sendRegistrationSuccessMail(data.email, data.shopName, data.ownerName).catch(console.error);
+
+    // Send approval request email to admin
     sendApprovalRequestMail({
       shopName: data.shopName,
       ownerName: data.ownerName,
@@ -58,7 +134,7 @@ export async function registerShopAction(formData: FormData) {
     redirectWith("/register", "error", message);
   }
 
-  redirectWith("/login", "success", "Registration submitted. Admin approval is required before login.");
+  redirectWith("/login", "success", "Registration successful! Your email has been verified. Admin approval is required before you can login. You will receive an email once approved.");
 }
 
 export async function loginAction(formData: FormData) {
@@ -82,7 +158,7 @@ export async function loginAction(formData: FormData) {
   const approvalStatus = validUser.approval_status ? String(validUser.approval_status) : null;
   const active = Boolean(validUser.is_active);
   if (role !== "super_admin" && (!active || approvalStatus !== "approved")) {
-    const message = approvalStatus === "rejected" ? "Your shop was not approved. Please contact admin." : "Your shop is pending admin approval. Please contact admin.";
+    const message = approvalStatus === "rejected" ? "Your shop was not approved. Please contact admin." : "Your shop is pending admin approval. You will receive an email once approved.";
     redirectWith("/login", "error", message);
   }
 
@@ -106,8 +182,9 @@ export async function forgotPasswordAction(formData: FormData) {
   if (user) {
     const otp = crypto.randomInt(100000, 999999).toString();
     await createPasswordResetOtp(String(user.id), otp);
+    const userName = String(user.name || "User");
     // Fire-and-forget — don't block redirect on email delivery
-    sendPasswordResetOtp(data.email, otp).catch(console.error);
+    sendPasswordResetOtp(data.email, otp, userName).catch(console.error);
   }
 
   redirect(`/reset-password?email=${encodeURIComponent(data.email)}&success=${encodeURIComponent("If the email exists, an OTP has been sent.")}`);
@@ -143,7 +220,12 @@ export async function approveTenantAction(formData: FormData) {
   await updateTenantApproval(tenantId, "approved");
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
-    sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: true }).catch(console.error);
+    sendShopApprovalStatusMail({
+      to: tenant.email,
+      shopName: tenant.name,
+      ownerName: tenant.ownerName || "Shop Owner",
+      approved: true
+    }).catch(console.error);
   }
   redirect("/admin/shops?success=Shop approved. Owner can login now.");
 }
@@ -157,7 +239,12 @@ export async function rejectTenantAction(formData: FormData) {
   await updateTenantApproval(tenantId, "rejected");
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
-    sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: false }).catch(console.error);
+    sendShopApprovalStatusMail({
+      to: tenant.email,
+      shopName: tenant.name,
+      ownerName: tenant.ownerName || "Shop Owner",
+      approved: false
+    }).catch(console.error);
   }
   redirect("/admin/shops?success=Shop rejected. Owner has been notified.");
 }

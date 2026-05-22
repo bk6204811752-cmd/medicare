@@ -255,7 +255,7 @@ export function BillingPos() {
         phone: customerPhone
       };
   const whatsappText = encodeURIComponent(
-    `MedCare invoice${shareTarget.invoiceNo ? ` ${shareTarget.invoiceNo}` : ""}. Total: ${formatCurrency(shareTarget.totalPaisa)}. Thank you.`
+    `Medicare invoice${shareTarget.invoiceNo ? ` ${shareTarget.invoiceNo}` : ""}. Total: ${formatCurrency(shareTarget.totalPaisa)}. Thank you.`
   );
   const whatsappHref = shareTarget.phone ? `https://wa.me/91${shareTarget.phone.replace(/\D/g, "").slice(-10)}?text=${whatsappText}` : `https://wa.me/?text=${whatsappText}`;
 

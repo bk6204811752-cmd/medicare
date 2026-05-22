@@ -206,7 +206,7 @@ const moduleLauncher: { title: string; body: string; href: string; icon: LucideI
 
 const faqs = [
   {
-    question: "Can I use MedCare for live billing?",
+    question: "Can I use Medicare for live billing?",
     answer: "Yes. The demo links open the actual billing, inventory, customer, report, and settings modules already present in the app."
   },
   {
@@ -248,7 +248,7 @@ export default function HomePage() {
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-med-green text-lg font-bold">+</span>
-            <span className="font-display text-xl font-bold">MedCare</span>
+            <span className="font-display text-xl font-bold">Medicare</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden items-center gap-4 text-sm font-medium text-white/82 lg:flex">
@@ -271,7 +271,7 @@ export default function HomePage() {
 
         <div className="mx-auto flex min-h-[calc(88vh-84px)] max-w-7xl flex-col justify-center px-5 pb-24 pt-10">
           <p className="mb-4 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200">Cloud pharmacy management for India</p>
-          <h1 className="max-w-3xl font-display text-4xl font-bold leading-tight md:text-6xl">MedCare</h1>
+          <h1 className="max-w-3xl font-display text-4xl font-bold leading-tight md:text-6xl">Medicare</h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-white/86">
             Smart billing, GST, batch inventory, expiry alerts, and Schedule H registers in one browser-based workspace.
           </p>
@@ -318,7 +318,7 @@ export default function HomePage() {
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-med-greenDark">Key features</p>
           <h2 className="mt-3 font-display text-3xl font-bold text-med-navy md:text-4xl">Everything a pharmacy counter needs, without extra clutter</h2>
           <p className="mt-4 leading-7 text-slate-600">
-            MedCare connects billing, stock, GST, prescriptions, and reports so daily work moves through one reliable system.
+            Medicare connects billing, stock, GST, prescriptions, and reports so daily work moves through one reliable system.
           </p>
         </div>
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -546,7 +546,7 @@ export default function HomePage() {
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-med-greenDark">Importance</p>
           <h2 className="mt-3 font-display text-3xl font-bold text-med-navy md:text-4xl">Pharmacy work has no room for guesswork</h2>
           <p className="mt-4 leading-7 text-slate-600">
-            A missed expiry, wrong tax split, forgotten prescription entry, or stock mismatch can cost money and trust. MedCare keeps these details visible while the team focuses on serving customers.
+            A missed expiry, wrong tax split, forgotten prescription entry, or stock mismatch can cost money and trust. Medicare keeps these details visible while the team focuses on serving customers.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -570,7 +570,7 @@ export default function HomePage() {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200">Benefits</p>
             <h2 className="mt-3 font-display text-3xl font-bold md:text-4xl">More control for owners, less friction for staff</h2>
             <p className="mt-4 leading-7 text-white/72">
-              MedCare is built around the real rhythm of retail pharmacy: quick sales, strict records, stock pressure, and daily reconciliation.
+              Medicare is built around the real rhythm of retail pharmacy: quick sales, strict records, stock pressure, and daily reconciliation.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">

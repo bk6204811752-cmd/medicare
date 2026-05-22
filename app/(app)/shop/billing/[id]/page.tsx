@@ -22,7 +22,7 @@ export default async function BillDetailPage({ params }: { params: Promise<{ id:
   const sale = record.sale as Record<string, unknown>;
   const items = record.items as Record<string, unknown>[];
   const whatsappText = encodeURIComponent(
-    `MedCare invoice ${String(sale.invoice_no)} from ${tenant.name}. Total: ${formatCurrency(Number(sale.total_paisa))}. Thank you.`
+    `Medicare invoice ${String(sale.invoice_no)} from ${tenant.name}. Total: ${formatCurrency(Number(sale.total_paisa))}. Thank you.`
   );
 
   return (

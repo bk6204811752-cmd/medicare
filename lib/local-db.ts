@@ -624,6 +624,56 @@ export async function resetPasswordWithOtp(email: string, otp: string, password:
   return true;
 }
 
+// ─── Email Verification OTP ─────────────────────────────────
+
+export async function createEmailVerificationOtp(email: string, otp: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 10); // 10 minutes
+
+  // Invalidate previous unused OTPs for this email
+  await prisma.emailVerificationOtp.updateMany({
+    where: { email: normalizedEmail, usedAt: null },
+    data: { usedAt: new Date() }
+  });
+
+  await prisma.emailVerificationOtp.create({
+    data: {
+      email: normalizedEmail,
+      otpHash: hashOtp(otp),
+      expiresAt
+    }
+  });
+  return expiresAt.toISOString();
+}
+
+export async function verifyEmailOtp(email: string, otp: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const otpRow = await prisma.emailVerificationOtp.findFirst({
+    where: {
+      email: normalizedEmail,
+      otpHash: hashOtp(otp),
+      usedAt: null,
+      expiresAt: { gt: new Date() }
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  if (!otpRow) return false;
+
+  await prisma.emailVerificationOtp.update({
+    where: { id: otpRow.id },
+    data: { usedAt: new Date() }
+  });
+  return true;
+}
+
+export async function getUserNameByEmail(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: { name: true }
+  });
+  return user?.name ?? null;
+}
+
 // ─── Inventory (tenant-scoped) ───────────────────────────────
 
 export async function getInventoryRows(tenantId: string) {

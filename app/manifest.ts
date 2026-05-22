@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MedCare Pharmacy SaaS",
-    short_name: "MedCare",
+    name: "Medicare Pharmacy SaaS",
+    short_name: "Medicare",
     description: "Smart pharmacy billing, inventory, and compliance.",
     start_url: "/shop/dashboard",
     display: "standalone",

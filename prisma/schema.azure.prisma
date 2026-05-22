@@ -76,6 +76,17 @@ model PasswordResetOtp {
   @@index([userId])
 }
 
+model EmailVerificationOtp {
+  id        String    @id @default(cuid()) @db.NVarChar(64)
+  email     String    @db.NVarChar(320)
+  otpHash   String    @db.NVarChar(128)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+}
+
 model DailyReportLog {
   id         String   @id @default(cuid()) @db.NVarChar(64)
   tenantId   String   @db.NVarChar(64)

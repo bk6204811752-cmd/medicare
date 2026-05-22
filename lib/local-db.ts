@@ -467,18 +467,56 @@ export async function createSession(userId: string) {
   return { sessionId, expiresAt: expiresAt.toISOString() };
 }
 
+interface SessionCacheEntry {
+  user: LocalUser;
+  expiresAt: number;
+}
+
+const sessionCache = new Map<string, SessionCacheEntry>();
+
+function cleanSessionCache() {
+  const now = Date.now();
+  if (sessionCache.size > 500) {
+    for (const [key, entry] of sessionCache.entries()) {
+      if (entry.expiresAt < now) {
+        sessionCache.delete(key);
+      }
+    }
+  }
+}
+
 export async function getUserBySession(sessionId: string | undefined) {
   if (!sessionId) return null;
+
+  const now = Date.now();
+  const cached = sessionCache.get(sessionId);
+  if (cached && cached.expiresAt > now) {
+    return cached.user;
+  }
+
   await ensureDefaultData();
-  const session = await prisma.authSession.findFirst({
-    where: { id: sessionId, expiresAt: { gt: new Date() } },
+  const session = await prisma.authSession.findUnique({
+    where: { id: sessionId },
     include: { user: { include: { tenant: true } } }
   });
-  return session ? mapUser(session.user) : null;
+
+  if (!session || session.expiresAt <= new Date()) {
+    sessionCache.delete(sessionId);
+    return null;
+  }
+
+  const mappedUser = mapUser(session.user);
+  cleanSessionCache();
+  sessionCache.set(sessionId, {
+    user: mappedUser,
+    expiresAt: now + 30000 // Cache for 30 seconds
+  });
+  return mappedUser;
 }
 
 export async function deleteSession(sessionId: string | undefined) {
   if (!sessionId) return;
+  sessionCache.delete(sessionId);
   await prisma.authSession.deleteMany({ where: { id: sessionId } });
 }
 
@@ -996,9 +1034,15 @@ export async function getDailyReport(tenantId: string, date = new Date()) {
   const expiryCutoff = new Date(start);
   expiryCutoff.setDate(expiryCutoff.getDate() + 60);
 
-  const [sales, inventory] = await Promise.all([
+  const [sales, inventoryLevels, expiringCount] = await Promise.all([
     prisma.sale.findMany({ where: { tenantId, createdAt: { gte: start, lt: end } } }),
-    prisma.inventoryItem.findMany({ where: { tenantId, isActive: true } })
+    prisma.inventoryItem.findMany({
+      where: { tenantId, isActive: true },
+      select: { quantity: true, reorderLevel: true }
+    }),
+    prisma.inventoryItem.count({
+      where: { tenantId, isActive: true, expiryDate: { lte: expiryCutoff } }
+    })
   ]);
 
   return {
@@ -1006,8 +1050,8 @@ export async function getDailyReport(tenantId: string, date = new Date()) {
     bills: sales.length,
     totalPaisa: sales.reduce((sum, s) => sum + s.totalPaisa, 0),
     gstPaisa: sales.reduce((sum, s) => sum + s.gstPaisa, 0),
-    lowStockCount: inventory.filter((i) => i.quantity <= i.reorderLevel).length,
-    expiringCount: inventory.filter((i) => i.expiryDate <= expiryCutoff).length
+    lowStockCount: inventoryLevels.filter((i) => i.quantity <= i.reorderLevel).length,
+    expiringCount
   };
 }
 
@@ -1040,40 +1084,65 @@ export async function getNotifications(tenantId: string) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + 60);
 
-  // Single query — was 2 separate queries, one fetching ALL inventory
-  const allItems = await prisma.inventoryItem.findMany({
-    where: { tenantId, isActive: true },
-    include: { medicine: true },
-    // Only select items that are either low stock or expiring
+  // 1. Fetch expiring items directly (usually very few)
+  const expiringItems = await prisma.inventoryItem.findMany({
+    where: { tenantId, isActive: true, expiryDate: { lte: cutoff } },
+    include: { medicine: true }
   });
 
-  const lowStock = allItems
-    .filter((r) => r.quantity <= r.reorderLevel)
-    .map((r) => ({
-      id: `low-${r.id}`, type: "low_stock", title: "Low stock",
-      message: `${r.medicine.name} has ${r.quantity} units left. Reorder level is ${r.reorderLevel}.`,
-      severity: "warning", createdAt: now.toISOString()
-    }));
+  // 2. Fetch lightweight low-stock levels to filter ids
+  const inventoryLevels = await prisma.inventoryItem.findMany({
+    where: { tenantId, isActive: true },
+    select: { id: true, quantity: true, reorderLevel: true }
+  });
 
-  const expiring = allItems
-    .filter((r) => r.expiryDate <= cutoff)
-    .map((r) => ({
-      id: `exp-${r.id}`, type: "expiry_alert", title: "Expiry alert",
-      message: `${r.medicine.name} batch ${r.batchNo} expires on ${isoDate(r.expiryDate)}.`,
-      severity: r.expiryDate < now ? "danger" : "warning",
-      createdAt: now.toISOString()
-    }));
+  const lowStockIds = inventoryLevels
+    .filter((r) => r.quantity <= r.reorderLevel)
+    .map((r) => r.id);
+
+  // 3. Fetch low-stock items with medicine relation
+  const lowStockItems = lowStockIds.length > 0 
+    ? await prisma.inventoryItem.findMany({
+        where: { id: { in: lowStockIds } },
+        include: { medicine: true }
+      })
+    : [];
+
+  const lowStock = lowStockItems.map((r) => ({
+    id: `low-${r.id}`, type: "low_stock", title: "Low stock",
+    message: `${r.medicine.name} has ${r.quantity} units left. Reorder level is ${r.reorderLevel}.`,
+    severity: "warning", createdAt: now.toISOString()
+  }));
+
+  const expiring = expiringItems.map((r) => ({
+    id: `exp-${r.id}`, type: "expiry_alert", title: "Expiry alert",
+    message: `${r.medicine.name} batch ${r.batchNo} expires on ${isoDate(r.expiryDate)}.`,
+    severity: r.expiryDate < now ? "danger" : "warning",
+    createdAt: now.toISOString()
+  }));
 
   return [...expiring, ...lowStock];
 }
 
 export async function getLowStockRows(tenantId: string) {
   await ensureDefaultData();
-  const rows = await prisma.inventoryItem.findMany({
+  const inventoryLevels = await prisma.inventoryItem.findMany({
     where: { tenantId, isActive: true },
-    include: { medicine: true, supplier: true },
+    select: { id: true, quantity: true, reorderLevel: true }
   });
-  return sortInventory(rows.filter((r) => r.quantity <= r.reorderLevel).map(mapInventory));
+
+  const lowStockIds = inventoryLevels
+    .filter((r) => r.quantity <= r.reorderLevel)
+    .map((r) => r.id);
+
+  if (lowStockIds.length === 0) return [];
+
+  const rows = await prisma.inventoryItem.findMany({
+    where: { id: { in: lowStockIds } },
+    include: { medicine: true, supplier: true }
+  });
+
+  return sortInventory(rows.map(mapInventory));
 }
 
 export async function getExpiringRows(tenantId: string, days = 90) {

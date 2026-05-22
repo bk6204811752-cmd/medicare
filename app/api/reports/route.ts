@@ -26,6 +26,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Unknown report type" }, { status: 400 });
     }
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    console.error("Reports API error:", error);
+    return NextResponse.json({ error: "Failed to generate report" }, { status: 500 });
   }
 }

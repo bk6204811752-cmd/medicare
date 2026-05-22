@@ -50,10 +50,12 @@ function LoginForm() {
           <Link href="/register" className="font-semibold text-med-greenDark">Register pharmacy</Link>
           <Link href="/forgot-password" className="font-semibold text-med-greenDark">Forgot password?</Link>
         </div>
-        <div className="mt-5 rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-          Demo admin: admin@medcare.local / Admin@12345<br />
-          Demo shop: owner@sharmamedical.local / Shop@12345
-        </div>
+        {process.env.NODE_ENV !== "production" && (
+          <div className="mt-5 rounded-md bg-slate-50 p-3 text-xs leading-5 text-slate-500">
+            Demo admin: admin@medcare.local / Admin@12345<br />
+            Demo shop: owner@sharmamedical.local / Shop@12345
+          </div>
+        )}
       </form>
     </main>
   );

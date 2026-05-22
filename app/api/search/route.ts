@@ -27,10 +27,10 @@ export async function GET(request: Request) {
       where: {
         tenantId: tid, isActive: true,
         OR: [
-          { medicine: { name: { contains: query, mode: "insensitive" } } },
-          { medicine: { genericName: { contains: query, mode: "insensitive" } } },
-          { medicine: { barcode: { contains: query, mode: "insensitive" } } },
-          { batchNo: { contains: query, mode: "insensitive" } },
+          { medicine: { name: { contains: query } } },
+          { medicine: { genericName: { contains: query } } },
+          { medicine: { barcode: { contains: query } } },
+          { batchNo: { contains: query } },
         ],
       },
       include: { medicine: true },
@@ -40,9 +40,9 @@ export async function GET(request: Request) {
       where: {
         tenantId: tid,
         OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { phone: { contains: query, mode: "insensitive" } },
-          { doctorName: { contains: query, mode: "insensitive" } },
+          { name: { contains: query } },
+          { phone: { contains: query } },
+          { doctorName: { contains: query } },
         ],
       },
       take: 5,
@@ -51,9 +51,9 @@ export async function GET(request: Request) {
       where: {
         tenantId: tid, isActive: true,
         OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { phone: { contains: query, mode: "insensitive" } },
-          { gstin: { contains: query, mode: "insensitive" } },
+          { name: { contains: query } },
+          { phone: { contains: query } },
+          { gstin: { contains: query } },
         ],
       },
       take: 5,
@@ -62,9 +62,9 @@ export async function GET(request: Request) {
       where: {
         tenantId: tid,
         OR: [
-          { invoiceNo: { contains: query, mode: "insensitive" } },
-          { customerName: { contains: query, mode: "insensitive" } },
-          { customerPhone: { contains: query, mode: "insensitive" } },
+          { invoiceNo: { contains: query } },
+          { customerName: { contains: query } },
+          { customerPhone: { contains: query } },
         ],
       },
       orderBy: { createdAt: "desc" },

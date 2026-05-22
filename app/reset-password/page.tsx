@@ -46,9 +46,9 @@ function ResetPasswordForm() {
         {error ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm font-medium text-red-700">{error}</p> : null}
         {success ? <p className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-medium text-emerald-700">{success}</p> : null}
         <label className="mt-5 block text-sm font-semibold text-med-navy" htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" defaultValue={emailParam} className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" autoComplete="email" required />
+        <input id="email" name="email" type="email" defaultValue={emailParam} readOnly className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-slate-50" autoComplete="email" required />
         <label className="mt-4 block text-sm font-semibold text-med-navy" htmlFor="otp">OTP</label>
-        <input id="otp" name="otp" inputMode="numeric" maxLength={6} className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base tracking-[0.3em] text-center font-mono outline-med-green" placeholder="------" autoComplete="one-time-code" required />
+        <input id="otp" name="otp" inputMode="numeric" maxLength={6} minLength={6} className="mt-2 h-12 w-full rounded-md border border-slate-300 px-3 text-base tracking-[0.3em] text-center font-mono outline-med-green" placeholder="------" autoComplete="one-time-code" required />
         <label className="mt-4 block text-sm font-semibold text-med-navy" htmlFor="password">New password</label>
         <PasswordInput name="password" id="password" autoComplete="new-password" />
         <p className="mt-1 text-xs text-slate-400">Min 8 chars, 1 uppercase, 1 lowercase, 1 number</p>
@@ -61,6 +61,22 @@ function ResetPasswordForm() {
   );
 }
 
+function ResetPasswordFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-med-mist px-4 py-6 sm:px-5">
+      <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-soft sm:p-6 space-y-4">
+        <div className="h-8 w-32 rounded bg-slate-200 animate-pulse" />
+        <div className="h-6 w-40 rounded bg-slate-200 animate-pulse mt-6" />
+        <div className="h-4 w-72 rounded bg-slate-200 animate-pulse" />
+        <div className="h-12 w-full rounded-md bg-slate-200 animate-pulse" />
+        <div className="h-12 w-full rounded-md bg-slate-200 animate-pulse" />
+        <div className="h-12 w-full rounded-md bg-slate-200 animate-pulse" />
+        <div className="h-12 w-full rounded-md bg-slate-200 animate-pulse" />
+      </div>
+    </main>
+  );
+}
+
 export default function ResetPasswordPage() {
-  return <Suspense><ResetPasswordForm /></Suspense>;
+  return <Suspense fallback={<ResetPasswordFallback />}><ResetPasswordForm /></Suspense>;
 }

@@ -46,12 +46,13 @@ export async function registerShopAction(formData: FormData) {
 
   try {
     await registerPendingShop(data);
-    await sendApprovalRequestMail({
+    // Fire-and-forget — don't block user redirect on email delivery
+    sendApprovalRequestMail({
       shopName: data.shopName,
       ownerName: data.ownerName,
       email: data.email,
       phone: data.phone
-    });
+    }).catch(console.error);
   } catch (error) {
     const message = (error as { code?: string }).code === "P2002" ? "This email or shop is already registered" : "Registration failed";
     redirectWith("/register", "error", message);
@@ -105,7 +106,8 @@ export async function forgotPasswordAction(formData: FormData) {
   if (user) {
     const otp = crypto.randomInt(100000, 999999).toString();
     await createPasswordResetOtp(String(user.id), otp);
-    await sendPasswordResetOtp(data.email, otp);
+    // Fire-and-forget — don't block redirect on email delivery
+    sendPasswordResetOtp(data.email, otp).catch(console.error);
   }
 
   redirect(`/reset-password?email=${encodeURIComponent(data.email)}&success=${encodeURIComponent("If the email exists, an OTP has been sent.")}`);
@@ -141,7 +143,7 @@ export async function approveTenantAction(formData: FormData) {
   await updateTenantApproval(tenantId, "approved");
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
-    await sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: true });
+    sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: true }).catch(console.error);
   }
   redirect("/admin/shops?success=Shop approved. Owner can login now.");
 }
@@ -155,7 +157,7 @@ export async function rejectTenantAction(formData: FormData) {
   await updateTenantApproval(tenantId, "rejected");
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
-    await sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: false });
+    sendShopApprovalStatusMail({ to: tenant.email, shopName: tenant.name, approved: false }).catch(console.error);
   }
   redirect("/admin/shops?success=Shop rejected. Owner has been notified.");
 }

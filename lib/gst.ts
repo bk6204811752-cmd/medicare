@@ -30,14 +30,29 @@ export function calculateLineTotal(line: SaleLine, interstate = false): GstLineT
 
 export function calculateBillTotals(lines: SaleLine[], interstate = false) {
   const lineTotals = lines.map((line) => calculateLineTotal(line, interstate));
-  const subtotalPaisa = lines.reduce((sum, line) => sum + line.saleRatePaisa * line.quantity, 0);
-  const discountPaisa = lineTotals.reduce((sum, line) => sum + line.discountPaisa, 0);
-  const taxablePaisa = lineTotals.reduce((sum, line) => sum + line.taxablePaisa, 0);
-  const cgstPaisa = lineTotals.reduce((sum, line) => sum + line.cgstPaisa, 0);
-  const sgstPaisa = lineTotals.reduce((sum, line) => sum + line.sgstPaisa, 0);
-  const igstPaisa = lineTotals.reduce((sum, line) => sum + line.igstPaisa, 0);
-  const gstPaisa = lineTotals.reduce((sum, line) => sum + line.gstPaisa, 0);
-  const unroundedTotalPaisa = lineTotals.reduce((sum, line) => sum + line.totalPaisa, 0);
+
+  // Single-pass accumulation (was 8 separate .reduce() calls)
+  let subtotalPaisa = 0;
+  let discountPaisa = 0;
+  let taxablePaisa = 0;
+  let cgstPaisa = 0;
+  let sgstPaisa = 0;
+  let igstPaisa = 0;
+  let gstPaisa = 0;
+  let unroundedTotalPaisa = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    subtotalPaisa += lines[i].saleRatePaisa * lines[i].quantity;
+    const lt = lineTotals[i];
+    discountPaisa += lt.discountPaisa;
+    taxablePaisa += lt.taxablePaisa;
+    cgstPaisa += lt.cgstPaisa;
+    sgstPaisa += lt.sgstPaisa;
+    igstPaisa += lt.igstPaisa;
+    gstPaisa += lt.gstPaisa;
+    unroundedTotalPaisa += lt.totalPaisa;
+  }
+
   const roundedTotalPaisa = Math.round(unroundedTotalPaisa / 100) * 100;
 
   return {

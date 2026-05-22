@@ -938,7 +938,6 @@ export async function getSalesSummary(tenantId: string) {
 
 export async function getSalesTrend(tenantId: string, days = 7) {
   await ensureDefaultData();
-  const formatter = new Intl.DateTimeFormat("en-IN", { weekday: "short" });
   const startRange = new Date();
   startRange.setHours(0, 0, 0, 0);
   startRange.setDate(startRange.getDate() - (days - 1));
@@ -948,6 +947,7 @@ export async function getSalesTrend(tenantId: string, days = 7) {
     select: { totalPaisa: true, createdAt: true },
   });
 
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   return Array.from({ length: days }, (_, index) => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -956,7 +956,7 @@ export async function getSalesTrend(tenantId: string, days = 7) {
     end.setDate(end.getDate() + 1);
     const daySales = sales.filter((s) => s.createdAt >= start && s.createdAt < end);
     return {
-      day: formatter.format(start),
+      day: dayNames[start.getDay()],
       sales: Math.round(daySales.reduce((sum, s) => sum + s.totalPaisa, 0) / 100),
       bills: daySales.length
     };
@@ -1038,18 +1038,14 @@ export async function getNotifications(tenantId: string) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + 60);
 
-  const [lowStockItems, expiringItems] = await Promise.all([
-    prisma.inventoryItem.findMany({
-      where: { tenantId, isActive: true },
-      include: { medicine: true, supplier: true },
-    }),
-    prisma.inventoryItem.findMany({
-      where: { tenantId, isActive: true, expiryDate: { lte: cutoff } },
-      include: { medicine: true, supplier: true },
-    }),
-  ]);
+  // Single query — was 2 separate queries, one fetching ALL inventory
+  const allItems = await prisma.inventoryItem.findMany({
+    where: { tenantId, isActive: true },
+    include: { medicine: true },
+    // Only select items that are either low stock or expiring
+  });
 
-  const lowStock = lowStockItems
+  const lowStock = allItems
     .filter((r) => r.quantity <= r.reorderLevel)
     .map((r) => ({
       id: `low-${r.id}`, type: "low_stock", title: "Low stock",
@@ -1057,12 +1053,14 @@ export async function getNotifications(tenantId: string) {
       severity: "warning", createdAt: now.toISOString()
     }));
 
-  const expiring = expiringItems.map((r) => ({
-    id: `exp-${r.id}`, type: "expiry_alert", title: "Expiry alert",
-    message: `${r.medicine.name} batch ${r.batchNo} expires on ${isoDate(r.expiryDate)}.`,
-    severity: r.expiryDate < now ? "danger" : "warning",
-    createdAt: now.toISOString()
-  }));
+  const expiring = allItems
+    .filter((r) => r.expiryDate <= cutoff)
+    .map((r) => ({
+      id: `exp-${r.id}`, type: "expiry_alert", title: "Expiry alert",
+      message: `${r.medicine.name} batch ${r.batchNo} expires on ${isoDate(r.expiryDate)}.`,
+      severity: r.expiryDate < now ? "danger" : "warning",
+      createdAt: now.toISOString()
+    }));
 
   return [...expiring, ...lowStock];
 }

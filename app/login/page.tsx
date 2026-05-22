@@ -59,6 +59,21 @@ function LoginForm() {
   );
 }
 
+function LoginFallback() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-med-mist px-4 py-6 sm:px-5">
+      <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-soft sm:p-6 space-y-4">
+        <div className="h-8 w-32 rounded bg-slate-200 animate-pulse" />
+        <div className="h-6 w-20 rounded bg-slate-200 animate-pulse mt-6" />
+        <div className="h-4 w-64 rounded bg-slate-200 animate-pulse" />
+        <div className="h-12 w-full rounded-md bg-slate-200 animate-pulse" />
+        <div className="h-12 w-full rounded-md bg-slate-200 animate-pulse" />
+        <div className="h-12 w-full rounded-md bg-slate-200 animate-pulse" />
+      </div>
+    </main>
+  );
+}
+
 export default function LoginPage() {
-  return <Suspense><LoginForm /></Suspense>;
+  return <Suspense fallback={<LoginFallback />}><LoginForm /></Suspense>;
 }

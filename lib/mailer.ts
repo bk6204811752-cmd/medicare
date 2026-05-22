@@ -9,25 +9,36 @@ type MailInput = {
   html?: string;
 };
 
-function getFromAddress() {
-  return process.env.SMTP_FROM || process.env.SMTP_USER || "MedCare <no-reply@medcare.local>";
-}
+// Cache from address at module level — no need to read process.env every call
+const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || "MedCare <no-reply@medcare.local>";
 
-export async function sendMail(input: MailInput) {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+// Module-level singleton transport — reuses TCP connection + TLS handshake
+let _transport: nodemailer.Transporter | null = null;
+function getTransport() {
+  if (!_transport) {
+    const host = process.env.SMTP_HOST;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    if (!host || !user || !pass) return null;
 
-  if (host && user && pass) {
-    const transporter = nodemailer.createTransport({
+    _transport = nodemailer.createTransport({
       host,
       port: Number(process.env.SMTP_PORT || 587),
       secure: process.env.SMTP_SECURE === "true",
-      auth: { user, pass }
+      auth: { user, pass },
+      pool: true, // use pooled connections
+      maxConnections: 3,
     });
+  }
+  return _transport;
+}
 
-    await transporter.sendMail({
-      from: getFromAddress(),
+export async function sendMail(input: MailInput) {
+  const transport = getTransport();
+
+  if (transport) {
+    await transport.sendMail({
+      from: fromAddress,
       to: input.to,
       subject: input.subject,
       text: input.text,
@@ -40,7 +51,7 @@ export async function sendMail(input: MailInput) {
     const outboxDir = path.join(process.cwd(), "data", "mail-outbox");
     await fs.mkdir(outboxDir, { recursive: true });
     const fileName = `${Date.now()}-${input.to.replace(/[^a-z0-9]/gi, "_")}.json`;
-    await fs.writeFile(path.join(outboxDir, fileName), JSON.stringify({ ...input, from: getFromAddress(), createdAt: new Date().toISOString() }, null, 2));
+    await fs.writeFile(path.join(outboxDir, fileName), JSON.stringify({ ...input, from: fromAddress, createdAt: new Date().toISOString() }, null, 2));
   } catch (error) {
     console.log("Fallback mail delivery to outbox failed (e.g. read-only filesystem on Vercel):", (error as Error).message || error);
     console.log("Mock Email Content:", JSON.stringify(input, null, 2));

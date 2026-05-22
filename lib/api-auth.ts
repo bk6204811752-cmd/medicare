@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getUserBySession, type LocalUser } from "@/lib/local-db";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { type LocalUser } from "@/lib/local-db";
+import { getCurrentUser } from "@/lib/auth";
 
 export type AuthenticatedContext = {
   user: LocalUser;
@@ -10,32 +9,20 @@ export type AuthenticatedContext = {
 
 /**
  * Authenticate an API request using the session cookie.
+ * Uses the cached getCurrentUser() — deduped within a single request.
  * Returns the authenticated user + tenantId, or a 401 JSON response.
  */
 export async function authenticateApiRequest(): Promise<
   | { ok: true; ctx: AuthenticatedContext }
   | { ok: false; response: NextResponse }
 > {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-
-  if (!sessionId) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: "Authentication required. Please login." },
-        { status: 401 }
-      )
-    };
-  }
-
-  const user = await getUserBySession(sessionId);
+  const user = await getCurrentUser();
 
   if (!user) {
     return {
       ok: false,
       response: NextResponse.json(
-        { error: "Session expired. Please login again." },
+        { error: "Authentication required. Please login." },
         { status: 401 }
       )
     };

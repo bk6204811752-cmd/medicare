@@ -1,28 +1,43 @@
 "use client";
 
 import Link from "next/link";
-import { Download, Filter, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { LocalInventoryRow } from "@/lib/local-db";
 import { daysUntil, formatCurrency, formatDate } from "@/lib/utils";
 
 type StockStatus = "all" | "healthy" | "low" | "expiring" | "expired";
+const PAGE_SIZE = 50;
 
 export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState<StockStatus>("all");
+  const [page, setPage] = useState(0);
 
   const categories = useMemo(
     () => Array.from(new Set(rows.map((row) => row.medicine.category).filter(Boolean))).sort() as string[],
     [rows]
   );
 
+  // Pre-compute daysUntil once per row (was computed 4-5x per row before)
+  const rowsWithExpiry = useMemo(
+    () => rows.map(row => ({ ...row, _days: daysUntil(row.expiryDate) })),
+    [rows]
+  );
+
+  // Memoized summary metrics — computed once, not on every render
+  const { lowCount, expiryCount, stockValue } = useMemo(() => ({
+    lowCount: rowsWithExpiry.filter(r => r.quantity <= r.reorderLevel).length,
+    expiryCount: rowsWithExpiry.filter(r => r._days <= 60).length,
+    stockValue: rowsWithExpiry.reduce((sum, r) => sum + r.purchaseRatePaisa * r.quantity, 0),
+  }), [rowsWithExpiry]);
+
   const filteredRows = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return rows
+    return rowsWithExpiry
       .filter((row) => {
-        const days = daysUntil(row.expiryDate);
+        const days = row._days;
         const low = row.quantity <= row.reorderLevel;
         const expired = days < 0;
         const expiring = days >= 0 && days <= 60;
@@ -49,15 +64,18 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
         return true;
       })
       .sort((a, b) => {
-        const aRisk = Number(a.quantity <= a.reorderLevel) + Number(daysUntil(a.expiryDate) <= 60);
-        const bRisk = Number(b.quantity <= b.reorderLevel) + Number(daysUntil(b.expiryDate) <= 60);
-        return bRisk - aRisk || daysUntil(a.expiryDate) - daysUntil(b.expiryDate);
+        const aRisk = Number(a.quantity <= a.reorderLevel) + Number(a._days <= 60);
+        const bRisk = Number(b.quantity <= b.reorderLevel) + Number(b._days <= 60);
+        return bRisk - aRisk || a._days - b._days;
       });
-  }, [category, query, rows, status]);
+  }, [category, query, rowsWithExpiry, status]);
 
-  const lowCount = rows.filter((row) => row.quantity <= row.reorderLevel).length;
-  const expiryCount = rows.filter((row) => daysUntil(row.expiryDate) <= 60).length;
-  const stockValue = rows.reduce((sum, row) => sum + row.purchaseRatePaisa * row.quantity, 0);
+  // Reset to page 0 when filters change
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
+  if (safePage !== page) setPage(safePage);
+
+  const paginatedRows = filteredRows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -68,12 +86,12 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
             className="h-11 w-full rounded-md border border-slate-300 pl-10 pr-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20"
             placeholder="Search medicine, batch, supplier, rack, barcode..."
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { setQuery(event.target.value); setPage(0); }}
           />
         </label>
         <label className="relative">
           <Filter className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
-          <select className="h-11 w-full rounded-md border border-slate-300 pl-9 pr-3" value={category} onChange={(event) => setCategory(event.target.value)}>
+          <select className="h-11 w-full rounded-md border border-slate-300 pl-9 pr-3" value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }}>
             <option value="all">All categories</option>
             {categories.map((item) => (
               <option key={item} value={item}>
@@ -82,7 +100,7 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
             ))}
           </select>
         </label>
-        <select className="h-11 rounded-md border border-slate-300 px-3" value={status} onChange={(event) => setStatus(event.target.value as StockStatus)}>
+        <select className="h-11 rounded-md border border-slate-300 px-3" value={status} onChange={(event) => { setStatus(event.target.value as StockStatus); setPage(0); }}>
           <option value="all">All stock status</option>
           <option value="healthy">Healthy</option>
           <option value="low">Low stock</option>
@@ -113,8 +131,8 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row) => {
-              const days = daysUntil(row.expiryDate);
+            {paginatedRows.map((row) => {
+              const days = row._days;
               const low = row.quantity <= row.reorderLevel;
               const expired = days < 0;
               const expiring = days >= 0 && days <= 60;
@@ -148,6 +166,53 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {filteredRows.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3">
+          <p className="text-sm text-slate-500">
+            Showing {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i;
+              } else if (safePage < 3) {
+                pageNum = i;
+              } else if (safePage > totalPages - 4) {
+                pageNum = totalPages - 5 + i;
+              } else {
+                pageNum = safePage - 2 + i;
+              }
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-md text-sm font-medium ${pageNum === safePage ? "bg-med-green text-white" : "border border-slate-200 hover:bg-slate-50"}`}
+                >
+                  {pageNum + 1}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+              disabled={safePage >= totalPages - 1}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 hover:bg-slate-50 disabled:opacity-40"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {!filteredRows.length ? <div className="p-10 text-center text-slate-500">No inventory matches these filters.</div> : null}
     </section>
   );

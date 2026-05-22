@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSession, deleteSession, getUserBySession, type LocalUser } from "@/lib/local-db";
@@ -19,14 +20,18 @@ export async function setAuthSession(userId: string) {
 export async function clearAuthSession() {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  await deleteSession(sessionId);
+  if (sessionId) await deleteSession(sessionId);
   cookieStore.delete(SESSION_COOKIE);
 }
 
-export async function getCurrentUser() {
+// Request-scoped dedup: layout + admin layout + page can all call this,
+// but only 1 DB query happens per server request.
+export const getCurrentUser = cache(async () => {
   const cookieStore = await cookies();
-  return await getUserBySession(cookieStore.get(SESSION_COOKIE)?.value);
-}
+  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!sessionId) return null;
+  return await getUserBySession(sessionId);
+});
 
 export async function requireUser() {
   const user = await getCurrentUser();

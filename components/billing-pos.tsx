@@ -3,12 +3,23 @@
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
 import { useEffect } from "react";
-import { BrowserMultiFormatReader } from "@zxing/browser";
-import { Camera, Minus, Plus, Printer, Save, Search, Send, Trash2 } from "lucide-react";
+import { Camera, Loader2, Minus, Plus, Printer, Save, Search, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
 import type { SaleLine } from "@/lib/types";
 import { daysUntil, formatCurrency } from "@/lib/utils";
+
+// ─── Lazy-loaded barcode reader singleton ───
+// @zxing/browser (~300KB) is only imported when user actually clicks "Camera scan"
+let _readerPromise: Promise<any> | null = null;
+function getReader() {
+  if (!_readerPromise) {
+    _readerPromise = import("@zxing/browser").then(
+      (mod) => new mod.BrowserMultiFormatReader()
+    );
+  }
+  return _readerPromise;
+}
 
 type InventorySearchRow = {
   id: string;
@@ -51,14 +62,26 @@ export function BillingPos() {
   const [lines, setLines] = useState<BillingLine[]>([]);
   const [lastInvoice, setLastInvoice] = useState<{ id: string; invoiceNo: string; totalPaisa: number; phone: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const totals = useMemo(() => calculateBillTotals(lines), [lines]);
 
+  // Fetch recent customers (limited)
   useEffect(() => {
     fetch("/api/customers")
       .then((response) => response.json())
-      .then((result) => setCustomers(result.data ?? []))
+      .then((result) => setCustomers((result.data ?? []).slice(0, 50)))
       .catch(() => setCustomers([]));
+  }, []);
+
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (videoRef.current?.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+        videoRef.current.srcObject = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -130,11 +153,22 @@ export function BillingPos() {
     );
   }
 
+  // ─── Camera barcode scanner with proper lifecycle management ───
+  function stopCameraStream() {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(t => t.stop());
+      videoRef.current.srcObject = null;
+    }
+  }
+
   async function scanBarcode() {
-    if (!videoRef.current) return;
+    if (!videoRef.current || scanning) return;
+    setScanning(true);
     try {
-      const reader = new BrowserMultiFormatReader();
+      const reader = await getReader();
       const result = await reader.decodeOnceFromVideoDevice(undefined, videoRef.current);
+      stopCameraStream(); // Stop camera immediately after successful scan
       const code = result.getText();
       const response = await fetch(`/api/medicines/search?q=${encodeURIComponent(code)}`);
       const resultJson = await response.json();
@@ -148,7 +182,10 @@ export function BillingPos() {
         toast.warning("Barcode not in stock. Search filled for manual review.");
       }
     } catch {
+      stopCameraStream(); // Stop camera on error too
       toast.error("Camera scan was cancelled or unavailable.");
+    } finally {
+      setScanning(false);
     }
   }
 
@@ -235,8 +272,9 @@ export function BillingPos() {
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
-          <button onClick={scanBarcode} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 font-semibold text-med-navy hover:bg-slate-50">
-            <Camera className="h-4 w-4" /> Camera scan
+          <button onClick={scanBarcode} disabled={scanning} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 font-semibold text-med-navy hover:bg-slate-50 disabled:opacity-60">
+            {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+            {scanning ? "Scanning..." : "Camera scan"}
           </button>
           <select className="h-12 rounded-md border border-slate-300 px-3" value={paymentMode} onChange={(event) => setPaymentMode(event.target.value)}>
             <option value="cash">Cash</option>
@@ -246,7 +284,7 @@ export function BillingPos() {
           </select>
         </div>
 
-        <video ref={videoRef} className="mt-3 hidden h-48 w-full rounded-md bg-slate-900 object-cover md:block" muted />
+        <video ref={videoRef} className={`mt-3 h-48 w-full rounded-md bg-slate-900 object-cover ${scanning ? "block" : "hidden"}`} muted />
 
         {matches.length > 0 && (
           <div className="mt-3 overflow-hidden rounded-md border border-slate-200">

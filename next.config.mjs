@@ -1,9 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  reactStrictMode: true,
+  poweredByHeader: false,
   typedRoutes: false,
 
   // mssql / tedious are native Node packages that must not be bundled by webpack
   serverExternalPackages: ["mssql", "tedious", "@prisma/adapter-mssql"],
+
+  // Tree-shake heavy icon/utility libraries — only bundle used exports
+  experimental: {
+    optimizePackageImports: ["lucide-react", "recharts", "date-fns", "sonner"],
+  },
 
   // Security headers
   async headers() {

@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getSales } from "@/lib/local-db";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function SalesReportPage() {
-  const user = await requireUser();
-  const sales = await getSales(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const sales = await getSales(user?.tenantId ?? "");
   const total = sales.reduce((sum, sale) => sum + Number((sale as Record<string, unknown>).total_paisa), 0);
 
   return (

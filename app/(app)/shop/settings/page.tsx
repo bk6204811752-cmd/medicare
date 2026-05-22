@@ -1,10 +1,10 @@
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getTenant } from "@/lib/local-db";
 
 export default async function SettingsPage() {
-  const user = await requireUser();
-  const tenant = await getTenant(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const tenant = await getTenant(user?.tenantId ?? "");
 
   return (
     <>

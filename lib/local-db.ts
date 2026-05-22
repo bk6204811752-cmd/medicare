@@ -181,20 +181,22 @@ const demoCustomers = [
 
 // ─── Bootstrap ───────────────────────────────────────────────
 
-let bootstrapPromise: Promise<void> | null = null;
+const _isAzure = (process.env.DATABASE_PROVIDER || "").trim() === "sqlserver";
+let _bootstrapped = _isAzure; // Azure is pre-seeded, skip all runtime checks
+let _bootstrapPromise: Promise<void> | null = null;
 
-async function ensureDefaultData() {
-  const provider = (process.env.DATABASE_PROVIDER || "").trim();
-  if (provider === "sqlserver") {
-    // Azure SQL is seeded once during setup. Skipping runtime check to prevent redundant round-trips.
-    return;
-  }
+function ensureDefaultData(): Promise<void> | void {
+  // Fast path: already bootstrapped (Azure, or SQLite after first successful seed)
+  // This is synchronous — zero async overhead for 41 call sites.
+  if (_bootstrapped) return;
 
-  bootstrapPromise ??= seedDefaultData().catch((error) => {
-    bootstrapPromise = null;
-    throw error;
-  });
-  return bootstrapPromise;
+  _bootstrapPromise ??= seedDefaultData()
+    .then(() => { _bootstrapped = true; })
+    .catch((error) => {
+      _bootstrapPromise = null;
+      throw error;
+    });
+  return _bootstrapPromise;
 }
 
 async function seedDefaultData() {

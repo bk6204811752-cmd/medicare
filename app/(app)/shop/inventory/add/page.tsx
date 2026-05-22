@@ -1,11 +1,11 @@
 import { AddStockForm } from "@/components/add-stock-form";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getMedicines, getSuppliers } from "@/lib/local-db";
 
 export default async function AddInventoryPage() {
-  const user = await requireUser();
-  const [medicineRows, supplierRows] = await Promise.all([getMedicines(), getSuppliers(user.tenantId ?? "")]);
+  const user = await getCurrentUser();
+  const [medicineRows, supplierRows] = await Promise.all([getMedicines(), getSuppliers(user?.tenantId ?? "")]);
   const medicines = medicineRows.map((medicine) => ({
     id: String(medicine.id),
     name: String(medicine.name),

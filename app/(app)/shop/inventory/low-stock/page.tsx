@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getLowStockRows } from "@/lib/local-db";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function LowStockPage() {
-  const user = await requireUser();
-  const rows = await getLowStockRows(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const rows = await getLowStockRows(user?.tenantId ?? "");
 
   return (
     <>

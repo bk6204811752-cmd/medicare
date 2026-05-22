@@ -1,12 +1,12 @@
 import { AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getExpiringRows } from "@/lib/local-db";
 import { daysUntil, formatDate } from "@/lib/utils";
 
 export default async function ExpiryPage() {
-  const user = await requireUser();
-  const rows = await getExpiringRows(user.tenantId ?? "", 90);
+  const user = await getCurrentUser();
+  const rows = await getExpiringRows(user?.tenantId ?? "", 90);
 
   return (
     <>

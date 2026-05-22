@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getGstReport } from "@/lib/local-db";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function GstReportPage() {
-  const user = await requireUser();
-  const rows = (await getGstReport(user.tenantId ?? "")) as Record<string, unknown>[];
+  const user = await getCurrentUser();
+  const rows = (await getGstReport(user?.tenantId ?? "")) as Record<string, unknown>[];
 
   return (
     <>

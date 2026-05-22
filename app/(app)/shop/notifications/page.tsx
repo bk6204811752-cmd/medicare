@@ -1,11 +1,11 @@
 import { BellRing } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getNotifications } from "@/lib/local-db";
 
 export default async function NotificationsPage() {
-  const user = await requireUser();
-  const notifications = await getNotifications(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const notifications = await getNotifications(user?.tenantId ?? "");
 
   return (
     <>

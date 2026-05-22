@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getCustomers } from "@/lib/local-db";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function CustomersPage() {
-  const user = await requireUser();
-  const customers = await getCustomers(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const customers = await getCustomers(user?.tenantId ?? "");
 
   return (
     <>

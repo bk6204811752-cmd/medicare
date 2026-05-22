@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getInventoryRows } from "@/lib/local-db";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function InventoryReportPage() {
-  const user = await requireUser();
-  const rows = await getInventoryRows(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const rows = await getInventoryRows(user?.tenantId ?? "");
   const value = rows.reduce((sum, row) => sum + row.purchaseRatePaisa * row.quantity, 0);
 
   return (

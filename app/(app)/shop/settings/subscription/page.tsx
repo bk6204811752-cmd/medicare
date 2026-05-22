@@ -1,11 +1,11 @@
 import { BadgeIndianRupee } from "lucide-react";
 import { ModulePage } from "@/components/module-page";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getTenant } from "@/lib/local-db";
 
 export default async function SubscriptionSettingsPage() {
-  const user = await requireUser();
-  const tenant = await getTenant(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const tenant = await getTenant(user?.tenantId ?? "");
 
   return (
     <ModulePage

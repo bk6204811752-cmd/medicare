@@ -1,12 +1,12 @@
 import { PageHeader } from "@/components/page-header";
 import { StockAdjustmentForm } from "@/components/stock-adjustment-form";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getInventoryRows, getStockMovements } from "@/lib/local-db";
 import { formatDate } from "@/lib/utils";
 
 export default async function AdjustmentPage() {
-  const user = await requireUser();
-  const tid = user.tenantId ?? "";
+  const user = await getCurrentUser();
+  const tid = user?.tenantId ?? "";
   const [rows, movements] = await Promise.all([getInventoryRows(tid), getStockMovements(tid, 20)]);
 
   return (

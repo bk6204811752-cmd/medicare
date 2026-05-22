@@ -1,11 +1,11 @@
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getScheduleHRegister } from "@/lib/local-db";
 import { formatDate } from "@/lib/utils";
 
 export default async function ScheduleHPage() {
-  const user = await requireUser();
-  const controlled = await getScheduleHRegister(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const controlled = await getScheduleHRegister(user?.tenantId ?? "");
 
   return (
     <>

@@ -1,14 +1,14 @@
 import { Building2 } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ModulePage } from "@/components/module-page";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getSuppliers } from "@/lib/local-db";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function SupplierDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser();
-  const supplier = (await getSuppliers(user.tenantId ?? "")).find((item) => item.id === decodeURIComponent(id));
+  const user = await getCurrentUser();
+  const supplier = (await getSuppliers(user?.tenantId ?? "")).find((item) => item.id === decodeURIComponent(id));
   if (!supplier) notFound();
 
   return (

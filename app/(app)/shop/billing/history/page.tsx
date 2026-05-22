@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getSales } from "@/lib/local-db";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function BillingHistoryPage() {
-  const user = await requireUser();
-  const sales = await getSales(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const sales = await getSales(user?.tenantId ?? "");
 
   return (
     <>

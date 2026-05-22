@@ -18,15 +18,15 @@ export default function ShopDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/reports?type=summary").then((r) => r.json()),
-      fetch("/api/reports?type=trend").then((r) => r.json()),
-      fetch("/api/notifications").then((r) => r.json())
-    ]).then(([s, t, n]) => {
-      setSummary(s.data ?? null);
-      setTrend(t.data ?? []);
-      setNotifications(n.data ?? []);
-    }).finally(() => setLoading(false));
+    fetch("/api/dashboard")
+      .then((r) => r.json())
+      .then((result) => {
+        const d = result.data ?? {};
+        setSummary(d.summary ?? null);
+        setTrend(d.trend ?? []);
+        setNotifications(d.notifications ?? []);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {

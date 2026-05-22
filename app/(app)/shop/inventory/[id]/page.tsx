@@ -1,14 +1,14 @@
 import { Boxes } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ModulePage } from "@/components/module-page";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getInventoryRows } from "@/lib/local-db";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function InventoryDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser();
-  const item = (await getInventoryRows(user.tenantId ?? "")).find((row) => row.id === decodeURIComponent(id));
+  const user = await getCurrentUser();
+  const item = (await getInventoryRows(user?.tenantId ?? "")).find((row) => row.id === decodeURIComponent(id));
   if (!item) notFound();
 
   return (

@@ -2,14 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Send } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getSaleByIdOrInvoice, getTenant } from "@/lib/local-db";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function BillDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser();
-  const tenantId = user.tenantId ?? "";
+  const user = await getCurrentUser();
+  const tenantId = user?.tenantId ?? "";
   const [record, tenant] = await Promise.all([
     getSaleByIdOrInvoice(tenantId, decodeURIComponent(id)),
     getTenant(tenantId)

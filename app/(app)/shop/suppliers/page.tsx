@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getSuppliers } from "@/lib/local-db";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function SuppliersPage() {
-  const user = await requireUser();
-  const suppliers = await getSuppliers(user.tenantId ?? "");
+  const user = await getCurrentUser();
+  const suppliers = await getSuppliers(user?.tenantId ?? "");
 
   return (
     <>

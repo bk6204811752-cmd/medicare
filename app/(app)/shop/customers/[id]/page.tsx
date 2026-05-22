@@ -1,14 +1,14 @@
 import { UserRound } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ModulePage } from "@/components/module-page";
-import { requireUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { getCustomers } from "@/lib/local-db";
 import { formatCurrency } from "@/lib/utils";
 
 export default async function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const user = await requireUser();
-  const customer = (await getCustomers(user.tenantId ?? "")).find((item) => item.id === decodeURIComponent(id));
+  const user = await getCurrentUser();
+  const customer = (await getCustomers(user?.tenantId ?? "")).find((item) => item.id === decodeURIComponent(id));
   if (!customer) notFound();
 
   return (

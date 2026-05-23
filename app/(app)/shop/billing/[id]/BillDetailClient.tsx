@@ -17,6 +17,9 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
   const whatsappText = encodeURIComponent(
     `Medicare invoice ${String(sale.invoice_no)} from ${tenant.name}. Total: ${formatCurrency(Number(sale.total_paisa))}. Thank you.`
   );
+  
+  const upiId = tenant.upiId || "medicare.pay@upi";
+  const upiUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(tenant.name)}&am=${(Number(sale.total_paisa) / 100).toFixed(2)}&cu=INR&tn=Invoice_${sale.invoice_no}`;
 
   // Calculate GST Tax Slab Breakdown dynamically
   const gstBreakdownMap = new Map<number, { taxable: number; cgst: number; sgst: number; totalTax: number }>();
@@ -418,15 +421,27 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
 
           {/* Footer T&C / Signature */}
           <div className="mt-10 grid gap-6 sm:grid-cols-2 items-end pt-6 border-t border-slate-100 text-xs">
-            <div className="space-y-1 text-slate-400">
-              <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1">
-                <ShieldCheck className="h-4 w-4 text-med-green shrink-0" />
-                <span>Terms & Conditions</span>
+            <div className="flex gap-4 items-start">
+              {/* UPI Payment QR Code */}
+              <div className="flex flex-col items-center text-center p-1.5 bg-slate-50 rounded-lg border border-slate-200 shrink-0">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`}
+                  alt="UPI Payment QR"
+                  className="h-16 w-16 bg-white"
+                />
+                <span className="text-[8px] font-bold text-slate-600 mt-1 font-mono tracking-tighter">SCAN TO PAY (UPI)</span>
               </div>
-              <p>1. Medicines once sold cannot be returned or exchanged.</p>
-              <p>2. Please check expiry date and dosage instructions before consumption.</p>
-              <p>3. Schedule H/H1/X medicines require a valid physician's prescription.</p>
-              <p>4. All disputes are subject to local state jurisdiction.</p>
+              
+              <div className="space-y-1 text-slate-400">
+                <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1">
+                  <ShieldCheck className="h-4 w-4 text-med-green shrink-0" />
+                  <span>Terms & Conditions</span>
+                </div>
+                <p>1. Medicines once sold cannot be returned or exchanged.</p>
+                <p>2. Please check expiry date and dosage instructions before consumption.</p>
+                <p>3. Schedule H/H1/X medicines require a valid physician's prescription.</p>
+                <p>4. All disputes are subject to local state jurisdiction.</p>
+              </div>
             </div>
             <div className="text-right space-y-4">
               <p className="text-slate-400 font-medium">For {tenant.name}</p>
@@ -537,6 +552,16 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
           </div>
 
           <div className="border-t border-dashed border-slate-350 my-2" />
+
+          {/* Thermal UPI QR Code */}
+          <div className="flex flex-col items-center my-3 gap-1">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`}
+              alt="UPI QR"
+              className="h-16 w-16 bg-white p-1 border border-slate-200"
+            />
+            <span className="text-[8px] font-bold text-slate-600 font-mono tracking-tighter">SCAN TO PAY WITH UPI</span>
+          </div>
 
           {/* Footer policies */}
           <div className="text-[8px] text-slate-400 text-center space-y-0.5">

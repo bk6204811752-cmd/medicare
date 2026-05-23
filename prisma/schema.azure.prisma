@@ -18,6 +18,7 @@ model Tenant {
   state           String?             @db.NVarChar(120)
   gstin           String?             @db.NVarChar(32)
   drugLicenseNo   String?             @db.NVarChar(64)
+  upiId           String?             @db.NVarChar(120)
   plan            String              @default("free") @db.NVarChar(32)
   isActive        Boolean             @default(true)
   approvalStatus  String              @default("approved") @db.NVarChar(32)

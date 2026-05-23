@@ -18,6 +18,7 @@ model Tenant {
   state           String?
   gstin           String?
   drugLicenseNo   String?
+  upiId           String?
   plan            String              @default("free")
   isActive        Boolean             @default(true)
   approvalStatus  String              @default("approved")

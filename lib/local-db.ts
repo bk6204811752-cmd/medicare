@@ -98,6 +98,7 @@ export type LocalTenant = {
   state: string | null;
   gstin: string | null;
   drugLicenseNo: string | null;
+  upiId: string | null;
   plan: string;
   isActive: boolean;
   approvalStatus: "pending" | "approved" | "rejected";
@@ -353,6 +354,7 @@ function mapTenant(tenant: Tenant): LocalTenant {
     id: tenant.id, name: tenant.name, slug: tenant.slug, ownerName: tenant.ownerName,
     phone: tenant.phone, email: tenant.email, city: tenant.city, state: tenant.state,
     gstin: tenant.gstin, drugLicenseNo: tenant.drugLicenseNo, plan: tenant.plan,
+    upiId: tenant.upiId ?? null,
     isActive: tenant.isActive,
     approvalStatus: tenant.approvalStatus as LocalTenant["approvalStatus"]
   };

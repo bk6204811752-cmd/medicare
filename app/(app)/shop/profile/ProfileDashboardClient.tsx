@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { User as UserIcon, Lock, ShieldCheck, Mail, Phone, Calendar, Store, CheckCircle, AlertTriangle, UserCheck, Key, ShieldAlert } from "lucide-react";
-import { updateProfile, updatePassword } from "./actions";
+import { updateProfile, updatePassword, updateShopProfile } from "./actions";
 import type { LocalUser } from "@/lib/local-db";
 
 type ProfileDashboardClientProps = {
@@ -11,13 +11,22 @@ type ProfileDashboardClientProps = {
 };
 
 export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientProps) {
-  const [activeTab, setActiveTab] = useState<"details" | "security">("details");
+  const canEditShop = user.role === "shop_admin" || user.role === "super_admin";
+  const [activeTab, setActiveTab] = useState<"details" | "shop" | "security">("details");
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
 
   // Profile Form States
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone || "");
+
+  // Shop Profile States
+  const [shopName, setShopName] = useState(tenant.name || "");
+  const [ownerName, setOwnerName] = useState(tenant.ownerName || "");
+  const [shopPhone, setShopPhone] = useState(tenant.phone || "");
+  const [gstin, setGstin] = useState(tenant.gstin || "");
+  const [drugLicenseNo, setDrugLicenseNo] = useState(tenant.drugLicenseNo || "");
+  const [upiId, setUpiId] = useState(tenant.upiId || "");
 
   // Password Form States
   const [currentPassword, setCurrentPassword] = useState("");
@@ -43,6 +52,43 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
         setMessage({ type: "error", text: res.error });
       } else {
         setMessage({ type: "success", text: res.message || "Profile details updated successfully!" });
+      }
+    });
+  };
+
+  const handleUpdateShopProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage({ type: null, text: "" });
+
+    if (!shopName.trim()) {
+      setMessage({ type: "error", text: "Shop Name is required." });
+      return;
+    }
+    if (!shopPhone.trim()) {
+      setMessage({ type: "error", text: "Shop Contact Phone is required." });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("shopName", shopName);
+    formData.append("ownerName", ownerName);
+    formData.append("phone", shopPhone);
+    formData.append("gstin", gstin);
+    formData.append("drugLicenseNo", drugLicenseNo);
+    formData.append("upiId", upiId);
+
+    startTransition(async () => {
+      const res = await updateShopProfile(formData);
+      if (res.error) {
+        setMessage({ type: "error", text: res.error });
+      } else {
+        setMessage({ type: "success", text: res.message || "Pharmacy details updated successfully!" });
+        tenant.name = shopName;
+        tenant.ownerName = ownerName;
+        tenant.phone = shopPhone;
+        tenant.gstin = gstin;
+        tenant.drugLicenseNo = drugLicenseNo;
+        tenant.upiId = upiId;
       }
     });
   };
@@ -153,6 +199,16 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Registered Name</span>
                 <p className="font-bold text-slate-800 text-sm">{tenant.name}</p>
               </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Shop Contact Phone</span>
+                <p className="font-bold text-slate-700 font-mono">{tenant.phone || "N/A"}</p>
+              </div>
+              {tenant.upiId && (
+                <div className="space-y-0.5">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Merchant UPI ID (Scan to Pay)</span>
+                  <p className="font-bold text-med-green font-mono">{tenant.upiId}</p>
+                </div>
+              )}
               {tenant.ownerName && (
                 <div className="space-y-0.5">
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Owner / Promoter</span>
@@ -188,7 +244,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
       <div className="lg:col-span-2 space-y-6">
         
         {/* Modern Tab Selector Buttons */}
-        <div className="flex border-b border-slate-200">
+        <div className="flex border-b border-slate-200 flex-wrap">
           <button
             onClick={() => { setActiveTab("details"); setMessage({ type: null, text: "" }); }}
             className={`flex items-center gap-2 border-b-2 px-5 py-3.5 text-sm font-semibold transition-all ${
@@ -199,6 +255,20 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
           >
             <UserIcon className="h-4 w-4" /> Personal Details
           </button>
+
+          {canEditShop && (
+            <button
+              onClick={() => { setActiveTab("shop"); setMessage({ type: null, text: "" }); }}
+              className={`flex items-center gap-2 border-b-2 px-5 py-3.5 text-sm font-semibold transition-all ${
+                activeTab === "shop"
+                  ? "border-med-green text-med-green font-bold"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              <Store className="h-4 w-4" /> Pharmacy Settings
+            </button>
+          )}
+
           <button
             onClick={() => { setActiveTab("security"); setMessage({ type: null, text: "" }); }}
             className={`flex items-center gap-2 border-b-2 px-5 py-3.5 text-sm font-semibold transition-all ${
@@ -297,7 +367,110 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
           </form>
         )}
 
-        {/* TAB 2: Change Password / Account Security Form */}
+        {/* TAB 2: Edit Pharmacy details Form */}
+        {activeTab === "shop" && canEditShop && (
+          <form onSubmit={handleUpdateShopProfile} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5 animate-fade-in">
+            <h3 className="font-display font-bold text-med-navy text-base flex items-center gap-2 border-b border-slate-100 pb-3">
+              <Store className="h-5 w-5 text-med-green" />
+              <span>Update Pharmacy Settings</span>
+            </h3>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pharmacy Shop Name</label>
+                <input
+                  type="text"
+                  value={shopName}
+                  onChange={(e) => setShopName(e.target.value)}
+                  placeholder="Enter pharmacy name"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                  disabled={isPending}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Owner / Promoter Name</label>
+                <input
+                  type="text"
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="Owner's full name"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                  disabled={isPending}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Shop Contact Phone (Shopkeeper Mobile)</label>
+                <input
+                  type="text"
+                  value={shopPhone}
+                  onChange={(e) => setShopPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="10-digit mobile number"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono"
+                  disabled={isPending}
+                  required
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Merchant UPI ID (For Scan to Pay QR)</label>
+                <input
+                  type="text"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value.trim().toLowerCase())}
+                  placeholder="example@okaxis, shop@upi"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-305 text-sm font-bold text-med-navy bg-slate-50/50 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono placeholder-slate-400"
+                  disabled={isPending}
+                />
+                <p className="text-[10px] text-slate-400">
+                  Customers scan the A4 or Thermal bill QR code to pay this UPI ID directly.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">GSTIN Number</label>
+                <input
+                  type="text"
+                  value={gstin}
+                  onChange={(e) => setGstin(e.target.value.toUpperCase())}
+                  placeholder="15-digit GSTIN"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono"
+                  disabled={isPending}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Drug License Number</label>
+                <input
+                  type="text"
+                  value={drugLicenseNo}
+                  onChange={(e) => setDrugLicenseNo(e.target.value.toUpperCase())}
+                  placeholder="DL No."
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono"
+                  disabled={isPending}
+                />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4 flex justify-end">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-med-green px-5 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-colors shadow-sm disabled:opacity-50"
+              >
+                Save Pharmacy Settings
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* TAB 3: Change Password / Account Security Form */}
         {activeTab === "security" && (
           <form onSubmit={handleUpdatePassword} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5 animate-fade-in">
             <h3 className="font-display font-bold text-med-navy text-base flex items-center gap-2 border-b border-slate-100 pb-3">

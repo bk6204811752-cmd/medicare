@@ -10,6 +10,7 @@ type AddMedicineFormProps = {
   prefillBarcode?: string;
   prefillName?: string;
   mode?: "standalone" | "inline";
+  showInventoryFields?: boolean;
 };
 
 const GST_OPTIONS = [0, 5, 12, 18] as const;
@@ -169,9 +170,9 @@ const _searchIndex = COMMON_MEDICINES.map(m => ({
   _search: `${m.name} ${m.generic} ${m.category} ${m.form}`.toLowerCase(),
 }));
 
-export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", prefillName = "", mode = "standalone" }: AddMedicineFormProps) {
+export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", prefillName = "", mode = "standalone", showInventoryFields = true }: AddMedicineFormProps) {
   const [saving, setSaving] = useState(false);
-  const [showInventory, setShowInventory] = useState(mode === "inline");
+  const [showInventory, setShowInventory] = useState(mode === "inline" && showInventoryFields);
   const [nameValue, setNameValue] = useState(prefillName);
   const [nameSuggestions, setNameSuggestions] = useState<typeof COMMON_MEDICINES>([]);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
@@ -387,7 +388,7 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
       </div>
 
       {/* Inventory Section (toggle for standalone, always show for inline) */}
-      {!isInline && (
+      {showInventoryFields && !isInline && (
         <button
           type="button"
           onClick={() => setShowInventory(!showInventory)}
@@ -397,7 +398,7 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
         </button>
       )}
 
-      {showInventory && (
+      {showInventory && showInventoryFields && (
         <div className={`mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 ${isInline ? "border-blue-100" : ""}`}>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
             Stock / Inventory Details {isInline ? "(Required)" : "(Optional)"}

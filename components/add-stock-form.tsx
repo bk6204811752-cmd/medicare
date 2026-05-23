@@ -173,105 +173,129 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   return (
     <div className="space-y-4">
       <form action={submit} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2">
-        {/* Searchable Medicine Combobox */}
-        <div className="space-y-2 md:col-span-2" ref={dropdownRef}>
-          <span className="text-sm font-medium text-slate-600">Medicine *</span>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              ref={inputRef}
-              type="text"
-              className="h-11 w-full rounded-md border border-slate-300 pl-9 pr-16 outline-none transition-shadow focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm"
-              placeholder="Search or enter medicine name..."
-              value={medicineSearch}
-              onChange={(e) => {
-                setMedicineSearch(e.target.value);
-                setShowDropdown(true);
-                if (!e.target.value.trim()) setMedicineId("");
-              }}
-              onFocus={() => setShowDropdown(true)}
-            />
-            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
-              {medicineSearch && (
-                <button type="button" onClick={clearSelection} className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-              <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
-            </div>
-          </div>
+        {/* Searchable Medicine Combobox OR Detailed Master Entry Form */}
+        <div className="space-y-2 md:col-span-2">
+          <span className="text-sm font-medium text-slate-600 font-semibold">Medicine *</span>
 
-          {/* Dropdown suggestions */}
-          {showDropdown && (
-            <div className="relative z-10 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-              {filteredMedicines.length === 0 ? (
-                <div className="px-4 py-3 text-center text-xs text-slate-400">No matching medicines found</div>
-              ) : (
-                filteredMedicines.slice(0, 50).map((m) => (
+          {!showAddMedicine ? (
+            <div className="relative" ref={dropdownRef}>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="h-11 w-full rounded-md border border-slate-300 pl-9 pr-16 outline-none transition-shadow focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm"
+                  placeholder="Search or enter medicine name..."
+                  value={medicineSearch}
+                  onChange={(e) => {
+                    setMedicineSearch(e.target.value);
+                    setShowDropdown(true);
+                    if (!e.target.value.trim()) setMedicineId("");
+                  }}
+                  onFocus={() => setShowDropdown(true)}
+                />
+                <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+                  {medicineSearch && (
+                    <button type="button" onClick={clearSelection} className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                  <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${showDropdown ? "rotate-180" : ""}`} />
+                </div>
+              </div>
+
+              {/* Dropdown suggestions */}
+              {showDropdown && (
+                <div className="absolute left-0 right-0 z-20 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                  {filteredMedicines.length === 0 ? (
+                    <div className="px-4 py-3 text-center text-xs text-slate-400">No matching medicines found</div>
+                  ) : (
+                    filteredMedicines.slice(0, 50).map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          selectMedicine(m);
+                        }}
+                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-med-greenSoft ${m.id === medicineId ? "bg-med-greenSoft" : ""}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-med-navy">{m.name}</p>
+                          {m.genericName && <p className="truncate text-xs text-slate-500">{m.genericName}</p>}
+                        </div>
+                        {m.mrpPaisa ? <span className="shrink-0 text-xs text-slate-400 font-medium">₹{(m.mrpPaisa / 100).toFixed(2)}</span> : null}
+                      </button>
+                    ))
+                  )}
+                  
+                  {/* On-the-fly Medicine Creation Trigger */}
+                  {medicineSearch.trim() && !localMedicines.some(m => m.name.toLowerCase() === medicineSearch.trim().toLowerCase()) && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setMedicineId("new");
+                        setShowDropdown(false);
+                      }}
+                      className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-3 text-left text-sm font-semibold text-amber-600 bg-amber-50/40 transition-colors hover:bg-amber-50"
+                    >
+                      <Sparkles className="h-4 w-4 shrink-0" /> Add &quot;{medicineSearch}&quot; as new medicine (Auto-create on save)
+                    </button>
+                  )}
+
+                  {/* Add New Medicine button (Full form inline) */}
                   <button
-                    key={m.id}
                     type="button"
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      selectMedicine(m);
+                      setShowDropdown(false);
+                      setShowAddMedicine(true);
                     }}
-                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-med-greenSoft ${m.id === medicineId ? "bg-med-greenSoft" : ""}`}
+                    className="flex w-full items-center gap-2 border-t border-slate-105 px-4 py-3 text-left text-sm font-bold text-med-green transition-colors hover:bg-med-greenSoft"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-med-navy">{m.name}</p>
-                      {m.genericName && <p className="truncate text-xs text-slate-500">{m.genericName}</p>}
-                    </div>
-                    {m.mrpPaisa ? <span className="shrink-0 text-xs text-slate-400 font-medium">₹{(m.mrpPaisa / 100).toFixed(2)}</span> : null}
+                    <Plus className="h-4 w-4 shrink-0" /> Fill detailed new medicine form
                   </button>
-                ))
+                </div>
               )}
-              
-              {/* On-the-fly Medicine Creation Trigger */}
-              {medicineSearch.trim() && !localMedicines.some(m => m.name.toLowerCase() === medicineSearch.trim().toLowerCase()) && (
+
+              {/* Selected badge */}
+              {medicineId && (
+                <div className={`mt-2 flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${
+                  medicineId === "new" ? "bg-amber-50 border border-amber-200 text-amber-850" : "bg-med-greenSoft text-med-navy"
+                }`}>
+                  <span className="font-bold">
+                    {medicineId === "new" ? "New Medicine (Auto-create on save):" : "Selected:"}
+                  </span>
+                  <span>{medicineId === "new" ? medicineSearch : selected?.name}</span>
+                  {selected?.genericName && <span className="text-slate-500">({selected.genericName})</span>}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-blue-300 bg-blue-50/10 p-4 animate-in fade-in duration-200">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-blue-900">Add New Medicine to Master List</span>
                 <button
                   type="button"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    setMedicineId("new");
-                    setShowDropdown(false);
-                  }}
-                  className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-3 text-left text-sm font-semibold text-amber-600 bg-amber-50/40 transition-colors hover:bg-amber-50"
+                  onClick={() => setShowAddMedicine(false)}
+                  className="rounded-full p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600"
                 >
-                  <Sparkles className="h-4 w-4 shrink-0" /> Add &quot;{medicineSearch}&quot; as new medicine
+                  <X className="h-4.5 w-4.5" />
                 </button>
-              )}
-
-              {/* Add New Medicine button (Full form inline) */}
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setShowDropdown(false);
-                  setShowAddMedicine(true);
-                }}
-                className="flex w-full items-center gap-2 border-t border-slate-105 px-4 py-3 text-left text-sm font-bold text-med-green transition-colors hover:bg-med-greenSoft"
-              >
-                <Plus className="h-4 w-4 shrink-0" /> Fill detailed new medicine form
-              </button>
-            </div>
-          )}
-
-          {/* Selected badge */}
-          {medicineId && (
-            <div className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${
-              medicineId === "new" ? "bg-amber-50 border border-amber-200 text-amber-800" : "bg-med-greenSoft text-med-navy"
-            }`}>
-              <span className="font-bold">
-                {medicineId === "new" ? "New Medicine (Auto-create on save):" : "Selected:"}
-              </span>
-              <span>{medicineId === "new" ? medicineSearch : selected?.name}</span>
-              {selected?.genericName && <span className="text-slate-500">({selected.genericName})</span>}
+              </div>
+              <AddMedicineForm
+                mode="inline"
+                showInventoryFields={false}
+                onSuccess={handleAddMedicineSuccess}
+                onCancel={() => setShowAddMedicine(false)}
+              />
             </div>
           )}
         </div>
 
         <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-600">Supplier</span>
+          <span className="text-sm font-medium text-slate-600 font-semibold">Supplier</span>
           <select name="supplierId" className="h-11 w-full rounded-md border border-slate-300 px-3 text-sm">
             <option value="">No supplier</option>
             {suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
@@ -292,19 +316,6 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           {saving ? "Saving..." : "Save stock"}
         </button>
       </form>
-
-      {/* Inline Add Medicine Form */}
-      {showAddMedicine && (
-        <div className="rounded-lg border border-dashed border-med-green bg-med-greenSoft/20 p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="font-display text-lg font-semibold text-med-navy">Add New Medicine</h3>
-            <button type="button" onClick={() => setShowAddMedicine(false)} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-200">
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <AddMedicineForm mode="inline" onSuccess={handleAddMedicineSuccess} />
-        </div>
-      )}
     </div>
   );
 }

@@ -11,7 +11,11 @@ export async function setAuthSession(userId: string) {
   cookieStore.set(SESSION_COOKIE, sessionId, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Changed to false for local network/offline-first installations.
+    // Local pharmacy deployments run on HTTP IP addresses (e.g. http://192.168.x.x:3000).
+    // In production mode, secure: true causes mobile browsers to block the cookie,
+    // which breaks mobile authentication. Setting secure: false resolves this.
+    secure: false,
     path: "/",
     expires: new Date(expiresAt)
   });

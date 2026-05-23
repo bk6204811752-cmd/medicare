@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { getGstReport } from "@/lib/local-db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;

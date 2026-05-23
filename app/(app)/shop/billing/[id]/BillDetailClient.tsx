@@ -130,7 +130,7 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
           width: 100% !important;
           max-width: 100% !important;
           margin: 0 !important;
-          padding: 10mm !important;
+          padding: 8mm !important;
           border: none !important;
           box-shadow: none !important;
           background: #ffffff !important;
@@ -141,16 +141,28 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
           display: none !important;
         }
         
-        /* Make table headers and cells compact on print to fit 1 page */
+        /* Make table headers and cells compact on print to fit 1 page and prevent horizontal cutoff */
+        .a4-print-container .overflow-x-auto {
+          overflow: visible !important;
+        }
+        .a4-print-container table {
+          min-width: 0 !important;
+          width: 100% !important;
+          table-layout: auto !important;
+        }
         .a4-print-container table th {
           padding-top: 4px !important;
           padding-bottom: 4px !important;
-          font-size: 11px !important;
+          padding-left: 2px !important;
+          padding-right: 2px !important;
+          font-size: 10px !important;
         }
         .a4-print-container table td {
           padding-top: 4px !important;
           padding-bottom: 4px !important;
-          font-size: 11px !important;
+          padding-left: 2px !important;
+          padding-right: 2px !important;
+          font-size: 10px !important;
         }
         tr {
           page-break-inside: avoid !important;
@@ -167,18 +179,28 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
           margin-top: 10px !important;
         }
         .a4-print-container .p-4 {
-          padding: 8px !important;
+          padding: 6px !important;
         }
         .a4-print-container .p-6 {
-          padding: 10px !important;
+          padding: 8px !important;
         }
-        /* Compress header banner */
+        /* Force banner contents to align in a single row without wrapping/stacking in print */
         .a4-print-container .bg-slate-900 {
-          margin-left: -10mm !important;
-          margin-right: -10mm !important;
-          margin-top: -10mm !important;
-          padding: 12px !important;
+          margin-left: -8mm !important;
+          margin-right: -8mm !important;
+          margin-top: -8mm !important;
+          padding: 10px !important;
           border-radius: 0 !important;
+          display: flex !important;
+          flex-direction: row !important;
+          justify-content: space-between !important;
+          align-items: center !important;
+        }
+        /* Force Grid layout cells (Customer block, Totals summary, Footer columns) to stay side-by-side */
+        .a4-print-container .grid {
+          display: grid !important;
+          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          gap: 12px !important;
         }
         /* Reduce signature blank height */
         .a4-print-container .h-10 {

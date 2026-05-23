@@ -192,10 +192,10 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
         {/* User */}
         <div className="border-t border-slate-100 p-3">
           {!collapsed && (
-            <div className="mb-2 px-2">
-              <p className="text-sm font-semibold text-med-navy truncate">{user.name}</p>
-              <p className="text-xs text-slate-500 truncate">{user.tenantName || user.email}</p>
-            </div>
+            <Link href="/shop/profile" className="mb-2 block px-2 group">
+              <p className="text-sm font-semibold text-med-navy truncate group-hover:text-med-green transition-colors">{user.name}</p>
+              <p className="text-xs text-slate-500 truncate group-hover:text-slate-700 transition-colors">{user.tenantName || user.email}</p>
+            </Link>
           )}
           <form action={logoutAction}>
             <button type="submit" className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors ${collapsed ? "justify-center" : ""}`}>
@@ -223,7 +223,7 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
                 {notifCount > 0 && <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center px-1">{notifCount}</span>}
               </Link>
             )}
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-med-green text-white text-sm font-bold">{user.name.charAt(0)}</div>
+            <Link href="/shop/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-med-green text-white text-sm font-bold hover:bg-med-greenDark transition-colors shadow-sm" title="View Profile">{user.name.charAt(0)}</Link>
           </div>
         </header>
 

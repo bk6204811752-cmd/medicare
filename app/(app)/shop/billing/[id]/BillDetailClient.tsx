@@ -33,8 +33,117 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
   });
   const gstBreakdownList = Array.from(gstBreakdownMap.entries()).sort((a, b) => a[0] - b[0]);
 
+  const printStyles = printFormat === "thermal"
+    ? `
+      @media print {
+        @page {
+          size: 80mm auto;
+          margin: 0;
+        }
+        html, body {
+          width: 80mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+        .flex.h-screen {
+          height: auto !important;
+          overflow: visible !important;
+          display: block !important;
+        }
+        .flex-1.flex-col {
+          height: auto !important;
+          overflow: visible !important;
+          display: block !important;
+        }
+        main {
+          height: auto !important;
+          overflow: visible !important;
+          display: block !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        .no-print,
+        aside,
+        header,
+        nav,
+        footer,
+        button {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        .thermal-print-container {
+          display: block !important;
+          width: 80mm !important;
+          max-width: 80mm !important;
+          margin: 0 auto !important;
+          padding: 4mm !important;
+          border: none !important;
+          box-shadow: none !important;
+          background: #ffffff !important;
+        }
+        .a4-print-container {
+          display: none !important;
+        }
+      }
+    `
+    : `
+      @media print {
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        html, body {
+          width: 210mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #ffffff !important;
+        }
+        .flex.h-screen {
+          height: auto !important;
+          overflow: visible !important;
+          display: block !important;
+        }
+        .flex-1.flex-col {
+          height: auto !important;
+          overflow: visible !important;
+          display: block !important;
+        }
+        main {
+          height: auto !important;
+          overflow: visible !important;
+          display: block !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        .no-print,
+        aside,
+        header,
+        nav,
+        footer,
+        button {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        .a4-print-container {
+          display: block !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 15mm !important;
+          border: none !important;
+          box-shadow: none !important;
+          background: #ffffff !important;
+        }
+        .thermal-print-container {
+          display: none !important;
+        }
+      }
+    `;
+
   return (
     <div className="space-y-6 print:space-y-0 print:p-0">
+      <style dangerouslySetInnerHTML={{ __html: printStyles }} />
       
       {/* Top Action Toolbar (Hidden when printing) */}
       <div className="no-print">
@@ -100,7 +209,7 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
       {/* Render active template */}
       {printFormat === "a4" ? (
         /* ==================== A4 TAX INVOICE FORMAT ==================== */
-        <section className="mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none font-sans animate-fade-in">
+        <section className="a4-print-container mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none font-sans animate-fade-in">
           {/* Header Banner */}
           <div className="bg-slate-900 text-white p-6 rounded-t-xl -mx-6 -mt-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 print:bg-slate-900 print:text-white print:rounded-t-none">
             <div>
@@ -271,7 +380,7 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
         </section>
       ) : (
         /* ==================== THERMAL ROLL INVOICE FORMAT ==================== */
-        <section className="mx-auto w-[80mm] max-w-[80mm] p-4 bg-white text-xs border border-dashed border-slate-300 font-mono tracking-tight text-slate-800 rounded-lg shadow-sm print:border-0 print:p-0 print:shadow-none print:w-[80mm] print:mx-0 animate-fade-in">
+        <section className="thermal-print-container mx-auto w-[80mm] max-w-[80mm] p-4 bg-white text-xs border border-dashed border-slate-300 font-mono tracking-tight text-slate-800 rounded-lg shadow-sm print:border-0 print:p-0 print:shadow-none print:w-[80mm] print:mx-0 animate-fade-in">
           {/* Header Store */}
           <div className="text-center space-y-1 mb-3">
             <h2 className="font-bold text-sm text-slate-900 uppercase tracking-wide">{tenant.name}</h2>

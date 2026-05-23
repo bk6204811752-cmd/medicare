@@ -156,7 +156,7 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
       {mobileOpen && <div className="fixed inset-0 z-40 bg-black/30 lg:hidden" onClick={closeMobile} />}
 
       {/* Sidebar */}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-300 lg:relative
+      <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col bg-white border-r border-slate-200 transition-all duration-300 lg:relative no-print
         ${collapsed ? "w-[68px]" : "w-64"} ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-slate-100 px-4">
@@ -235,7 +235,7 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
 
       {/* Mobile bottom nav */}
       {!isAdmin && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden h-16">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden h-16 no-print">
           {[
             { label: "Dashboard", href: "/shop/dashboard", icon: <Home className="h-5 w-5" /> },
             { label: "Billing", href: "/shop/billing", icon: <ShoppingCart className="h-5 w-5" /> },

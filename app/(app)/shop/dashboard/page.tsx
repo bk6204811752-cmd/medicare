@@ -71,15 +71,24 @@ export default function ShopDashboard() {
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" description="Your pharmacy at a glance" action={
-        <Link href="/shop/billing" className="inline-flex items-center gap-2 rounded-lg bg-med-green px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-med-greenDark transition-colors">
-          <Plus className="h-4 w-4" /> New Bill
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/shop/billing/history" className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95 transition-all">
+            <Clock className="h-4 w-4 text-slate-500" /> Bill History
+          </Link>
+          <Link href="/shop/billing" className="inline-flex items-center gap-2 rounded-lg bg-med-green px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all">
+            <Plus className="h-4 w-4" /> New Bill
+          </Link>
+        </div>
       } />
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Today's Sales" value={formatCurrency(summary?.todaySalesPaisa ?? 0)} hint={`${summary?.todayBills ?? 0} bills today`} icon={IndianRupee} tone="green" />
-        <StatCard title="Total Revenue" value={formatCurrency(summary?.totalPaisa ?? 0)} hint={`${summary?.bills ?? 0} total invoices`} icon={TrendingUp} tone="blue" />
+        <Link href="/shop/billing/history" className="block transition-transform hover:scale-[1.01]">
+          <StatCard title="Today's Sales" value={formatCurrency(summary?.todaySalesPaisa ?? 0)} hint={`${summary?.todayBills ?? 0} bills today`} icon={IndianRupee} tone="green" />
+        </Link>
+        <Link href="/shop/billing/history" className="block transition-transform hover:scale-[1.01]">
+          <StatCard title="Total Revenue" value={formatCurrency(summary?.totalPaisa ?? 0)} hint={`${summary?.bills ?? 0} total invoices`} icon={TrendingUp} tone="blue" />
+        </Link>
         <StatCard title="GST Collected" value={formatCurrency(summary?.todayGstPaisa ?? 0)} hint="Today's GST" icon={BarChart3} tone="purple" />
         <StatCard title="Credit Outstanding" value={formatCurrency(summary?.duePaisa ?? 0)} hint="Pending collections" icon={Clock} tone="orange" />
       </div>

@@ -6,10 +6,9 @@ import { toast } from "sonner";
 import { 
   ChevronDown, Plus, Search, Sparkles, X, 
   Camera, Upload, RefreshCw, CheckCircle2, 
-  AlertCircle, FileText, Info, HelpCircle
+  AlertCircle, FileText, Info, HelpCircle, Clipboard
 } from "lucide-react";
 import { AddMedicineForm } from "@/components/add-medicine-form";
-import Tesseract from "tesseract.js";
 
 type SelectItem = {
   id: string;
@@ -246,6 +245,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const [ocrProgress, setOcrProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState("");
 
+  // Manual Paste Fallback Modal States
+  const [showPasteModal, setShowPasteModal] = useState(false);
+  const [pastedText, setPastedText] = useState("");
+
   // Confirmation editor States
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [scannedData, setScannedData] = useState<{
@@ -319,7 +322,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     toast.success(`Medicine "${med.name}" created and selected`);
   }
 
-  // Camera Capture Trigger Functions
+  // Camera Capture Trigger Functions with Bulletproof Constraint Fallbacks
   const startCamera = async () => {
     setImagePreview(null);
     setOcrLoading(false);
@@ -327,18 +330,30 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     setLoadingStep("");
     
     try {
-      const constraints = {
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let stream: MediaStream;
+      try {
+        // Try ideal high-res constraints first
+        const constraints = {
+          video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (err) {
+        console.warn("High-res constraints failed, falling back to simple video constraint", err);
+        // Fallback to simple environment constraint
+        const constraints = {
+          video: { facingMode: "environment" }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      }
+      
       setCameraStream(stream);
       setCameraActive(true);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.error("Camera access failed", err);
-      toast.error("Could not access camera. Please allow permissions or upload an invoice file.");
+      console.error("Camera access failed completely", err);
+      toast.error("Could not access camera. Please allow permissions or upload an image file.");
       setCameraActive(false);
     }
   };
@@ -393,13 +408,16 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     }
   };
 
-  // Run Tesseract Wasm OCR Client-Side
+  // Run Tesseract OCR with Dynamic Imports to bypass SSR pre-rendering crashes
   const runOCR = async (imageSrc: string) => {
     setOcrLoading(true);
     setLoadingStep("🤖 Starting local OCR engine (WebAssembly)...");
     setOcrProgress(5);
     
     try {
+      // Dynamic import prevents server-side Next.js execution errors
+      const Tesseract = (await import("tesseract.js")).default;
+      
       const result = await Tesseract.recognize(
         imageSrc,
         "eng",
@@ -439,6 +457,21 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       toast.error("Local OCR failed. Please check image clarity and try again.");
       setOcrLoading(false);
     }
+  };
+
+  const handlePasteSubmit = () => {
+    if (!pastedText.trim()) {
+      toast.error("Please paste some text first.");
+      return;
+    }
+    
+    setImagePreview(null); // No preview since it was text pasting
+    const parsed = parseInvoiceText(pastedText, localMedicines);
+    setScannedData(parsed);
+    setShowPasteModal(false);
+    setShowConfirmModal(true);
+    setPastedText("");
+    toast.success("Text parsed successfully!");
   };
 
   const handleConfirmScanned = () => {
@@ -565,18 +598,18 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   return (
     <div className="space-y-4">
       {/* Dynamic scan-trigger banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-emerald-100 bg-gradient-to-r from-emerald-50/50 to-teal-50/30 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-emerald-100 bg-gradient-to-r from-emerald-50/50 to-teal-50/30 shadow-sm animate-in slide-in-from-top-2 duration-300">
         <div className="space-y-1">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
             <Sparkles className="h-4.5 w-4.5 text-emerald-600 animate-pulse" />
             <span>Smart Invoice Capture</span>
           </h3>
           <p className="text-xs text-slate-500">
-            Stockist dawa lekar aaya hai? Tap below to scan the invoice. No APIs required — processes 100% locally!
+            Stockist dawa lekar aaya hai? Scan the invoice page with your camera, upload a photo, or paste raw text. Works 100% locally!
           </p>
         </div>
         
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={() => {
@@ -586,7 +619,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11"
           >
             <Camera className="h-4 w-4" />
-            <span>Scan with Camera</span>
+            <span>Scan Camera</span>
           </button>
           
           <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer shadow-sm min-h-11">
@@ -599,6 +632,15 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
               onChange={handleFileUpload} 
             />
           </label>
+
+          <button
+            type="button"
+            onClick={() => setShowPasteModal(true)}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-350 bg-slate-100/80 hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-sm min-h-11"
+          >
+            <Clipboard className="h-4 w-4 text-slate-550" />
+            <span>Paste Text (Fail-safe)</span>
+          </button>
         </div>
       </div>
 
@@ -911,6 +953,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                     ref={videoRef} 
                     autoPlay 
                     playsInline 
+                    muted 
                     className="w-full h-full object-cover" 
                   />
                   {/* Glowing viewport guidelines */}
@@ -950,14 +993,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
               {!cameraActive && !ocrLoading && (
                 <div className="flex flex-col items-center justify-center p-6 text-center space-y-3">
                   <Info className="h-12 w-12 text-slate-500" />
-                  <p className="text-sm text-slate-350">Camera initialization failed or file was uploaded</p>
-                  <button 
-                    type="button" 
-                    onClick={startCamera} 
-                    className="px-4 py-2 rounded-lg bg-slate-800 text-sm font-bold text-white hover:bg-slate-700"
-                  >
-                    Try Camera Again
-                  </button>
+                  <p className="text-sm text-slate-350 font-medium">Processing File Uploaded Snapshot</p>
                 </div>
               )}
             </div>
@@ -975,6 +1011,58 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL 3: Manual Text Pasting (Fail-Safe) ─── */}
+      {showPasteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Clipboard className="h-5 w-5 text-emerald-600" />
+                <h3 className="text-base font-bold text-slate-900">Paste Invoice Text</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowPasteModal(false)}
+                className="rounded-full p-1.5 text-slate-450 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 flex-1">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                If the camera scanner is blocked by your browser, or Tesseract core files cannot download due to local network limits, you can paste the raw invoice text below. The local regex parsing engine will still extract the fields automatically!
+              </p>
+              
+              <textarea
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                placeholder="Paste raw stock invoice bill text here..."
+                rows={8}
+                className="w-full rounded-lg border border-slate-300 p-3 text-xs outline-none focus:border-med-green focus:ring-1 focus:ring-med-green font-mono leading-relaxed"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowPasteModal(false)}
+                className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs min-h-10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handlePasteSubmit}
+                className="px-6 py-2 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs min-h-10 shadow-sm"
+              >
+                Parse & Review Details
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1007,11 +1095,11 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             {/* Split Screen Modal Body */}
             <div className="flex-1 overflow-y-auto p-6 grid gap-6 md:grid-cols-12 min-h-0">
               
-              {/* Left Side: Captured Invoice Image Preview */}
+              {/* Left Side: Captured Invoice Image Preview / Raw Text Info */}
               <div className="md:col-span-5 flex flex-col space-y-3">
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-slate-500" />
-                  <span>Scanned Image Document</span>
+                  <span>Scanned Document Source</span>
                 </span>
                 
                 <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative flex items-center justify-center min-h-[220px]">
@@ -1022,18 +1110,21 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                       className="max-h-[350px] object-contain rounded-lg shadow-sm" 
                     />
                   ) : (
-                    <div className="text-center p-4">
-                      <FileText className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                      <p className="text-xs text-slate-400">No snapshot preview</p>
+                    <div className="text-center p-6 space-y-2">
+                      <Clipboard className="h-10 w-10 text-emerald-600 mx-auto opacity-80" />
+                      <p className="text-xs font-bold text-slate-700">Text Paste Document Source</p>
+                      <p className="text-[10px] text-slate-400 max-w-[200px] leading-relaxed mx-auto">
+                        Details were extracted directly using the clipboard manual parser.
+                      </p>
                     </div>
                   )}
                   
                   {/* Scan Info Card overlay */}
                   <div className="absolute bottom-2 left-2 right-2 bg-slate-950/80 backdrop-blur-sm text-[10px] p-2 rounded-lg border border-slate-800 text-slate-300 space-y-0.5">
                     <p className="font-bold text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Scan Complete (Offline OCR Engine)
+                      <CheckCircle2 className="h-3 w-3" /> Parser Sync Succeeded (Local Environment)
                     </p>
-                    <p className="truncate opacity-75">Tesseract WebAssembly executed successfully.</p>
+                    <p className="truncate opacity-75">All regex rules evaluated locally.</p>
                   </div>
                 </div>
               </div>

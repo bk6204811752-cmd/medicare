@@ -43,7 +43,17 @@ function schemaSql() {
   try {
     const exists = await pool.request().query("SELECT OBJECT_ID(N'dbo.Tenant', N'U') AS tableId");
     if (exists.recordset[0]?.tableId) {
-      console.log("Azure SQL schema already exists. Skipping table creation.");
+      console.log("Azure SQL schema already exists. Checking for missing columns...");
+      const upiIdExists = await pool.request().query(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tenant' AND COLUMN_NAME = 'upiId'"
+      );
+      if (upiIdExists.recordset.length === 0) {
+        console.log("Adding upiId column to Tenant table...");
+        await pool.request().query("ALTER TABLE dbo.Tenant ADD upiId NVARCHAR(120) NULL");
+        console.log("upiId column added successfully.");
+      } else {
+        console.log("upiId column already exists.");
+      }
       return;
     }
 

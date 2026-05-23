@@ -27,7 +27,7 @@ export default function PurchasesPage() {
   const [supplierId, setSupplierId] = useState("");
   const [notes, setNotes] = useState("");
   const [expectedDate, setExpectedDate] = useState("");
-  const [items, setItems] = useState([{ medicineName: "", quantity: 1, ratePaisa: 0 }]);
+  const [items, setItems] = useState([{ medicineName: "", quantity: "" as any, ratePaisa: "" as any }]);
   const [saving, setSaving] = useState(false);
 
   const fetchData = () => {
@@ -42,24 +42,37 @@ export default function PurchasesPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const addItem = () => setItems((prev) => [...prev, { medicineName: "", quantity: 1, ratePaisa: 0 }]);
+  const addItem = () => setItems((prev) => [...prev, { medicineName: "", quantity: "" as any, ratePaisa: "" as any }]);
   const removeItem = (i: number) => setItems((prev) => prev.filter((_, idx) => idx !== i));
   const updateItem = (i: number, field: string, value: string | number) => setItems((prev) => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
 
   const handleSubmit = async () => {
     if (!supplierId) { toast.error("Select a supplier"); return; }
-    if (items.some((i) => !i.medicineName || i.quantity < 1 || i.ratePaisa < 1)) { toast.error("Fill all item fields"); return; }
+    if (items.some((i) => !i.medicineName || !i.quantity || !i.ratePaisa || Number(i.quantity) < 1 || Number(i.ratePaisa) <= 0)) {
+      toast.error("Fill all item fields with valid values");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/purchases", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ supplierId, notes, expectedDate: expectedDate || undefined, items: items.map((i) => ({ ...i, ratePaisa: Math.round(Number(i.ratePaisa) * 100) })) })
+        body: JSON.stringify({
+          supplierId,
+          notes,
+          expectedDate: expectedDate || undefined,
+          items: items.map((i) => ({
+            medicineName: i.medicineName,
+            quantity: Number(i.quantity),
+            ratePaisa: Math.round(Number(i.ratePaisa) * 100)
+          }))
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.success(`PO ${data.data?.poNumber ?? ""} created`);
       setShowForm(false);
-      setSupplierId(""); setNotes(""); setExpectedDate(""); setItems([{ medicineName: "", quantity: 1, ratePaisa: 0 }]);
+      setSupplierId(""); setNotes(""); setExpectedDate("");
+      setItems([{ medicineName: "", quantity: "" as any, ratePaisa: "" as any }]);
       fetchData();
     } catch (e) { toast.error((e as Error).message); }
     setSaving(false);
@@ -117,8 +130,8 @@ export default function PurchasesPage() {
               {items.map((item, i) => (
                 <div key={i} className="grid grid-cols-[1fr_80px_100px_32px] gap-2 items-end">
                   <input value={item.medicineName} onChange={(e) => updateItem(i, "medicineName", e.target.value)} placeholder="Medicine name" className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-med-green outline-none" />
-                  <input type="number" value={item.quantity} onChange={(e) => updateItem(i, "quantity", Number(e.target.value))} min={1} placeholder="Qty" className="h-10 rounded-md border border-slate-300 px-2 text-sm text-center focus:border-med-green outline-none" />
-                  <input type="number" value={item.ratePaisa || ""} onChange={(e) => updateItem(i, "ratePaisa", Number(e.target.value))} placeholder="Rate ₹" step="0.01" className="h-10 rounded-md border border-slate-300 px-2 text-sm focus:border-med-green outline-none" />
+                  <input type="number" value={item.quantity} onChange={(e) => updateItem(i, "quantity", e.target.value === "" ? "" : Number(e.target.value))} min={1} placeholder="Qty" className="h-10 rounded-md border border-slate-300 px-2 text-sm text-center focus:border-med-green outline-none" />
+                  <input type="number" value={item.ratePaisa} onChange={(e) => updateItem(i, "ratePaisa", e.target.value === "" ? "" : Number(e.target.value))} placeholder="Rate ₹" step="0.01" className="h-10 rounded-md border border-slate-300 px-2 text-sm focus:border-med-green outline-none" />
                   {items.length > 1 && <button onClick={() => removeItem(i)} className="h-10 rounded-md text-red-400 hover:bg-red-50 hover:text-red-600"><X className="h-4 w-4 mx-auto" /></button>}
                 </div>
               ))}

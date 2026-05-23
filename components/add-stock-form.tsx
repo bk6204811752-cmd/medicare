@@ -499,6 +499,20 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     }
   };
 
+  // Helper to sanitize price inputs (strips currency symbols, spaces, suffixes)
+  function sanitizePrice(value: string | number) {
+    const clean = String(value || "").replace(/[^0-9.]/g, "");
+    const num = Number(clean);
+    return isNaN(num) ? 0 : num;
+  }
+
+  // Helper to sanitize integer inputs (strips non-digits)
+  function sanitizeInt(value: string | number, defaultValue = 0) {
+    const clean = String(value || "").replace(/\D/g, "");
+    const num = Number(clean);
+    return isNaN(num) || clean === "" ? defaultValue : num;
+  }
+
   async function submit(formData: FormData) {
     if (!medicineId) {
       toast.error("Please select or enter a medicine first");
@@ -517,8 +531,12 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       }
 
       try {
-        const mrpValue = Math.round(Number(mrp || 0) * 100);
-        const gstRateValue = Number(gstRate || 12);
+        const mrpValue = Math.round(sanitizePrice(mrp) * 100);
+        let gstRateValue = sanitizeInt(gstRate, 12);
+        const validGstRates = [0, 5, 12, 18];
+        if (!validGstRates.includes(gstRateValue)) {
+          gstRateValue = 12; // Fallback
+        }
         const hsnCodeValue = String(hsnCode || "").trim();
 
         const response = await fetch("/api/medicines/create", {
@@ -556,20 +574,27 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       }
     }
 
+    // Validate and sanitize GST rate strictly to match Zod literals [0, 5, 12, 18]
+    let parsedGst = sanitizeInt(gstRate, 12);
+    const validGstRates = [0, 5, 12, 18];
+    if (!validGstRates.includes(parsedGst)) {
+      parsedGst = 12; // Fallback
+    }
+
     const payload = {
       medicineId: actualMedicineId,
       supplierId: String(supplierId),
-      batchNo: String(batchNo),
+      batchNo: String(batchNo).trim(),
       mfgDate: String(mfgDate),
       expiryDate: String(expiryDate),
-      purchaseRatePaisa: Math.round(Number(purchaseRate || 0) * 100),
-      mrpPaisa: Math.round(Number(mrp || 0) * 100),
-      saleRatePaisa: Math.round(Number(saleRate || 0) * 100),
-      gstRate: Number(gstRate || selected?.gstRate || 12),
-      hsnCode: String(hsnCode || selected?.hsnCode || ""),
-      quantity: Number(quantity || 0),
-      reorderLevel: Number(reorderLevel || 10),
-      rackLocation: String(rackLocation || "")
+      purchaseRatePaisa: Math.round(sanitizePrice(purchaseRate) * 100),
+      mrpPaisa: Math.round(sanitizePrice(mrp) * 100),
+      saleRatePaisa: Math.round(sanitizePrice(saleRate) * 100),
+      gstRate: parsedGst,
+      hsnCode: String(hsnCode || selected?.hsnCode || "").trim(),
+      quantity: sanitizeInt(quantity, 0),
+      reorderLevel: sanitizeInt(reorderLevel, 10),
+      rackLocation: String(rackLocation || "").trim()
     };
 
     try {

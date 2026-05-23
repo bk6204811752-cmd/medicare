@@ -11,9 +11,11 @@ try {
   } else {
     console.log("[build] Generating Prisma Client for SQLite...");
     execSync("npx prisma generate --schema=prisma/schema.prisma", { stdio: "inherit" });
+    console.log("[build] Synchronizing SQLite database schema...");
+    execSync("npx prisma db push --accept-data-loss", { stdio: "inherit" });
   }
 } catch (error) {
-  console.error("[build] Failed to generate Prisma Client:", error.message || error);
+  console.error("[build] Failed to generate Prisma Client / sync database:", error.message || error);
   process.exit(1);
 }
 

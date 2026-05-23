@@ -837,6 +837,36 @@ export async function addCustomer(tenantId: string, input: unknown) {
   return (await getCustomers(tenantId)).find((c) => c.id === customerId);
 }
 
+export async function getCustomerPurchases(tenantId: string, customerId: string) {
+  await ensureDefaultData();
+  const sales = await prisma.sale.findMany({
+    where: { tenantId, customerId },
+    include: {
+      items: {
+        select: {
+          medicineName: true,
+          quantity: true,
+          totalPaisa: true
+        }
+      }
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50
+  });
+  return sales.map((sale) => ({
+    id: sale.id,
+    invoiceNo: sale.invoiceNo,
+    date: sale.createdAt.toISOString().slice(0, 10),
+    items: sale.items.map((item) => ({
+      name: item.medicineName,
+      quantity: item.quantity,
+      totalPaisa: item.totalPaisa
+    })),
+    totalPaisa: sale.totalPaisa,
+    paymentMode: sale.paymentMode
+  }));
+}
+
 // ─── Add inventory (tenant-scoped) ───────────────────────────
 
 export async function addInventory(tenantId: string, input: unknown) {

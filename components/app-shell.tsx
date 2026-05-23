@@ -228,10 +228,42 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
         </header>
 
         {/* Content — removed animate-fade-in to prevent flicker on navigation */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-20 lg:p-6 lg:pb-6">
           {children}
         </main>
       </div>
+
+      {/* Mobile bottom nav */}
+      {!isAdmin && (
+        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden h-16">
+          {[
+            { label: "Dashboard", href: "/shop/dashboard", icon: <Home className="h-5 w-5" /> },
+            { label: "Billing", href: "/shop/billing", icon: <ShoppingCart className="h-5 w-5" /> },
+            { label: "Inventory", href: "/shop/inventory", icon: <Package className="h-5 w-5" /> },
+            { label: "Customers", href: "/shop/customers", icon: <Users className="h-5 w-5" /> },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-1 flex-col items-center justify-center h-full ${
+                pathname.startsWith(item.href)
+                  ? "text-med-green border-t-2 border-med-green"
+                  : "text-slate-400 border-t-2 border-transparent"
+              }`}
+            >
+              {item.icon}
+              <span className="text-[10px] mt-1">{item.label}</span>
+            </Link>
+          ))}
+          <button
+            onClick={openMobile}
+            className="flex flex-1 flex-col items-center justify-center h-full text-slate-400 border-t-2 border-transparent"
+          >
+            <Menu className="h-5 w-5" />
+            <span className="text-[10px] mt-1">More</span>
+          </button>
+        </nav>
+      )}
     </div>
   );
 }

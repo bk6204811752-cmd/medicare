@@ -9,6 +9,7 @@ export default async function AddInventoryPage() {
   const medicines = medicineRows.map((medicine) => ({
     id: String(medicine.id),
     name: String(medicine.name),
+    genericName: String(medicine.genericName ?? ""),
     gstRate: Number(medicine.gstRate),
     hsnCode: String(medicine.hsnCode ?? ""),
     mrpPaisa: Number(medicine.mrpPaisa)

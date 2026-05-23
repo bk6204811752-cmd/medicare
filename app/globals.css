@@ -130,3 +130,44 @@ a, button, input, select, textarea {
     background: white;
   }
 }
+
+/* ─── Mobile UX Enhancements ─── */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure minimum touch targets on mobile */
+@media (hover: none) and (pointer: coarse) {
+  button, a, select, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  input, textarea {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+}
+
+/* Mobile floating action bar for billing */
+.mobile-fab {
+  position: fixed;
+  bottom: calc(4rem + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .mobile-fab {
+    display: flex;
+  }
+}
+
+/* Hide mobile FAB on desktop */
+@media (hover: hover) {
+  .mobile-fab {
+    display: none !important;
+  }
+}

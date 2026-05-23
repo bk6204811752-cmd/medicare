@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CameraOff, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Trash2, AlertTriangle, Clock, Zap } from "lucide-react";
+import { Camera, CameraOff, ChevronDown, ChevronUp, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Trash2, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
 import type { SaleLine } from "@/lib/types";
@@ -64,7 +64,7 @@ export function BillingPos() {
   const [query, setQuery] = useState("");
   const [manualBarcode, setManualBarcode] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
-  const [customerName, setCustomerName] = useState("Walk-in Customer");
+  const [customerName, setCustomerName] = useState("");
   const [doctorName, setDoctorName] = useState("");
   const [prescriptionNo, setPrescriptionNo] = useState("");
   const [paymentMode, setPaymentMode] = useState("cash");
@@ -78,10 +78,16 @@ export function BillingPos() {
   const [addMedicinePrefill, setAddMedicinePrefill] = useState<{ barcode?: string; name?: string }>({});
   const [lastScanCode, setLastScanCode] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const brightnessIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanControlsRef = useRef<{ stop: () => void } | null>(null);
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const customerDropdownRef = useRef<HTMLDivElement | null>(null);
   const [searching, setSearching] = useState(false);
   const [scanCountdown, setScanCountdown] = useState(0);
   const scanCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -90,6 +96,16 @@ export function BillingPos() {
   const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const totals = useMemo(() => calculateBillTotals(lines), [lines]);
   const totalItems = lines.reduce((sum, l) => sum + l.quantity, 0);
+
+  // Filtered customer list for autocomplete dropdown
+  const filteredCustomers = useMemo(() => {
+    const q = (customerSearch || customerName || customerPhone).toLowerCase().trim();
+    if (!q) return customers.slice(0, 8);
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.phone?.includes(q)
+    ).slice(0, 8);
+  }, [customers, customerSearch, customerName, customerPhone]);
 
   // ─── Keyboard shortcuts + external USB barcode scanner detection ───
   useEffect(() => {
@@ -240,11 +256,17 @@ export function BillingPos() {
       clearTimeout(scanTimeoutRef.current);
       scanTimeoutRef.current = null;
     }
+    if (brightnessIntervalRef.current) {
+      clearInterval(brightnessIntervalRef.current);
+      brightnessIntervalRef.current = null;
+    }
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
     }
+    setTorchEnabled(false);
+    setTorchSupported(false);
   }
 
   function stopScanning() {
@@ -256,6 +278,48 @@ export function BillingPos() {
     setScanning(false);
     setScanStatus("");
     setScanCountdown(0);
+  }
+
+  // ─── Torch toggle helper ───
+  async function toggleTorch(forceState?: boolean) {
+    try {
+      const stream = videoRef.current?.srcObject as MediaStream | null;
+      const track = stream?.getVideoTracks()[0];
+      if (!track) return;
+      const newState = forceState ?? !torchEnabled;
+      await track.applyConstraints({ advanced: [{ torch: newState } as any] });
+      setTorchEnabled(newState);
+    } catch { /* torch not supported */ }
+  }
+
+  // ─── Brightness detection from video frame ───
+  function startBrightnessDetection() {
+    if (brightnessIntervalRef.current) clearInterval(brightnessIntervalRef.current);
+    brightnessIntervalRef.current = setInterval(() => {
+      if (!videoRef.current || !canvasRef.current) return;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (video.videoWidth === 0) return;
+      const w = 64, h = 48; // sample at low res for performance
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, w, h);
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const data = imageData.data;
+      let totalLuminance = 0;
+      const pixelCount = w * h;
+      for (let i = 0; i < data.length; i += 4) {
+        totalLuminance += data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      }
+      const avgLuminance = totalLuminance / pixelCount;
+      // Auto-enable torch in low light
+      if (avgLuminance < 50 && !torchEnabled && torchSupported) {
+        toggleTorch(true);
+        toast.info("🔦 Low light detected — flash enabled", { duration: 2000 });
+      }
+    }, 2500);
   }
 
   async function handleBarcodeResult(code: string) {
@@ -328,14 +392,21 @@ export function BillingPos() {
 
       scanControlsRef.current = controls;
 
-      // Try to enable torch/flashlight if available (helps in low light)
+      // Check torch capability and auto-detect brightness
       try {
         const stream = videoRef.current?.srcObject as MediaStream | null;
         const track = stream?.getVideoTracks()[0];
-        if (track && 'applyConstraints' in track) {
-          await track.applyConstraints({ advanced: [{ torch: true } as any] }).catch(() => {});
+        if (track) {
+          const capabilities = track.getCapabilities?.() as any;
+          if (capabilities?.torch) {
+            setTorchSupported(true);
+            // Start brightness detection — auto-enables torch in low light
+            startBrightnessDetection();
+          } else {
+            setTorchSupported(false);
+          }
         }
-      } catch { /* torch not supported, ignore */ }
+      } catch { setTorchSupported(false); }
 
       // Countdown timer
       scanCountdownRef.current = setInterval(() => {
@@ -434,7 +505,7 @@ export function BillingPos() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerName,
+          customerName: customerName.trim() || "Walk-in Customer",
           customerPhone,
           doctorName,
           prescriptionNo,
@@ -462,7 +533,7 @@ export function BillingPos() {
       });
       setLines([]);
       setQuery("");
-      setCustomerName("Walk-in Customer");
+      setCustomerName("");
       setCustomerPhone("");
       setDoctorName("");
       setPrescriptionNo("");
@@ -559,6 +630,11 @@ export function BillingPos() {
                   <p className="text-xs text-white/60">Hold steady • Ensure good lighting</p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {torchSupported && (
+                    <button onClick={() => toggleTorch()} className={`rounded-full p-1.5 transition-colors ${torchEnabled ? "bg-yellow-400 text-slate-900" : "bg-white/20 text-white hover:bg-white/30"}`} title={torchEnabled ? "Turn off flash" : "Turn on flash"}>
+                      {torchEnabled ? <FlashlightOff className="h-3.5 w-3.5" /> : <Flashlight className="h-3.5 w-3.5" />}
+                    </button>
+                  )}
                   <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-mono text-white">
                     <Clock className="h-3 w-3" /> {scanCountdown}s
                   </span>
@@ -573,6 +649,8 @@ export function BillingPos() {
 
         {/* Hidden video element for when not scanning (used as target by library) */}
         {!scanning && <video ref={videoRef} className="hidden" muted />}
+        {/* Hidden canvas for brightness detection */}
+        <canvas ref={canvasRef} className="hidden" />
 
         {/* ─── Manual Barcode Entry ─── */}
         {showManualBarcode && (
@@ -693,13 +771,13 @@ export function BillingPos() {
           </div>
         )}
 
-        {/* ─── Bill Items Table ─── */}
-        <div className="mt-4 overflow-x-auto">
+        {/* ─── Bill Items — Desktop Table ─── */}
+        <div className="mt-4 hidden md:block overflow-x-auto">
           <table className="w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr className="bg-slate-50 text-left text-slate-500">
                 {["Medicine", "Batch", "Qty", "Rate", "Disc%", "GST", "Amt", ""].map((head) => (
-                  <th key={head} className={`border-b border-slate-200 px-2 py-2.5 font-medium text-xs ${head === "Batch" ? "hidden md:table-cell" : ""}`}>{head}</th>
+                  <th key={head} className="border-b border-slate-200 px-2 py-2.5 font-medium text-xs">{head}</th>
                 ))}
               </tr>
             </thead>
@@ -715,12 +793,12 @@ export function BillingPos() {
                       )}
                       <span className="block text-[10px] text-slate-400 mt-0.5">MRP {formatCurrency(line.mrpPaisa)}</span>
                     </td>
-                    <td className="hidden md:table-cell px-2 py-2 font-mono text-[10px]">{line.batchNo}</td>
+                    <td className="px-2 py-2 font-mono text-[10px]">{line.batchNo}</td>
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-0.5">
-                        <button className="rounded border p-0.5" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(1, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
+                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(1, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
                         <input className="h-7 w-10 rounded border text-center text-xs" type="number" min={1} max={line.maxQuantity} value={line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: Number(event.target.value) || 1 })} />
-                        <button className="rounded border p-0.5" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3 w-3" /></button>
+                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3 w-3" /></button>
                       </div>
                       <p className="mt-0.5 text-[10px] text-slate-400">Avl {line.maxQuantity}</p>
                     </td>
@@ -742,30 +820,133 @@ export function BillingPos() {
               })}
             </tbody>
           </table>
-          {!lines.length && (
-            <div className="py-12 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-                <Search className="h-7 w-7 text-slate-400" />
-              </div>
-              <p className="font-medium text-slate-600">Search a medicine or scan a barcode to begin</p>
-              <p className="mt-1 text-sm text-slate-400">You can also use an external barcode scanner</p>
-              <div className="mx-auto mt-4 flex flex-wrap justify-center gap-2">
-                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F2 Search</kbd>
-                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F3 Camera</kbd>
-                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F4 Barcode</kbd>
-                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F8 Save</kbd>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* ─── Bill Items — Mobile Card Layout ─── */}
+        <div className="mt-4 space-y-3 md:hidden">
+          {lines.map((line, index) => {
+            const total = totals.lineTotals[index];
+            return (
+              <div key={line.inventoryId} className="relative rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                <button className="absolute right-2 top-2 rounded-full p-1.5 text-red-500 hover:bg-red-50" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <p className="pr-8 font-semibold text-sm text-med-navy">{line.medicineName}</p>
+                <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                  {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
+                    <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-700">{line.schedule}</span>
+                  )}
+                  <span>Batch {line.batchNo}</span>
+                  <span>MRP {formatCurrency(line.mrpPaisa)}</span>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div>
+                    <p className="text-[10px] font-medium text-slate-500 mb-1">Quantity</p>
+                    <div className="flex items-center gap-1">
+                      <button className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 active:bg-slate-100" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(1, line.quantity - 1) })}><Minus className="h-4 w-4" /></button>
+                      <input className="h-9 w-12 rounded-md border text-center text-sm" type="number" min={1} max={line.maxQuantity} value={line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: Number(event.target.value) || 1 })} />
+                      <button className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 active:bg-slate-100" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-4 w-4" /></button>
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-slate-400">Avl {line.maxQuantity}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-slate-500 mb-1">Rate (₹)</p>
+                    <input className="h-9 w-full rounded-md border px-2 text-sm" type="number" value={line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: Math.round(Number(event.target.value) * 100) })} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-slate-500 mb-1">Disc %</p>
+                    <input className="h-9 w-full rounded-md border px-2 text-sm" type="number" value={line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: Number(event.target.value) })} />
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+                  <span className="text-xs text-slate-500">GST {line.gstRate}%</span>
+                  <span className="text-sm font-bold text-med-navy">{formatCurrency(total.totalPaisa)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ─── Empty State ─── */}
+        {!lines.length && (
+          <div className="py-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+              <Search className="h-7 w-7 text-slate-400" />
+            </div>
+            <p className="font-medium text-slate-600">Search a medicine or scan a barcode to begin</p>
+            <p className="mt-1 text-sm text-slate-400">You can also use an external barcode scanner</p>
+            <div className="mx-auto mt-4 hidden md:flex flex-wrap justify-center gap-2">
+              <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F2 Search</kbd>
+              <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F3 Camera</kbd>
+              <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F4 Barcode</kbd>
+              <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F8 Save</kbd>
+            </div>
+            <p className="mt-3 text-xs text-slate-400 md:hidden">Use the toolbar below to search, scan, or type a barcode</p>
+          </div>
+        )}
       </section>
+
+      {/* ─── Mobile Floating Action Bar ─── */}
+      <div className="mobile-fab gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur-sm">
+        <button onClick={() => searchInputRef.current?.focus()} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-slate-600 active:bg-slate-100" aria-label="Search medicine">
+          <Search className="h-5 w-5" />
+          <span className="mt-0.5 text-[9px]">Search</span>
+        </button>
+        <button onClick={startScanning} className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl active:bg-slate-100 ${scanning ? "text-red-600" : "text-slate-600"}`} aria-label="Scan barcode">
+          {scanning ? <CameraOff className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
+          <span className="mt-0.5 text-[9px]">{scanning ? "Stop" : "Scan"}</span>
+        </button>
+        <button onClick={() => setShowManualBarcode(!showManualBarcode)} className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl active:bg-slate-100 ${showManualBarcode ? "text-blue-600" : "text-slate-600"}`} aria-label="Manual barcode">
+          <Keyboard className="h-5 w-5" />
+          <span className="mt-0.5 text-[9px]">Barcode</span>
+        </button>
+        <button onClick={saveBill} disabled={saving || !lines.length} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-med-green disabled:opacity-40 active:bg-med-greenSoft" aria-label="Save bill">
+          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+          <span className="mt-0.5 text-[9px]">{saving ? "..." : "Save"}</span>
+        </button>
+      </div>
 
       <aside className="space-y-4">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-display text-lg font-semibold text-med-navy">Customer</h2>
-          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3" placeholder="Customer name" value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
+          {/* Quick-select chips */}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => { setCustomerName("Walk-in Customer"); setCustomerPhone(""); setDoctorName(""); setShowCustomerDropdown(false); }} className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${customerName === "Walk-in Customer" ? "bg-med-green text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+              Walk-in Customer
+            </button>
+            <button type="button" onClick={() => { setCustomerName(""); setCustomerPhone(""); setDoctorName(""); searchInputRef.current?.focus(); }} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200">
+              <Plus className="mr-1 inline h-3 w-3" /> New
+            </button>
+          </div>
+          {/* Customer name with autocomplete dropdown */}
+          <div className="relative mt-3" ref={customerDropdownRef}>
+            <input
+              className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20"
+              placeholder="Customer name (optional)"
+              value={customerName}
+              onChange={(event) => { setCustomerName(event.target.value); setShowCustomerDropdown(true); setCustomerSearch(event.target.value); }}
+              onFocus={() => setShowCustomerDropdown(true)}
+            />
+            {showCustomerDropdown && filteredCustomers.length > 0 && customerName !== "Walk-in Customer" && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                {filteredCustomers.map((c) => (
+                  <button key={c.id} type="button" onClick={() => { setCustomerName(c.name); setCustomerPhone(c.phone ?? ""); setDoctorName(c.doctorName ?? ""); setShowCustomerDropdown(false); setCustomerSearch(""); }} className="flex w-full items-center gap-3 border-b border-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-med-greenSoft">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-med-green/10 text-xs font-bold text-med-green">
+                      {c.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-med-navy">{c.name}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        {c.phone || "No phone"}{c.doctorName ? ` • Dr. ${c.doctorName}` : ""}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <input
-            className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3"
+            className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20"
             placeholder="Phone (type to search)"
             value={customerPhone}
             onChange={(event) => {
@@ -778,24 +959,14 @@ export function BillingPos() {
                 if (match) {
                   setCustomerName(match.name);
                   setDoctorName(match.doctorName ?? "");
+                  setShowCustomerDropdown(false);
                   toast.success(`Customer: ${match.name}`, { duration: 2000 });
                 }
               }
             }}
           />
-          {/* Customer quick picks — searchable */}
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {customers
-              .filter(c => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone?.includes(customerSearch))
-              .slice(0, 4)
-              .map((customer) => (
-                <button key={customer.id} className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-med-greenSoft hover:text-med-navy" onClick={() => { setCustomerName(customer.name); setCustomerPhone(customer.phone ?? ""); setDoctorName(customer.doctorName ?? ""); setCustomerSearch(""); }}>
-                  {customer.name}{customer.phone ? ` • ${customer.phone.slice(-4)}` : ""}
-                </button>
-              ))}
-          </div>
-          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3" placeholder="Doctor name" value={doctorName} onChange={(event) => setDoctorName(event.target.value)} />
-          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3" placeholder="Prescription number" value={prescriptionNo} onChange={(event) => setPrescriptionNo(event.target.value)} />
+          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20" placeholder="Doctor name" value={doctorName} onChange={(event) => setDoctorName(event.target.value)} />
+          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20" placeholder="Prescription number" value={prescriptionNo} onChange={(event) => setPrescriptionNo(event.target.value)} />
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

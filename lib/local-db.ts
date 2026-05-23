@@ -808,6 +808,19 @@ export async function getCustomers(tenantId: string): Promise<LocalCustomer[]> {
   }));
 }
 
+export async function getCustomer(tenantId: string, customerId: string) {
+  await ensureDefaultData();
+  const c = await prisma.customer.findFirst({
+    where: { tenantId, id: customerId }
+  });
+  if (!c) return null;
+  return {
+    id: c.id, name: c.name, phone: c.phone, email: c.email,
+    address: c.address, doctorName: c.doctorName,
+    outstandingPaisa: c.outstandingPaisa, loyaltyPoints: c.loyaltyPoints
+  };
+}
+
 export async function addCustomer(tenantId: string, input: unknown) {
   const data = createCustomerSchema.parse(input);
   await ensureDefaultData();
@@ -842,28 +855,44 @@ export async function getCustomerPurchases(tenantId: string, customerId: string)
   const sales = await prisma.sale.findMany({
     where: { tenantId, customerId },
     include: {
-      items: {
-        select: {
-          medicineName: true,
-          quantity: true,
-          totalPaisa: true
-        }
-      }
+      items: true
     },
     orderBy: { createdAt: "desc" },
-    take: 50
+    take: 100
   });
   return sales.map((sale) => ({
     id: sale.id,
     invoiceNo: sale.invoiceNo,
     date: sale.createdAt.toISOString().slice(0, 10),
-    items: sale.items.map((item) => ({
-      name: item.medicineName,
-      quantity: item.quantity,
-      totalPaisa: item.totalPaisa
-    })),
+    createdAt: sale.createdAt.toISOString(),
     totalPaisa: sale.totalPaisa,
-    paymentMode: sale.paymentMode
+    paymentMode: sale.paymentMode,
+    subtotalPaisa: sale.subtotalPaisa,
+    discountPaisa: sale.discountPaisa,
+    taxablePaisa: sale.taxablePaisa,
+    cgstPaisa: sale.cgstPaisa,
+    sgstPaisa: sale.sgstPaisa,
+    igstPaisa: sale.igstPaisa,
+    gstPaisa: sale.gstPaisa,
+    roundOffPaisa: sale.roundOffPaisa,
+    amountPaidPaisa: sale.amountPaidPaisa,
+    amountDuePaisa: sale.amountDuePaisa,
+    status: sale.status,
+    items: sale.items.map((item) => ({
+      id: item.id,
+      medicine_name: item.medicineName,
+      batch_no: item.batchNo,
+      expiry_date: item.expiryDate.toISOString().slice(0, 10),
+      quantity: item.quantity,
+      mrp_paisa: item.mrpPaisa,
+      sale_rate_paisa: item.saleRatePaisa,
+      discount_percent: item.discountPercent,
+      discount_paisa: item.discountPaisa,
+      hsn_code: item.hsnCode || "N/A",
+      gst_rate: item.gstRate,
+      gst_paisa: item.gstPaisa,
+      total_paisa: item.totalPaisa
+    }))
   }));
 }
 

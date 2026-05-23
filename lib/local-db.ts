@@ -1696,6 +1696,20 @@ export async function quickAddMedicineWithStock(tenantId: string, input: unknown
   };
 }
 
+export async function getSalesWithItems(tenantId: string) {
+  await ensureDefaultData();
+  const sales = await prisma.sale.findMany({
+    where: { tenantId },
+    include: { items: true },
+    orderBy: { createdAt: "desc" },
+    take: 150
+  });
+  return sales.map(sale => ({
+    ...mapSaleRow(sale),
+    items: sale.items.map(mapSaleItemRow)
+  }));
+}
+
 // ─── CSV export ──────────────────────────────────────────────
 
 export function toCsv(rows: Record<string, unknown>[]) {

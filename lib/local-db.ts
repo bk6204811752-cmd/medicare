@@ -3,7 +3,7 @@ import { Prisma, type Medicine, type Sale, type SaleItem, type Supplier, type Te
 import { calculateBillTotals } from "@/lib/gst";
 import { prisma, withRetry } from "@/lib/prisma";
 import type { SaleLine } from "@/lib/types";
-import { createCustomerSchema, createInventorySchema, createSaleSchema, createSupplierSchema, stockAdjustmentSchema } from "@/lib/validators";
+import { createCustomerSchema, createInventorySchema, createMedicineSchema, createSaleSchema, createSupplierSchema, quickAddMedicineSchema, stockAdjustmentSchema } from "@/lib/validators";
 
 export const DEMO_TENANT_ID = "tenant-sharma";
 
@@ -688,22 +688,68 @@ export async function getInventoryRows(tenantId: string) {
 export async function searchInventory(tenantId: string, q: string) {
   const normalized = q.trim().toLowerCase();
   if (!normalized) return [];
-  // Note: ensureDefaultData() is intentionally skipped here because
-  // authenticateApiRequest → getCurrentUser → getUserBySession already calls it.
-  // This saves ~1-2ms per search request.
+
+  // Barcode exact-match fast path: if query looks like a barcode (8-13 digits), try exact match first
+  if (/^\d{8,13}$/.test(normalized)) {
+    const barcodeMatch = await prisma.inventoryItem.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        quantity: { gt: 0 },
+        medicine: { barcode: normalized },
+      },
+      include: { medicine: true, supplier: true },
+      orderBy: { expiryDate: "asc" },
+      take: 5,
+    });
+    if (barcodeMatch.length > 0) return barcodeMatch.map(mapInventory);
+  }
+
+  // Multi-word search: split query into tokens, build AND conditions
+  const tokens = normalized.split(/\s+/).filter(t => t.length >= 2);
+  if (tokens.length === 0) {
+    // Single short token fallback
+    const rows = await prisma.inventoryItem.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        OR: [
+          { medicine: { name: { contains: normalized } } },
+          { medicine: { genericName: { contains: normalized } } },
+          { medicine: { barcode: { contains: normalized } } },
+          { medicine: { category: { contains: normalized } } },
+          { batchNo: { contains: normalized } },
+        ],
+      },
+      include: { medicine: true, supplier: true },
+      orderBy: [{ quantity: "desc" }, { expiryDate: "asc" }],
+      take: 20,
+    });
+    return rows.map(mapInventory);
+  }
+
+  // Each token must match at least one field
+  const tokenConditions = tokens.map(token => ({
+    OR: [
+      { medicine: { name: { contains: token } } },
+      { medicine: { genericName: { contains: token } } },
+      { medicine: { manufacturer: { contains: token } } },
+      { medicine: { composition: { contains: token } } },
+      { medicine: { category: { contains: token } } },
+      { medicine: { barcode: { contains: token } } },
+      { batchNo: { contains: token } },
+    ],
+  }));
+
   const rows = await prisma.inventoryItem.findMany({
     where: {
       tenantId,
       isActive: true,
-      OR: [
-        { medicine: { name: { contains: normalized } } },
-        { medicine: { genericName: { contains: normalized } } },
-        { medicine: { barcode: { contains: normalized } } },
-        { batchNo: { contains: normalized } },
-      ],
+      AND: tokenConditions,
     },
     include: { medicine: true, supplier: true },
-    take: 8,
+    orderBy: [{ quantity: "desc" }, { expiryDate: "asc" }],
+    take: 20,
   });
   return rows.map(mapInventory);
 }
@@ -1474,6 +1520,150 @@ export async function getSlowMovingReport(tenantId: string) {
     const daysSinceLastSale = lastSale ? Math.floor((now.getTime() - lastSale.getTime()) / 86400000) : 999;
     return { ...row, lastSaleDate: lastSale ? iso(lastSale) : null, daysSinceLastSale };
   }).filter((r) => r.daysSinceLastSale > 30).sort((a, b) => b.daysSinceLastSale - a.daysSinceLastSale);
+}
+
+// ─── Medicine management ────────────────────────────────────
+
+export async function searchByBarcode(tenantId: string, barcode: string) {
+  await ensureDefaultData();
+  const normalized = barcode.trim();
+  if (!normalized) return [];
+  const rows = await prisma.inventoryItem.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      quantity: { gt: 0 },
+      medicine: { barcode: normalized },
+    },
+    include: { medicine: true, supplier: true },
+    take: 5,
+  });
+  return rows.map(mapInventory);
+}
+
+export async function searchMedicinesByName(q: string) {
+  await ensureDefaultData();
+  const normalized = q.trim().toLowerCase();
+  if (!normalized || normalized.length < 2) return [];
+  const tokens = normalized.split(/\s+/).filter(t => t.length >= 2);
+
+  const conditions = tokens.length > 0
+    ? tokens.map(token => ({
+        OR: [
+          { name: { contains: token } },
+          { genericName: { contains: token } },
+          { manufacturer: { contains: token } },
+          { composition: { contains: token } },
+        ],
+      }))
+    : [{
+        OR: [
+          { name: { contains: normalized } },
+          { genericName: { contains: normalized } },
+        ],
+      }];
+
+  const rows = await prisma.medicine.findMany({
+    where: { AND: conditions },
+    take: 10,
+  });
+  return rows.map(mapMedicine);
+}
+
+export async function createMedicine(input: unknown) {
+  const data = createMedicineSchema.parse(input);
+  await ensureDefaultData();
+
+  if (data.barcode) {
+    const existing = await prisma.medicine.findUnique({ where: { barcode: data.barcode } });
+    if (existing) throw new Error(`A medicine with barcode ${data.barcode} already exists: ${existing.name}`);
+  }
+
+  const medicineId = uid("med");
+  const medicine = await prisma.medicine.create({
+    data: {
+      id: medicineId,
+      name: data.name,
+      genericName: data.genericName || null,
+      manufacturer: data.manufacturer || null,
+      category: data.category || null,
+      composition: data.composition || null,
+      dosageForm: data.dosageForm || null,
+      strength: data.strength || null,
+      packSize: data.packSize || null,
+      hsnCode: data.hsnCode || null,
+      gstRate: data.gstRate,
+      mrpPaisa: data.mrpPaisa,
+      schedule: data.schedule,
+      barcode: data.barcode || null,
+      requiresPrescription: data.requiresPrescription,
+    },
+  });
+  return mapMedicine(medicine);
+}
+
+export async function quickAddMedicineWithStock(tenantId: string, input: unknown) {
+  const data = quickAddMedicineSchema.parse(input);
+  await ensureDefaultData();
+
+  if (data.barcode) {
+    const existing = await prisma.medicine.findUnique({ where: { barcode: data.barcode } });
+    if (existing) throw new Error(`A medicine with barcode ${data.barcode} already exists: ${existing.name}`);
+  }
+
+  const medicineId = uid("med");
+  const inventoryId = uid("inv");
+
+  const result = await prisma.$transaction(async (tx) => {
+    const medicine = await tx.medicine.create({
+      data: {
+        id: medicineId,
+        name: data.name,
+        genericName: data.genericName || null,
+        manufacturer: data.manufacturer || null,
+        category: data.category || null,
+        composition: data.composition || null,
+        dosageForm: data.dosageForm || null,
+        strength: data.strength || null,
+        packSize: data.packSize || null,
+        hsnCode: data.hsnCode || null,
+        gstRate: data.gstRate,
+        mrpPaisa: data.mrpPaisa,
+        schedule: data.schedule,
+        barcode: data.barcode || null,
+        requiresPrescription: data.requiresPrescription,
+      },
+    });
+
+    const inventory = await tx.inventoryItem.create({
+      data: {
+        id: inventoryId,
+        tenantId,
+        medicineId,
+        batchNo: data.batchNo,
+        mfgDate: data.mfgDate ? dateOnly(data.mfgDate) : null,
+        expiryDate: dateOnly(data.expiryDate),
+        purchaseRatePaisa: data.purchaseRatePaisa,
+        mrpPaisa: data.mrpPaisa,
+        saleRatePaisa: data.saleRatePaisa,
+        gstRate: data.gstRate,
+        hsnCode: data.hsnCode || null,
+        quantity: data.quantity,
+        reorderLevel: data.reorderLevel,
+        rackLocation: data.rackLocation || null,
+        supplierId: data.supplierId || null,
+        isActive: true,
+      },
+      include: { medicine: true, supplier: true },
+    });
+
+    return { medicine, inventory };
+  });
+
+  return {
+    medicine: mapMedicine(result.medicine),
+    inventory: mapInventory(result.inventory),
+  };
 }
 
 // ─── CSV export ──────────────────────────────────────────────

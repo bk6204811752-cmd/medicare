@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
-import { useEffect } from "react";
-import { Camera, Loader2, Minus, Plus, Printer, Save, Search, Send, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, CameraOff, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Trash2, AlertTriangle, Clock, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
 import type { SaleLine } from "@/lib/types";
 import { daysUntil, formatCurrency } from "@/lib/utils";
+import { AddMedicineForm } from "@/components/add-medicine-form";
 
 // ─── Lazy-loaded barcode reader singleton ───
-// @zxing/browser (~300KB) is only imported when user actually clicks "Camera scan"
 let _readerPromise: Promise<any> | null = null;
 function getReader() {
   if (!_readerPromise) {
@@ -39,6 +38,14 @@ type InventorySearchRow = {
   };
 };
 
+type MedicineSuggestion = {
+  id: string;
+  name: string;
+  genericName?: string | null;
+  manufacturer?: string | null;
+  barcode?: string | null;
+};
+
 type CustomerOption = {
   id: string;
   name: string;
@@ -52,8 +59,10 @@ type BillingLine = SaleLine & {
 
 export function BillingPos() {
   const [rows, setRows] = useState<InventorySearchRow[]>([]);
+  const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [query, setQuery] = useState("");
+  const [manualBarcode, setManualBarcode] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("Walk-in Customer");
   const [doctorName, setDoctorName] = useState("");
@@ -63,10 +72,60 @@ export function BillingPos() {
   const [lastInvoice, setLastInvoice] = useState<{ id: string; invoiceNo: string; totalPaisa: number; phone: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState("");
+  const [showManualBarcode, setShowManualBarcode] = useState(false);
+  const [showAddMedicine, setShowAddMedicine] = useState(false);
+  const [addMedicinePrefill, setAddMedicinePrefill] = useState<{ barcode?: string; name?: string }>({});
+  const [lastScanCode, setLastScanCode] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scanControlsRef = useRef<{ stop: () => void } | null>(null);
+  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [scanCountdown, setScanCountdown] = useState(0);
+  const scanCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // External USB barcode scanner detection: rapid keypresses ending with Enter
+  const barcodeBufferRef = useRef("");
+  const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const totals = useMemo(() => calculateBillTotals(lines), [lines]);
+  const totalItems = lines.reduce((sum, l) => sum + l.quantity, 0);
 
-  // Fetch recent customers (limited)
+  // ─── Keyboard shortcuts + external USB barcode scanner detection ───
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Function key shortcuts
+      if (e.key === "F2") { e.preventDefault(); searchInputRef.current?.focus(); }
+      if (e.key === "F3") { e.preventDefault(); startScanning(); }
+      if (e.key === "F4") { e.preventDefault(); setShowManualBarcode(p => !p); }
+      if (e.key === "F8") { e.preventDefault(); saveBill(); }
+
+      // External USB barcode scanner detection:
+      // USB scanners type characters rapidly (<50ms between keys) and end with Enter
+      const target = e.target as HTMLElement;
+      const isFormField = target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA";
+      if (isFormField) return; // Don't intercept when typing in a field
+
+      if (e.key === "Enter" && barcodeBufferRef.current.length >= 6) {
+        e.preventDefault();
+        const code = barcodeBufferRef.current;
+        barcodeBufferRef.current = "";
+        handleBarcodeResult(code);
+        return;
+      }
+
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if (barcodeTimerRef.current) clearTimeout(barcodeTimerRef.current);
+        barcodeBufferRef.current += e.key;
+        barcodeTimerRef.current = setTimeout(() => { barcodeBufferRef.current = ""; }, 80);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, saving]);
+
+  // Fetch recent customers
   useEffect(() => {
     fetch("/api/customers")
       .then((response) => response.json())
@@ -77,33 +136,49 @@ export function BillingPos() {
   // Cleanup camera stream on unmount
   useEffect(() => {
     return () => {
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-        videoRef.current.srcObject = null;
-      }
+      cleanupScanner();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Debounced medicine search with loading indicator — 100ms for speed
   useEffect(() => {
-    if (query.length < 2) {
+    if (query.length < 1) {
       setRows([]);
+      setSuggestions([]);
+      setSearching(false);
       return;
     }
 
+    // Allow single character only for numeric (barcode prefix), require 2+ for text
+    const isNumeric = /^\d+$/.test(query);
+    if (!isNumeric && query.length < 2) {
+      setRows([]);
+      setSuggestions([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
     const controller = new AbortController();
     const timer = setTimeout(() => {
       fetch(`/api/medicines/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
         .then((response) => response.json())
-        .then((result) => setRows(result.data ?? []))
-        .catch(() => undefined);
-    }, 300);
+        .then((result) => {
+          setRows(result.data ?? []);
+          setSuggestions(result.suggestions ?? []);
+          setSearching(false);
+        })
+        .catch(() => setSearching(false));
+    }, isNumeric ? 50 : 100); // Barcode = 50ms, text search = 100ms
 
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query]);
 
   const matches = query.length < 2 ? [] : rows;
 
-  function addItemToBill(item: InventorySearchRow) {
+  // ─── Add item to bill ───
+  const addItemToBill = useCallback((item: InventorySearchRow) => {
     setLines((current) => {
       const existing = current.find((line) => line.inventoryId === item.id);
       if (existing) {
@@ -132,7 +207,9 @@ export function BillingPos() {
       ];
     });
     setQuery("");
-  }
+    setSuggestions([]);
+    setShowAddMedicine(false);
+  }, []);
 
   function addLine(inventoryId: string) {
     const item = rows.find((row) => row.id === inventoryId);
@@ -153,8 +230,16 @@ export function BillingPos() {
     );
   }
 
-  // ─── Camera barcode scanner with proper lifecycle management ───
-  function stopCameraStream() {
+  // ─── Camera barcode scanner with continuous scanning ───
+  function cleanupScanner() {
+    if (scanControlsRef.current) {
+      try { scanControlsRef.current.stop(); } catch { /* ignore */ }
+      scanControlsRef.current = null;
+    }
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
     if (videoRef.current?.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(t => t.stop());
@@ -162,31 +247,172 @@ export function BillingPos() {
     }
   }
 
-  async function scanBarcode() {
-    if (!videoRef.current || scanning) return;
-    setScanning(true);
+  function stopScanning() {
+    cleanupScanner();
+    if (scanCountdownRef.current) {
+      clearInterval(scanCountdownRef.current);
+      scanCountdownRef.current = null;
+    }
+    setScanning(false);
+    setScanStatus("");
+    setScanCountdown(0);
+  }
+
+  async function handleBarcodeResult(code: string) {
+    stopScanning();
+    setScanStatus("Processing barcode...");
+    setLastScanCode(code);
+
+    // Vibrate on successful scan (mobile)
+    if (navigator.vibrate) navigator.vibrate(200);
+
     try {
-      const reader = await getReader();
-      const result = await reader.decodeOnceFromVideoDevice(undefined, videoRef.current);
-      stopCameraStream(); // Stop camera immediately after successful scan
-      const code = result.getText();
       const response = await fetch(`/api/medicines/search?q=${encodeURIComponent(code)}`);
       const resultJson = await response.json();
       const item = resultJson.data?.[0] as InventorySearchRow | undefined;
       if (item) {
         setRows([item]);
         addItemToBill(item);
-        toast.success(`Added ${item.medicine.name}`);
+        toast.success(`✅ Added ${item.medicine.name}`, {
+          action: { label: "Scan again", onClick: () => startScanning() },
+        });
       } else {
         setQuery(code);
-        toast.warning("Barcode not in stock. Search filled for manual review.");
+        setAddMedicinePrefill({ barcode: code });
+        setShowAddMedicine(true);
+        toast.warning("Barcode not in stock — quick-add form opened.", { duration: 4000 });
       }
     } catch {
-      stopCameraStream(); // Stop camera on error too
-      toast.error("Camera scan was cancelled or unavailable.");
+      toast.error("Failed to look up barcode. Try manual entry.");
     } finally {
-      setScanning(false);
+      setScanStatus("");
     }
+  }
+
+  async function startScanning() {
+    if (scanning) {
+      stopScanning();
+      return;
+    }
+    setScanning(true);
+    setScanStatus("Starting camera...");
+    setScanCountdown(30);
+
+    try {
+      const reader = await getReader();
+
+      // Use constraints for rear camera + higher resolution + continuous autofocus
+      const constraints: MediaStreamConstraints = {
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      };
+
+      setScanStatus("📷 Point camera at barcode...");
+
+      // Continuous scanning with callback
+      const controls = await reader.decodeFromConstraints(
+        constraints,
+        videoRef.current!,
+        (result: any, _error: any) => {
+          if (result) {
+            const code = result.getText();
+            if (code) {
+              handleBarcodeResult(code);
+            }
+          }
+        }
+      );
+
+      scanControlsRef.current = controls;
+
+      // Try to enable torch/flashlight if available (helps in low light)
+      try {
+        const stream = videoRef.current?.srcObject as MediaStream | null;
+        const track = stream?.getVideoTracks()[0];
+        if (track && 'applyConstraints' in track) {
+          await track.applyConstraints({ advanced: [{ torch: true } as any] }).catch(() => {});
+        }
+      } catch { /* torch not supported, ignore */ }
+
+      // Countdown timer
+      scanCountdownRef.current = setInterval(() => {
+        setScanCountdown(prev => {
+          if (prev <= 1) {
+            stopScanning();
+            toast.info("⏱️ Camera scan timed out. Try manual barcode entry.", { duration: 5000 });
+            setShowManualBarcode(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+    } catch (err: any) {
+      stopScanning();
+      const msg = err?.message?.toLowerCase() ?? "";
+      if (msg.includes("permission") || msg.includes("denied") || msg.includes("notallowed")) {
+        toast.error("Camera permission denied. Please allow camera access in browser settings.");
+      } else if (msg.includes("notfound") || msg.includes("no video")) {
+        toast.error("No camera found on this device.");
+      } else {
+        toast.error("Camera error. Use manual barcode entry instead.");
+      }
+      setShowManualBarcode(true);
+    }
+  }
+
+  // ─── Manual barcode lookup ───
+  async function lookupManualBarcode() {
+    const code = manualBarcode.trim();
+    if (!code) { toast.error("Enter a barcode number."); return; }
+    try {
+      const response = await fetch(`/api/medicines/search?q=${encodeURIComponent(code)}`);
+      const resultJson = await response.json();
+      const item = resultJson.data?.[0] as InventorySearchRow | undefined;
+      if (item) {
+        addItemToBill(item);
+        toast.success(`✅ Added ${item.medicine.name}`);
+        setManualBarcode("");
+        setShowManualBarcode(false);
+      } else {
+        setQuery(code);
+        setAddMedicinePrefill({ barcode: code });
+        toast.warning("Barcode not found in stock. Add it manually.");
+      }
+    } catch {
+      toast.error("Lookup failed. Check connection.");
+    }
+  }
+
+  // ─── Quick-add medicine callback ───
+  function handleQuickAddSuccess(result: { medicine: any; inventory: any }) {
+    if (result.inventory) {
+      const inv = result.inventory;
+      const newItem: InventorySearchRow = {
+        id: inv.id,
+        batchNo: inv.batchNo,
+        expiryDate: inv.expiryDate,
+        mrpPaisa: inv.mrpPaisa,
+        saleRatePaisa: inv.saleRatePaisa,
+        gstRate: inv.gstRate,
+        hsnCode: inv.hsnCode ?? "",
+        quantity: inv.quantity,
+        medicine: {
+          name: inv.medicine.name,
+          genericName: inv.medicine.genericName,
+          manufacturer: inv.medicine.manufacturer,
+          barcode: inv.medicine.barcode,
+          schedule: inv.medicine.schedule as SaleLine["schedule"],
+        },
+      };
+      setRows([newItem]);
+      addItemToBill(newItem);
+    }
+    setShowAddMedicine(false);
+    setAddMedicinePrefill({});
   }
 
   async function saveBill() {
@@ -267,19 +493,39 @@ export function BillingPos() {
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 lg:grid-cols-[1fr_190px_160px]">
+        {/* ─── Search + Scanner Controls ─── */}
+        <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_160px]">
           <label className="relative">
-            <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+            {searching ? <Loader2 className="absolute left-3 top-3 h-5 w-5 animate-spin text-med-green" /> : <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />}
             <input
-              className="h-12 w-full rounded-md border border-slate-300 pl-10 pr-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20"
-              placeholder="Type 2-3 letters or scan barcode"
+              ref={searchInputRef}
+              className="h-12 w-full rounded-md border border-slate-300 pl-10 pr-16 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20"
+              placeholder="Search medicine name, salt, or barcode..."
               value={query}
               onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") { setQuery(""); e.currentTarget.blur(); } }}
             />
+            <kbd className="absolute right-3 top-3.5 hidden rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400 md:inline-block">F2</kbd>
           </label>
-          <button onClick={scanBarcode} disabled={scanning} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-slate-300 font-semibold text-med-navy hover:bg-slate-50 disabled:opacity-60">
-            {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-            {scanning ? "Scanning..." : "Camera scan"}
+          <button
+            onClick={startScanning}
+            className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 font-semibold transition-colors ${
+              scanning
+                ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                : "border-slate-300 text-med-navy hover:bg-slate-50"
+            }`}
+          >
+            {scanning ? <CameraOff className="h-4 w-4" /> : <Camera className="h-4 w-4" />}
+            {scanning ? "Stop" : "Scan"}
+          </button>
+          <button
+            onClick={() => setShowManualBarcode(!showManualBarcode)}
+            className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 font-semibold ${
+              showManualBarcode ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-300 text-med-navy hover:bg-slate-50"
+            }`}
+          >
+            <Keyboard className="h-4 w-4" />
+            Barcode
           </button>
           <select className="h-12 rounded-md border border-slate-300 px-3" value={paymentMode} onChange={(event) => setPaymentMode(event.target.value)}>
             <option value="cash">Cash</option>
@@ -289,24 +535,165 @@ export function BillingPos() {
           </select>
         </div>
 
-        <video ref={videoRef} className={`mt-3 h-48 w-full rounded-md bg-slate-900 object-cover ${scanning ? "block" : "hidden"}`} muted />
+        {/* ─── Camera Scanner View ─── */}
+        {scanning && (
+          <div className="relative mt-3 overflow-hidden rounded-lg bg-slate-900">
+            <video ref={videoRef} className="h-56 w-full object-cover" muted autoPlay playsInline />
+            {/* Scanning overlay with animated scan line + corner marks */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative h-32 w-72">
+                {/* Corner marks */}
+                <div className="absolute left-0 top-0 h-5 w-5 border-l-2 border-t-2 border-green-400 rounded-tl" />
+                <div className="absolute right-0 top-0 h-5 w-5 border-r-2 border-t-2 border-green-400 rounded-tr" />
+                <div className="absolute bottom-0 left-0 h-5 w-5 border-b-2 border-l-2 border-green-400 rounded-bl" />
+                <div className="absolute bottom-0 right-0 h-5 w-5 border-b-2 border-r-2 border-green-400 rounded-br" />
+                {/* Animated scan line */}
+                <div className="absolute inset-x-2 top-0 h-0.5 animate-bounce bg-gradient-to-r from-transparent via-green-400 to-transparent" style={{ animationDuration: '2s' }} />
+              </div>
+            </div>
+            {/* Countdown + status bar */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-white">{scanStatus}</p>
+                  <p className="text-xs text-white/60">Hold steady • Ensure good lighting</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-mono text-white">
+                    <Clock className="h-3 w-3" /> {scanCountdown}s
+                  </span>
+                  <button onClick={stopScanning} className="rounded-full bg-red-500/90 p-1.5 text-white hover:bg-red-600">
+                    <CameraOff className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* Hidden video element for when not scanning (used as target by library) */}
+        {!scanning && <video ref={videoRef} className="hidden" muted />}
+
+        {/* ─── Manual Barcode Entry ─── */}
+        {showManualBarcode && (
+          <div className="mt-3 flex gap-2 rounded-md border border-blue-200 bg-blue-50 p-3">
+            <Keyboard className="mt-2.5 h-5 w-5 shrink-0 text-blue-500" />
+            <div className="flex-1">
+              <p className="mb-1.5 text-xs font-semibold text-blue-900">Manual Barcode Entry</p>
+              <div className="flex gap-2">
+                <input
+                  className="h-10 flex-1 rounded-md border border-blue-300 bg-white px-3 font-mono text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30"
+                  placeholder="Type or paste barcode number..."
+                  value={manualBarcode}
+                  onChange={(e) => setManualBarcode(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && lookupManualBarcode()}
+                  autoFocus
+                />
+                <button
+                  onClick={lookupManualBarcode}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  <Search className="h-3.5 w-3.5" /> Look up
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Search Results (Inventory Matches) ─── */}
         {matches.length > 0 && (
           <div className="mt-3 overflow-hidden rounded-md border border-slate-200">
-            {matches.slice(0, 6).map((row) => (
-              <button key={row.id} onClick={() => addLine(row.id)} className="grid w-full gap-2 border-b border-slate-100 p-3 text-left hover:bg-med-greenSoft md:grid-cols-[1fr_90px_90px_90px]">
-                <span>
-                  <span className="block font-semibold text-med-navy">{row.medicine.name}</span>
-                  <span className="text-sm text-slate-500">Batch {row.batchNo} | {row.medicine.manufacturer}</span>
+            <div className="border-b border-slate-100 bg-slate-50 px-3 py-1.5">
+              <span className="text-xs font-medium text-slate-500">{matches.length} result{matches.length !== 1 ? "s" : ""} found</span>
+            </div>
+            {matches.slice(0, 10).map((row) => {
+              const expDays = daysUntil(row.expiryDate);
+              const isExpired = expDays < 0;
+              const isNearExpiry = expDays >= 0 && expDays <= 30;
+              const isLowStock = row.quantity > 0 && row.quantity <= 10;
+              return (
+                <button key={row.id} onClick={() => addLine(row.id)} disabled={isExpired || row.quantity <= 0} className={`grid w-full gap-2 border-b border-slate-100 p-3 text-left md:grid-cols-[1fr_auto] ${
+                  isExpired ? "bg-red-50/50 opacity-60 cursor-not-allowed" : "hover:bg-med-greenSoft"
+                }`}>
+                  <div>
+                    <span className="block font-semibold text-med-navy">{row.medicine.name}</span>
+                    <span className="text-xs text-slate-500">
+                      {row.medicine.genericName && <>{row.medicine.genericName} • </>}
+                      Batch {row.batchNo}
+                      {row.medicine.manufacturer && <> • {row.medicine.manufacturer}</>}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      row.quantity <= 0 ? "bg-red-100 text-red-700" : isLowStock ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+                    }`}>
+                      {row.quantity <= 0 ? "Out of stock" : `Stock ${row.quantity}`}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      isExpired ? "bg-red-100 text-red-700" : isNearExpiry ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"
+                    }`}>
+                      {isExpired ? "Expired" : isNearExpiry ? `Exp ${expDays}d ⚠️` : `Exp ${expDays}d`}
+                    </span>
+                    <span className="rounded-full bg-med-greenSoft px-2 py-0.5 text-xs font-semibold text-med-greenDark">
+                      {formatCurrency(row.saleRatePaisa)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ─── Medicine Suggestions (from master, not in inventory) ─── */}
+        {matches.length === 0 && suggestions.length > 0 && query.length >= 2 && (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+              <AlertTriangle className="h-3.5 w-3.5" /> These medicines exist in master but have no stock:
+            </p>
+            {suggestions.slice(0, 5).map((med) => (
+              <div key={med.id} className="flex items-center justify-between border-b border-amber-100 py-1.5 last:border-b-0">
+                <span className="text-sm">
+                  <span className="font-medium text-amber-900">{med.name}</span>
+                  {med.genericName && <span className="ml-1 text-amber-700">({med.genericName})</span>}
                 </span>
-                <span className="text-sm">Stock {row.quantity}</span>
-                <span className="text-sm">Exp {daysUntil(row.expiryDate)}d</span>
-                <span className="text-sm font-semibold">{formatCurrency(row.saleRatePaisa)}</span>
-              </button>
+                <Link href="/shop/inventory/add" className="rounded bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900 hover:bg-amber-300">
+                  Add stock
+                </Link>
+              </div>
             ))}
           </div>
         )}
 
+        {/* ─── "Not Found" — Add Medicine Manually ─── */}
+        {query.length >= 2 && matches.length === 0 && suggestions.length === 0 && !showAddMedicine && (
+          <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+            <p className="text-sm text-slate-600">No medicine found for &quot;{query}&quot;</p>
+            <button
+              onClick={() => {
+                setAddMedicinePrefill({ name: query, ...addMedicinePrefill });
+                setShowAddMedicine(true);
+              }}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" /> Add New Medicine Manually
+            </button>
+          </div>
+        )}
+
+        {/* ─── Inline Add Medicine Form ─── */}
+        {showAddMedicine && (
+          <div className="mt-3">
+            <AddMedicineForm
+              mode="inline"
+              prefillBarcode={addMedicinePrefill.barcode}
+              prefillName={addMedicinePrefill.name}
+              onSuccess={handleQuickAddSuccess}
+              onCancel={() => { setShowAddMedicine(false); setAddMedicinePrefill({}); }}
+            />
+          </div>
+        )}
+
+        {/* ─── Bill Items Table ─── */}
         <div className="mt-4 overflow-x-auto">
           <table className="w-full border-separate border-spacing-0 text-sm">
             <thead>
@@ -355,7 +742,21 @@ export function BillingPos() {
               })}
             </tbody>
           </table>
-          {!lines.length && <div className="py-16 text-center text-slate-500">Search a medicine to begin the bill.</div>}
+          {!lines.length && (
+            <div className="py-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <Search className="h-7 w-7 text-slate-400" />
+              </div>
+              <p className="font-medium text-slate-600">Search a medicine or scan a barcode to begin</p>
+              <p className="mt-1 text-sm text-slate-400">You can also use an external barcode scanner</p>
+              <div className="mx-auto mt-4 flex flex-wrap justify-center gap-2">
+                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F2 Search</kbd>
+                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F3 Camera</kbd>
+                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F4 Barcode</kbd>
+                <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F8 Save</kbd>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -363,27 +764,56 @@ export function BillingPos() {
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-display text-lg font-semibold text-med-navy">Customer</h2>
           <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3" placeholder="Customer name" value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
-          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3" placeholder="Phone" value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} />
-          <div className="mt-2 flex flex-wrap gap-2">
-            {customers.slice(0, 2).map((customer) => (
-              <button key={customer.id} className="rounded-md bg-slate-100 px-3 py-2 text-xs" onClick={() => { setCustomerName(customer.name); setCustomerPhone(customer.phone ?? ""); setDoctorName(customer.doctorName ?? ""); }}>
-                {customer.name}
-              </button>
-            ))}
+          <input
+            className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3"
+            placeholder="Phone (type to search)"
+            value={customerPhone}
+            onChange={(event) => {
+              const val = event.target.value;
+              setCustomerPhone(val);
+              setCustomerSearch(val);
+              // Auto-fill customer name+doctor when phone matches
+              if (val.replace(/\D/g, "").length >= 10) {
+                const match = customers.find(c => c.phone?.replace(/\D/g, "").endsWith(val.replace(/\D/g, "").slice(-10)));
+                if (match) {
+                  setCustomerName(match.name);
+                  setDoctorName(match.doctorName ?? "");
+                  toast.success(`Customer: ${match.name}`, { duration: 2000 });
+                }
+              }
+            }}
+          />
+          {/* Customer quick picks — searchable */}
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {customers
+              .filter(c => !customerSearch || c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone?.includes(customerSearch))
+              .slice(0, 4)
+              .map((customer) => (
+                <button key={customer.id} className="rounded-md bg-slate-100 px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-med-greenSoft hover:text-med-navy" onClick={() => { setCustomerName(customer.name); setCustomerPhone(customer.phone ?? ""); setDoctorName(customer.doctorName ?? ""); setCustomerSearch(""); }}>
+                  {customer.name}{customer.phone ? ` • ${customer.phone.slice(-4)}` : ""}
+                </button>
+              ))}
           </div>
           <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3" placeholder="Doctor name" value={doctorName} onChange={(event) => setDoctorName(event.target.value)} />
           <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3" placeholder="Prescription number" value={prescriptionNo} onChange={(event) => setPrescriptionNo(event.target.value)} />
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="font-display text-lg font-semibold text-med-navy">Bill Summary</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold text-med-navy">Bill Summary</h2>
+            {lines.length > 0 && (
+              <span className="rounded-full bg-med-green px-2.5 py-0.5 text-xs font-bold text-white">
+                {totalItems} item{totalItems !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
           <div className="mt-4 space-y-2 text-sm">
             <Summary label="Subtotal" value={totals.subtotalPaisa} />
-            <Summary label="Discount" value={-totals.discountPaisa} />
+            {totals.discountPaisa > 0 && <Summary label="Discount" value={-totals.discountPaisa} />}
             <Summary label="Taxable" value={totals.taxablePaisa} />
             <Summary label="CGST" value={totals.cgstPaisa} />
             <Summary label="SGST" value={totals.sgstPaisa} />
-            <Summary label="Round off" value={totals.roundOffPaisa} />
+            {totals.roundOffPaisa !== 0 && <Summary label="Round off" value={totals.roundOffPaisa} />}
             <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-lg font-bold text-med-navy">
               <span>Total</span>
               <span>{formatCurrency(totals.totalPaisa)}</span>
@@ -391,11 +821,19 @@ export function BillingPos() {
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <button onClick={saveBill} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-med-green font-semibold text-white hover:bg-med-greenDark disabled:opacity-60">
-              <Save className="h-4 w-4" /> {saving ? "Saving" : "Save"}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {saving ? "Saving..." : "Save"}
             </button>
-            <button onClick={() => window.print()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 font-semibold">
+            <button onClick={() => window.print()} disabled={!lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 font-semibold disabled:opacity-40">
               <Printer className="h-4 w-4" /> Print
             </button>
+            {lines.length > 0 && (
+              <button
+                onClick={() => { if (window.confirm(`Clear all ${lines.length} items from this bill?`)) { setLines([]); toast.info("Bill cleared."); } }}
+                className="col-span-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Clear Bill
+              </button>
+            )}
             <a href={whatsappHref} target="_blank" className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 font-semibold text-emerald-700">
               <Send className="h-4 w-4" /> Share on WhatsApp
             </a>

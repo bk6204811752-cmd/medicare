@@ -127,3 +127,46 @@ export const verifyEmailOtpSchema = z.object({
   email: z.string().trim().email("Valid email is required").toLowerCase(),
   otp: z.string().trim().length(6, "OTP must be 6 digits").regex(/^\d+$/, "OTP must be numeric")
 });
+
+export const createMedicineSchema = z.object({
+  name: z.string().trim().min(2, "Medicine name is required"),
+  genericName: z.string().trim().optional().default(""),
+  manufacturer: z.string().trim().optional().default(""),
+  category: z.string().trim().optional().default(""),
+  composition: z.string().trim().optional().default(""),
+  dosageForm: z.string().trim().optional().default(""),
+  strength: z.string().trim().optional().default(""),
+  packSize: z.string().trim().optional().default(""),
+  hsnCode: z.string().trim().optional().default(""),
+  gstRate: z.union([z.literal(0), z.literal(5), z.literal(12), z.literal(18)]).default(12),
+  mrpPaisa: z.number().int().nonnegative(),
+  schedule: z.enum(["OTC", "G", "H", "H1", "X"]).default("OTC"),
+  barcode: z.string().trim().optional().default(""),
+  requiresPrescription: z.boolean().default(false),
+});
+
+export const quickAddMedicineSchema = z.object({
+  name: z.string().trim().min(2, "Medicine name is required"),
+  genericName: z.string().trim().optional().default(""),
+  manufacturer: z.string().trim().optional().default(""),
+  category: z.string().trim().optional().default(""),
+  composition: z.string().trim().optional().default(""),
+  dosageForm: z.string().trim().optional().default(""),
+  strength: z.string().trim().optional().default(""),
+  packSize: z.string().trim().optional().default(""),
+  hsnCode: z.string().trim().optional().default(""),
+  gstRate: z.union([z.literal(0), z.literal(5), z.literal(12), z.literal(18)]).default(12),
+  mrpPaisa: z.number().int().nonnegative(),
+  schedule: z.enum(["OTC", "G", "H", "H1", "X"]).default("OTC"),
+  barcode: z.string().trim().optional().default(""),
+  requiresPrescription: z.boolean().default(false),
+  batchNo: z.string().trim().min(1, "Batch number is required"),
+  expiryDate: z.string().min(1, "Expiry date is required"),
+  mfgDate: z.string().optional(),
+  purchaseRatePaisa: z.number().int().nonnegative(),
+  saleRatePaisa: z.number().int().nonnegative(),
+  quantity: z.number().int().nonnegative(),
+  reorderLevel: z.number().int().nonnegative().default(10),
+  rackLocation: z.string().trim().optional().default(""),
+  supplierId: z.string().optional(),
+});

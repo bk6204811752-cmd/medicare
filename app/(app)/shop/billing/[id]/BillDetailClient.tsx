@@ -77,7 +77,7 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
           width: 80mm !important;
           max-width: 80mm !important;
           margin: 0 auto !important;
-          padding: 4mm !important;
+          padding: 2mm !important;
           border: none !important;
           box-shadow: none !important;
           background: #ffffff !important;
@@ -130,13 +130,59 @@ export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps)
           width: 100% !important;
           max-width: 100% !important;
           margin: 0 !important;
-          padding: 15mm !important;
+          padding: 10mm !important;
           border: none !important;
           box-shadow: none !important;
           background: #ffffff !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
         }
         .thermal-print-container {
           display: none !important;
+        }
+        
+        /* Make table headers and cells compact on print to fit 1 page */
+        .a4-print-container table th {
+          padding-top: 4px !important;
+          padding-bottom: 4px !important;
+          font-size: 11px !important;
+        }
+        .a4-print-container table td {
+          padding-top: 4px !important;
+          padding-bottom: 4px !important;
+          font-size: 11px !important;
+        }
+        tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
+        /* Reduce margins between layout elements */
+        .a4-print-container .mt-6 {
+          margin-top: 8px !important;
+        }
+        .a4-print-container .mt-8 {
+          margin-top: 10px !important;
+        }
+        .a4-print-container .mt-10 {
+          margin-top: 10px !important;
+        }
+        .a4-print-container .p-4 {
+          padding: 8px !important;
+        }
+        .a4-print-container .p-6 {
+          padding: 10px !important;
+        }
+        /* Compress header banner */
+        .a4-print-container .bg-slate-900 {
+          margin-left: -10mm !important;
+          margin-right: -10mm !important;
+          margin-top: -10mm !important;
+          padding: 12px !important;
+          border-radius: 0 !important;
+        }
+        /* Reduce signature blank height */
+        .a4-print-container .h-10 {
+          height: 12px !important;
         }
       }
     `;

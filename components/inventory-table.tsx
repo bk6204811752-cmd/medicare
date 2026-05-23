@@ -120,11 +120,11 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1050px] text-sm">
+        <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               {["Medicine", "Batch", "Expiry", "Stock", "Rate", "MRP", "GST", "Supplier", "Rack", "Status"].map((head) => (
-                <th key={head} className="px-4 py-3 font-medium">
+                <th key={head} className={`px-3 py-2.5 font-medium text-xs ${["MRP", "GST", "Supplier", "Rack"].includes(head) ? "hidden lg:table-cell" : ""}`}>
                   {head}
                 </th>
               ))}
@@ -138,24 +138,24 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
               const expiring = days >= 0 && days <= 60;
               return (
                 <tr key={row.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <Link href={`/shop/inventory/${encodeURIComponent(row.id)}`} className="font-semibold text-med-navy hover:text-med-greenDark hover:underline">
                       {row.medicine.name}
                     </Link>
                     <p className="text-xs text-slate-500">{row.medicine.composition ?? row.medicine.genericName ?? ""}</p>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs">{row.batchNo}</td>
-                  <td className="px-4 py-3">{formatDate(row.expiryDate)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5 font-mono text-xs">{row.batchNo}</td>
+                  <td className="px-3 py-2.5">{formatDate(row.expiryDate)}</td>
+                  <td className="px-3 py-2.5">
                     <span className={low ? "font-semibold text-orange-700" : ""}>{row.quantity}</span>
                     <span className="text-xs text-slate-500"> / {row.reorderLevel}</span>
                   </td>
-                  <td className="px-4 py-3">{formatCurrency(row.saleRatePaisa)}</td>
-                  <td className="px-4 py-3">{formatCurrency(row.mrpPaisa)}</td>
-                  <td className="px-4 py-3">{row.gstRate}%</td>
-                  <td className="px-4 py-3">{row.supplier?.name ?? "Unassigned"}</td>
-                  <td className="px-4 py-3">{row.rackLocation ?? ""}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">{formatCurrency(row.saleRatePaisa)}</td>
+                  <td className="hidden lg:table-cell px-3 py-2.5">{formatCurrency(row.mrpPaisa)}</td>
+                  <td className="hidden lg:table-cell px-3 py-2.5">{row.gstRate}%</td>
+                  <td className="hidden lg:table-cell px-3 py-2.5">{row.supplier?.name ?? "Unassigned"}</td>
+                  <td className="hidden lg:table-cell px-3 py-2.5">{row.rackLocation ?? ""}</td>
+                  <td className="px-3 py-2.5">
                     <span className={`rounded px-2 py-1 text-xs ${expired ? "bg-red-100 text-red-700" : expiring ? "bg-orange-100 text-orange-700" : low ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
                       {expired ? "Expired" : expiring ? "Expiry risk" : low ? "Low stock" : "Healthy"}
                     </span>

@@ -5,12 +5,17 @@ import { getSaleByIdOrInvoice } from "@/lib/local-db";
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
-  const { id } = await params;
-  const sale = await getSaleByIdOrInvoice(auth.ctx.tenantId, decodeURIComponent(id));
+  try {
+    const { id } = await params;
+    const sale = await getSaleByIdOrInvoice(auth.ctx.tenantId, decodeURIComponent(id));
 
-  if (!sale) {
-    return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    if (!sale) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ data: sale });
+  } catch (error) {
+    console.error("Sale detail GET error:", error);
+    return NextResponse.json({ error: "Failed to load invoice details" }, { status: 500 });
   }
-
-  return NextResponse.json({ data: sale });
 }

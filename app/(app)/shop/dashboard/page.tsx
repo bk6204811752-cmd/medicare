@@ -17,17 +17,28 @@ export default function ShopDashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const [error, setError] = useState<string | null>(null);
+
+  const loadDashboard = () => {
+    setLoading(true);
+    setError(null);
     fetch("/api/dashboard")
       .then((r) => r.json())
       .then((result) => {
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
         const d = result.data ?? {};
         setSummary(d.summary ?? null);
         setTrend(d.trend ?? []);
         setNotifications(d.notifications ?? []);
       })
+      .catch(() => setError("Unable to connect. Please check your network."))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadDashboard(); }, []);
 
   if (loading) {
     return (
@@ -37,6 +48,19 @@ export default function ShopDashboard() {
           {[...Array(4)].map((_, i) => <div key={i} className="h-32 skeleton rounded-xl" />)}
         </div>
         <div className="h-64 skeleton rounded-xl" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-red-600 font-medium">{error}</p>
+          <button onClick={loadDashboard} className="mt-3 rounded-lg bg-med-green px-4 py-2 text-sm font-semibold text-white hover:bg-med-greenDark transition-colors">
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

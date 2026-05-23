@@ -203,44 +203,49 @@ export function BillingPos() {
     setSaving(true);
     const savedTotalPaisa = totals.totalPaisa;
     const savedPhone = customerPhone;
-    const response = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customerName,
-        customerPhone,
-        doctorName,
-        prescriptionNo,
-        paymentMode,
-        lines: lines.map((line) => ({
-          inventoryId: line.inventoryId,
-          quantity: line.quantity,
-          saleRatePaisa: line.saleRatePaisa,
-          discountPercent: Math.round(line.discountPercent)
-        }))
-      })
-    });
-    const result = await response.json();
-    setSaving(false);
+    try {
+      const response = await fetch("/api/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName,
+          customerPhone,
+          doctorName,
+          prescriptionNo,
+          paymentMode,
+          lines: lines.map((line) => ({
+            inventoryId: line.inventoryId,
+            quantity: line.quantity,
+            saleRatePaisa: line.saleRatePaisa,
+            discountPercent: Math.round(line.discountPercent)
+          }))
+        })
+      });
+      const result = await response.json();
 
-    if (!response.ok) {
-      toast.error(result.error ?? "Unable to save bill");
-      return;
+      if (!response.ok) {
+        toast.error(result.error ?? "Unable to save bill");
+        return;
+      }
+
+      setLastInvoice({
+        id: String(result.data?.sale?.id ?? ""),
+        invoiceNo: String(result.data?.sale?.invoice_no ?? "invoice created"),
+        totalPaisa: savedTotalPaisa,
+        phone: savedPhone
+      });
+      setLines([]);
+      setQuery("");
+      setCustomerName("Walk-in Customer");
+      setCustomerPhone("");
+      setDoctorName("");
+      setPrescriptionNo("");
+      toast.success(`Bill saved: ${result.data?.sale?.invoice_no ?? "invoice created"}`);
+    } catch {
+      toast.error("Network error — please check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-
-    setLastInvoice({
-      id: String(result.data?.sale?.id ?? ""),
-      invoiceNo: String(result.data?.sale?.invoice_no ?? "invoice created"),
-      totalPaisa: savedTotalPaisa,
-      phone: savedPhone
-    });
-    setLines([]);
-    setQuery("");
-    setCustomerName("Walk-in Customer");
-    setCustomerPhone("");
-    setDoctorName("");
-    setPrescriptionNo("");
-    toast.success(`Bill saved: ${result.data?.sale?.invoice_no ?? "invoice created"}`);
   }
 
   const shareTarget = lastInvoice
@@ -260,7 +265,7 @@ export function BillingPos() {
   const whatsappHref = shareTarget.phone ? `https://wa.me/91${shareTarget.phone.replace(/\D/g, "").slice(-10)}?text=${whatsappText}` : `https://wa.me/?text=${whatsappText}`;
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
+    <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
         <div className="grid gap-3 lg:grid-cols-[1fr_190px_160px]">
           <label className="relative">
@@ -303,11 +308,11 @@ export function BillingPos() {
         )}
 
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[900px] border-separate border-spacing-0 text-sm">
+          <table className="w-full border-separate border-spacing-0 text-sm">
             <thead>
               <tr className="bg-slate-50 text-left text-slate-500">
-                {["Medicine", "Batch", "Qty", "MRP", "Rate", "Disc%", "GST", "Amount", ""].map((head) => (
-                  <th key={head} className="border-b border-slate-200 px-3 py-3 font-medium">{head}</th>
+                {["Medicine", "Batch", "Qty", "Rate", "Disc%", "GST", "Amt", ""].map((head) => (
+                  <th key={head} className={`border-b border-slate-200 px-2 py-2.5 font-medium text-xs ${head === "Batch" ? "hidden md:table-cell" : ""}`}>{head}</th>
                 ))}
               </tr>
             </thead>
@@ -316,33 +321,33 @@ export function BillingPos() {
                 const total = totals.lineTotals[index];
                 return (
                   <tr key={line.inventoryId} className="border-b border-slate-100">
-                    <td className="px-3 py-3 font-medium text-med-navy">
-                      {line.medicineName}
+                    <td className="px-2 py-2 font-medium text-med-navy text-xs">
+                      <span className="block leading-tight">{line.medicineName}</span>
                       {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
-                        <span className="ml-2 rounded bg-orange-100 px-2 py-1 text-xs text-orange-700">{line.schedule}</span>
+                        <span className="ml-0 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] text-orange-700">{line.schedule}</span>
                       )}
+                      <span className="block text-[10px] text-slate-400 mt-0.5">MRP {formatCurrency(line.mrpPaisa)}</span>
                     </td>
-                    <td className="px-3 py-3 font-mono text-xs">{line.batchNo}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-1">
-                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(1, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
-                        <input className="h-8 w-14 rounded border text-center" type="number" min={1} max={line.maxQuantity} value={line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: Number(event.target.value) || 1 })} />
-                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3 w-3" /></button>
+                    <td className="hidden md:table-cell px-2 py-2 font-mono text-[10px]">{line.batchNo}</td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-0.5">
+                        <button className="rounded border p-0.5" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(1, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
+                        <input className="h-7 w-10 rounded border text-center text-xs" type="number" min={1} max={line.maxQuantity} value={line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: Number(event.target.value) || 1 })} />
+                        <button className="rounded border p-0.5" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3 w-3" /></button>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">Avail {line.maxQuantity}</p>
+                      <p className="mt-0.5 text-[10px] text-slate-400">Avl {line.maxQuantity}</p>
                     </td>
-                    <td className="px-3 py-3">{formatCurrency(line.mrpPaisa)}</td>
-                    <td className="px-3 py-3">
-                      <input className="h-8 w-24 rounded border px-2" type="number" value={line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: Math.round(Number(event.target.value) * 100) })} />
+                    <td className="px-2 py-2">
+                      <input className="h-7 w-20 rounded border px-1.5 text-xs" type="number" value={line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: Math.round(Number(event.target.value) * 100) })} />
                     </td>
-                    <td className="px-3 py-3">
-                      <input className="h-8 w-16 rounded border px-2" type="number" value={line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: Number(event.target.value) })} />
+                    <td className="px-2 py-2">
+                      <input className="h-7 w-12 rounded border px-1 text-xs" type="number" value={line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: Number(event.target.value) })} />
                     </td>
-                    <td className="px-3 py-3">{line.gstRate}%</td>
-                    <td className="px-3 py-3 font-semibold">{formatCurrency(total.totalPaisa)}</td>
-                    <td className="px-3 py-3">
-                      <button className="rounded p-2 text-red-600 hover:bg-red-50" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
-                        <Trash2 className="h-4 w-4" />
+                    <td className="px-2 py-2 text-xs">{line.gstRate}%</td>
+                    <td className="px-2 py-2 font-semibold text-xs">{formatCurrency(total.totalPaisa)}</td>
+                    <td className="px-1 py-2">
+                      <button className="rounded p-1.5 text-red-600 hover:bg-red-50" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </td>
                   </tr>

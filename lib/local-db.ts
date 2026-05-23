@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { Prisma, type Medicine, type Sale, type SaleItem, type Supplier, type Tenant } from "@prisma/client";
 import { calculateBillTotals } from "@/lib/gst";
-import { prisma } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import type { SaleLine } from "@/lib/types";
 import { createCustomerSchema, createInventorySchema, createSaleSchema, createSupplierSchema, stockAdjustmentSchema } from "@/lib/validators";
 
@@ -463,7 +463,7 @@ export async function createSession(userId: string) {
   await ensureDefaultData();
   const sessionId = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
-  await prisma.authSession.create({ data: { id: sessionId, userId, expiresAt } });
+  await withRetry(() => prisma.authSession.create({ data: { id: sessionId, userId, expiresAt } }));
   return { sessionId, expiresAt: expiresAt.toISOString() };
 }
 
@@ -495,10 +495,10 @@ export async function getUserBySession(sessionId: string | undefined) {
   }
 
   await ensureDefaultData();
-  const session = await prisma.authSession.findUnique({
+  const session = await withRetry(() => prisma.authSession.findUnique({
     where: { id: sessionId },
     include: { user: { include: { tenant: true } } }
-  });
+  }));
 
   if (!session || session.expiresAt <= new Date()) {
     sessionCache.delete(sessionId);
@@ -522,10 +522,10 @@ export async function deleteSession(sessionId: string | undefined) {
 
 export async function getUserByEmailWithPassword(email: string) {
   await ensureDefaultData();
-  const user = await prisma.user.findUnique({
+  const user = await withRetry(() => prisma.user.findUnique({
     where: { email: email.trim().toLowerCase() },
     include: { tenant: true }
-  });
+  }));
   return user ? mapUserWithPassword(user) : undefined;
 }
 
@@ -688,7 +688,9 @@ export async function getInventoryRows(tenantId: string) {
 export async function searchInventory(tenantId: string, q: string) {
   const normalized = q.trim().toLowerCase();
   if (!normalized) return [];
-  await ensureDefaultData();
+  // Note: ensureDefaultData() is intentionally skipped here because
+  // authenticateApiRequest → getCurrentUser → getUserBySession already calls it.
+  // This saves ~1-2ms per search request.
   const rows = await prisma.inventoryItem.findMany({
     where: {
       tenantId,
@@ -701,7 +703,7 @@ export async function searchInventory(tenantId: string, q: string) {
       ],
     },
     include: { medicine: true, supplier: true },
-    take: 10,
+    take: 8,
   });
   return rows.map(mapInventory);
 }

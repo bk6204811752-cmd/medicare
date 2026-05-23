@@ -81,16 +81,8 @@ function paragraph(text: string): string {
 }
 
 function otpBlock(otp: string): string {
-  const spaced = otp.split("").join(" &nbsp;");
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;">
-    <tr>
-      <td align="center">
-        <div style="display:inline-block;background-color:#ecfdf5;border:2px dashed ${PRIMARY};border-radius:12px;padding:20px 40px;">
-          <span style="font-size:36px;font-weight:800;letter-spacing:10px;color:${PRIMARY};font-family:'Courier New',Courier,monospace;">${spaced}</span>
-        </div>
-      </td>
-    </tr>
-  </table>`;
+  const digitCells = otp.split("").map((d) => `<td style="padding:0 4px;"><div style="width:44px;height:56px;line-height:56px;text-align:center;font-size:28px;font-weight:800;color:${PRIMARY};font-family:'Courier New',Courier,monospace;background-color:#ecfdf5;border:2px solid ${PRIMARY};border-radius:10px;">${d}</div></td>`).join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${digitCells}</tr></table></td></tr></table>`;
 }
 
 function divider(): string {

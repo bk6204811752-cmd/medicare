@@ -11,11 +11,19 @@ export async function GET() {
   if (!auth.ok) return auth.response;
   const tid = auth.ctx.tenantId;
 
-  const [summary, trend, notifications] = await Promise.all([
-    getSalesSummary(tid),
-    getSalesTrend(tid),
-    getNotifications(tid),
-  ]);
+  try {
+    const [summary, trend, notifications] = await Promise.all([
+      getSalesSummary(tid),
+      getSalesTrend(tid),
+      getNotifications(tid),
+    ]);
 
-  return NextResponse.json({ data: { summary, trend, notifications } });
+    return NextResponse.json({ data: { summary, trend, notifications } });
+  } catch (error) {
+    console.error("Dashboard API error:", error);
+    return NextResponse.json(
+      { error: "Failed to load dashboard data. Please try again." },
+      { status: 500 }
+    );
+  }
 }

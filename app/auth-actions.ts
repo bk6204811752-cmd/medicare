@@ -3,6 +3,7 @@
 import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { clearAuthSession, requireSuperAdmin, setAuthSession } from "@/lib/auth";
+import { withRetry } from "@/lib/prisma";
 import {
   createEmailVerificationOtp,
   createPasswordResetOtp,
@@ -62,18 +63,26 @@ export async function sendVerificationOtpAction(formData: FormData) {
   }
   const data = parsed.data;
 
-  // Check if email already exists
-  const existingUser = await getUserByEmailWithPassword(data.email);
-  if (existingUser) {
-    redirectWith("/register", "error", "This email is already registered. Please login instead.");
+  try {
+    // Check if email already exists — retry for Azure SQL cold starts
+    const existingUser = await withRetry(() => getUserByEmailWithPassword(data.email));
+    if (existingUser) {
+      redirectWith("/register", "error", "This email is already registered. Please login instead.");
+    }
+
+    // Generate and store OTP
+    const otp = crypto.randomInt(100000, 999999).toString();
+    await withRetry(() => createEmailVerificationOtp(data.email, otp));
+
+    // Send verification email
+    await sendEmailVerificationOtp(data.email, otp, data.ownerName);
+  } catch (error: unknown) {
+    // Re-throw Next.js redirect errors — they use throw internally
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    console.error("sendVerificationOtpAction error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    redirectWith("/register", "error", "Something went wrong: " + msg);
   }
-
-  // Generate and store OTP
-  const otp = crypto.randomInt(100000, 999999).toString();
-  await createEmailVerificationOtp(data.email, otp);
-
-  // Send verification email
-  sendEmailVerificationOtp(data.email, otp, data.ownerName).catch(console.error);
 
   // Redirect back to register with verification step
   redirect(`/register?step=verify&email=${encodeURIComponent(data.email)}&success=${encodeURIComponent("Verification code sent to your email. Please check your inbox.")}`);
@@ -92,7 +101,7 @@ export async function registerShopAction(formData: FormData) {
   }
 
   // Verify the OTP
-  const otpValid = await verifyEmailOtp(email, otp);
+  const otpValid = await withRetry(() => verifyEmailOtp(email, otp));
   if (!otpValid) {
     redirect(`/register?step=verify&email=${encodeURIComponent(email)}&error=${encodeURIComponent("Invalid or expired verification code. Please request a new one.")}`);
   }
@@ -117,19 +126,21 @@ export async function registerShopAction(formData: FormData) {
   const data = parsed.data;
 
   try {
-    await registerPendingShop(data);
+    await withRetry(() => registerPendingShop(data));
 
-    // Send registration success email to user
-    sendRegistrationSuccessMail(data.email, data.shopName, data.ownerName).catch(console.error);
-
-    // Send approval request email to admin
-    sendApprovalRequestMail({
-      shopName: data.shopName,
-      ownerName: data.ownerName,
-      email: data.email,
-      phone: data.phone
-    }).catch(console.error);
+    // Await both emails before redirecting — on Vercel serverless,
+    // unawaited promises are killed when redirect() terminates the function.
+    await Promise.allSettled([
+      sendRegistrationSuccessMail(data.email, data.shopName, data.ownerName),
+      sendApprovalRequestMail({
+        shopName: data.shopName,
+        ownerName: data.ownerName,
+        email: data.email,
+        phone: data.phone
+      })
+    ]);
   } catch (error) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
     const message = (error as { code?: string }).code === "P2002" ? "This email or shop is already registered" : "Registration failed";
     redirectWith("/register", "error", message);
   }
@@ -148,22 +159,33 @@ export async function loginAction(formData: FormData) {
   }
   const data = parsed.data;
 
-  const user = await getUserByEmailWithPassword(data.email);
-  if (!user || !(await verifyPassword(data.password, String(user.password_hash)))) {
-    redirectWith("/login", "error", "Invalid email or password");
-  }
-  const validUser = user;
+  try {
+    const user = await withRetry(() => getUserByEmailWithPassword(data.email));
+    if (!user || !(await verifyPassword(data.password, String(user.password_hash)))) {
+      redirectWith("/login", "error", "Invalid email or password");
+    }
+    const validUser = user;
 
-  const role = String(validUser.role);
-  const approvalStatus = validUser.approval_status ? String(validUser.approval_status) : null;
-  const active = Boolean(validUser.is_active);
-  if (role !== "super_admin" && (!active || approvalStatus !== "approved")) {
-    const message = approvalStatus === "rejected" ? "Your shop was not approved. Please contact admin." : "Your shop is pending admin approval. You will receive an email once approved.";
-    redirectWith("/login", "error", message);
-  }
+    const role = String(validUser.role);
+    const approvalStatus = validUser.approval_status ? String(validUser.approval_status) : null;
+    const active = Boolean(validUser.is_active);
+    if (role !== "super_admin" && (!active || approvalStatus !== "approved")) {
+      const message = approvalStatus === "rejected" ? "Your shop was not approved. Please contact admin." : "Your shop is pending admin approval. You will receive an email once approved.";
+      redirectWith("/login", "error", message);
+    }
 
-  await setAuthSession(String(validUser.id));
-  redirect(role === "super_admin" ? "/admin/dashboard" : "/shop/dashboard");
+    await withRetry(() => setAuthSession(String(validUser.id)));
+    redirect(role === "super_admin" ? "/admin/dashboard" : "/shop/dashboard");
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    console.error("loginAction error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    const isConnectionError = msg.toLowerCase().includes("connect") || msg.toLowerCase().includes("sequence");
+    const userMsg = isConnectionError
+      ? "Database is starting up. Please try again in a few seconds."
+      : "Something went wrong. Please try again.";
+    redirectWith("/login", "error", userMsg);
+  }
 }
 
 export async function logoutAction() {
@@ -178,13 +200,20 @@ export async function forgotPasswordAction(formData: FormData) {
   }
   const data = parsed.data;
 
-  const user = await getUserByEmailWithPassword(data.email);
-  if (user) {
-    const otp = crypto.randomInt(100000, 999999).toString();
-    await createPasswordResetOtp(String(user.id), otp);
-    const userName = String(user.name || "User");
-    // Fire-and-forget — don't block redirect on email delivery
-    sendPasswordResetOtp(data.email, otp, userName).catch(console.error);
+  try {
+    const user = await withRetry(() => getUserByEmailWithPassword(data.email));
+    if (user) {
+      const otp = crypto.randomInt(100000, 999999).toString();
+      await withRetry(() => createPasswordResetOtp(String(user.id), otp));
+      const userName = String(user.name || "User");
+      // Send reset email and await it so errors are surfaced
+      await sendPasswordResetOtp(data.email, otp, userName);
+    }
+  } catch (error: unknown) {
+    if (error && typeof error === "object" && "digest" in error) throw error;
+    console.error("forgotPasswordAction error:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    redirectWith("/forgot-password", "error", "Something went wrong: " + msg);
   }
 
   redirect(`/reset-password?email=${encodeURIComponent(data.email)}&success=${encodeURIComponent("If the email exists, an OTP has been sent.")}`);
@@ -203,7 +232,7 @@ export async function resetPasswordAction(formData: FormData) {
   }
   const data = parsed.data;
 
-  const ok = await resetPasswordWithOtp(data.email, data.otp, data.password);
+  const ok = await withRetry(() => resetPasswordWithOtp(data.email, data.otp, data.password));
   if (!ok) {
     redirectWith(`/reset-password?email=${encodeURIComponent(data.email)}`, "error", "Invalid or expired OTP");
   }
@@ -220,12 +249,16 @@ export async function approveTenantAction(formData: FormData) {
   await updateTenantApproval(tenantId, "approved");
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
-    sendShopApprovalStatusMail({
-      to: tenant.email,
-      shopName: tenant.name,
-      ownerName: tenant.ownerName || "Shop Owner",
-      approved: true
-    }).catch(console.error);
+    try {
+      await sendShopApprovalStatusMail({
+        to: tenant.email,
+        shopName: tenant.name,
+        ownerName: tenant.ownerName || "Shop Owner",
+        approved: true
+      });
+    } catch (e) {
+      console.error("Failed to send approval email:", e);
+    }
   }
   redirect("/admin/shops?success=Shop approved. Owner can login now.");
 }
@@ -239,12 +272,16 @@ export async function rejectTenantAction(formData: FormData) {
   await updateTenantApproval(tenantId, "rejected");
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
-    sendShopApprovalStatusMail({
-      to: tenant.email,
-      shopName: tenant.name,
-      ownerName: tenant.ownerName || "Shop Owner",
-      approved: false
-    }).catch(console.error);
+    try {
+      await sendShopApprovalStatusMail({
+        to: tenant.email,
+        shopName: tenant.name,
+        ownerName: tenant.ownerName || "Shop Owner",
+        approved: false
+      });
+    } catch (e) {
+      console.error("Failed to send rejection email:", e);
+    }
   }
   redirect("/admin/shops?success=Shop rejected. Owner has been notified.");
 }

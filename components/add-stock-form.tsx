@@ -36,22 +36,27 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       rackLocation: String(formData.get("rackLocation") || "")
     };
 
-    const response = await fetch("/api/inventory", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const result = await response.json();
-    setSaving(false);
+    try {
+      const response = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
 
-    if (!response.ok) {
-      toast.error(result.error ?? "Unable to save stock");
-      return;
+      if (!response.ok) {
+        toast.error(result.error ?? "Unable to save stock");
+        return;
+      }
+
+      toast.success("Stock saved and inventory updated");
+      router.push("/shop/inventory");
+      router.refresh();
+    } catch {
+      toast.error("Network error — please check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
-
-    toast.success("Stock saved and inventory updated");
-    router.push("/shop/inventory");
-    router.refresh();
   }
 
   return (

@@ -5,8 +5,13 @@ import { addInventory, addStockAdjustment, getInventoryRows, getStockMovements }
 export async function GET() {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
-  const data = await getInventoryRows(auth.ctx.tenantId);
-  return NextResponse.json({ data });
+  try {
+    const data = await getInventoryRows(auth.ctx.tenantId);
+    return NextResponse.json({ data });
+  } catch (error) {
+    console.error("Inventory GET error:", error);
+    return NextResponse.json({ error: "Failed to load inventory" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
@@ -25,6 +30,7 @@ export async function POST(request: Request) {
     const item = await addInventory(auth.ctx.tenantId, body);
     return NextResponse.json({ data: item }, { status: 201 });
   } catch (error) {
+    console.error("Inventory POST error:", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to add stock" }, { status: 400 });
   }
 }

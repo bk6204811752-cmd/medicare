@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { getSalesSummary, getSalesTrend, getNotifications } from "@/lib/local-db";
 
+export const dynamic = "force-dynamic";
+
 /**
  * Combined dashboard endpoint — returns summary + trend + notifications in ONE request.
  * Replaces 3 separate API calls from the dashboard page.

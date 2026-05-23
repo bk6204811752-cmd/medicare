@@ -34,6 +34,7 @@
     "recharts": "latest",
     "sonner": "latest",
     "tailwind-merge": "latest",
+    "tesseract.js": "^7.0.0",
     "zod": "latest",
     "zustand": "latest"
   },

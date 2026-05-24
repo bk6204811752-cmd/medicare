@@ -795,6 +795,33 @@ export async function addSupplier(tenantId: string, input: unknown) {
   return (await getSuppliers(tenantId)).find((s) => s.id === supplierId);
 }
 
+export async function getSupplierSupplyHistory(tenantId: string, supplierId: string) {
+  await ensureDefaultData();
+  const items = await prisma.inventoryItem.findMany({
+    where: { tenantId, supplierId, isActive: true },
+    include: {
+      medicine: true
+    },
+    orderBy: { createdAt: "desc" }
+  });
+  return items.map((item) => ({
+    id: item.id,
+    medicineId: item.medicineId,
+    medicineName: item.medicine.name,
+    medicinePackSize: item.medicine.packSize || "1 unit",
+    batchNo: item.batchNo,
+    mfgDate: item.mfgDate ? item.mfgDate.toISOString().slice(0, 10) : null,
+    expiryDate: item.expiryDate.toISOString().slice(0, 10),
+    purchaseRatePaisa: item.purchaseRatePaisa,
+    mrpPaisa: item.mrpPaisa,
+    saleRatePaisa: item.saleRatePaisa,
+    gstRate: item.gstRate,
+    hsnCode: item.hsnCode || item.medicine.hsnCode || "N/A",
+    quantity: item.quantity,
+    createdAt: item.createdAt.toISOString()
+  }));
+}
+
 // ─── Customers (tenant-scoped) ───────────────────────────────
 
 export async function getCustomers(tenantId: string): Promise<LocalCustomer[]> {

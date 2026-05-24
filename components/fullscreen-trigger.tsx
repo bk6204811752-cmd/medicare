@@ -137,19 +137,9 @@ export function FullscreenTrigger() {
     };
   }, []);
 
-  // While in fullscreen, render a persistent exit button at the bottom center of the viewport
+  // While in fullscreen, do not render any exit buttons
   if (isFullscreen) {
-    return (
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] no-print opacity-60 hover:opacity-100 transition-opacity duration-300">
-        <button
-          onClick={handleExplicitExit}
-          className="flex items-center gap-2 rounded-full bg-slate-900/80 hover:bg-slate-950 border border-slate-700/50 px-5 py-2.5 text-xs font-bold text-white shadow-2xl backdrop-blur-md transition-all active:scale-[0.95]"
-        >
-          <Minimize2 className="h-4 w-4 text-emerald-400" />
-          Exit Fullscreen
-        </button>
-      </div>
-    );
+    return null;
   }
 
   // If manual trigger is required

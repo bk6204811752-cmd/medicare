@@ -606,24 +606,49 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       // Dynamic import prevents server-side Next.js execution errors
       const Tesseract = (await import("tesseract.js")).default;
       
-      const result = await Tesseract.recognize(
-        imageSrc,
-        "eng",
-        {
-          workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/worker.min.js",
-          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.4/tesseract-core-wasm.js",
-          langPath: "https://tessdata.projectnaptha.com/4.0.0",
-          logger: (m) => {
-            if (m.status === "recognizing text") {
-              setLoadingStep(`🔍 Reading text from invoice: ${Math.round(m.progress * 100)}%`);
-              setOcrProgress(10 + Math.round(m.progress * 85));
-            } else if (m.status === "loading tesseract ocr core") {
-              setLoadingStep("⚙️ Initializing local WebAssembly runtime...");
-              setOcrProgress(8);
+      let result;
+      try {
+        // Attempt 1: Standard load letting Tesseract automatically load files with SIMD optimizations from default CDN
+        result = await Tesseract.recognize(
+          imageSrc,
+          "eng",
+          {
+            logger: (m) => {
+              if (m.status === "recognizing text") {
+                setLoadingStep(`🔍 Reading text from invoice: ${Math.round(m.progress * 100)}%`);
+                setOcrProgress(10 + Math.round(m.progress * 85));
+              } else if (m.status === "loading tesseract ocr core") {
+                setLoadingStep("⚙️ Initializing local WebAssembly runtime...");
+                setOcrProgress(8);
+              }
             }
           }
-        }
-      );
+        );
+      } catch (firstErr) {
+        console.warn("Default CDN load failed, attempting Unpkg mirror fallback...", firstErr);
+        setLoadingStep("🔄 Mirror fallback: Initializing Unpkg OCR core...");
+        setOcrProgress(12);
+        
+        // Attempt 2: Resilient fallback to UNPKG mirror with correct directory reference for corePath
+        result = await Tesseract.recognize(
+          imageSrc,
+          "eng",
+          {
+            workerPath: "https://unpkg.com/tesseract.js@5.0.5/dist/worker.min.js",
+            corePath: "https://unpkg.com/tesseract.js-core@5.0.4", // directory container!
+            langPath: "https://tessdata.projectnaptha.com/4.0.0",
+            logger: (m) => {
+              if (m.status === "recognizing text") {
+                setLoadingStep(`🔍 Reading text from invoice (Mirror): ${Math.round(m.progress * 100)}%`);
+                setOcrProgress(15 + Math.round(m.progress * 80));
+              } else if (m.status === "loading tesseract ocr core") {
+                setLoadingStep("⚙️ Loading WASM core from Unpkg mirror...");
+                setOcrProgress(14);
+              }
+            }
+          }
+        );
+      }
       
       setLoadingStep("📊 Analyzing invoice layout and items...");
       setOcrProgress(98);
@@ -645,7 +670,27 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       setShowConfirmModal(true);
     } catch (err) {
       console.error("OCR Exception", err);
-      toast.error(`OCR Failed: ${err instanceof Error ? err.message : String(err)}. Please try uploading again or paste text.`);
+      toast.error(
+        <div className="flex flex-col gap-1.5 text-xs text-slate-800 p-1">
+          <p className="font-bold text-red-600 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4 text-red-500 animate-pulse" />
+            <span>OCR Engine Blocked</span>
+          </p>
+          <p className="text-slate-650 leading-relaxed font-medium">
+            Local network or browser blocked loading the OCR files from CDNs.
+          </p>
+          <button 
+            onClick={() => {
+              toast.dismiss();
+              setShowPasteModal(true);
+            }}
+            className="mt-1.5 px-3 py-1 rounded bg-slate-800 text-white font-bold text-[10px] hover:bg-slate-700 shadow-sm transition-all"
+          >
+            📋 Paste Invoice Text Instead (Fail-safe)
+          </button>
+        </div>,
+        { duration: 8000 }
+      );
       setOcrLoading(false);
       setShowScanner(false); // Gracefully close the scanning modal so it doesn't get stuck!
     }

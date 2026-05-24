@@ -82,7 +82,7 @@ export default function ShopDashboard() {
       } />
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Link href="/shop/billing/history" className="block transition-transform hover:scale-[1.01]">
           <StatCard title="Today's Sales" value={formatCurrency(summary?.todaySalesPaisa ?? 0)} hint={`${summary?.todayBills ?? 0} bills today`} icon={IndianRupee} tone="green" />
         </Link>
@@ -101,15 +101,26 @@ export default function ShopDashboard() {
           <section className="glass-card p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="font-display text-lg font-semibold text-med-navy">7-Day Sales Trend</h2>
-                <p className="text-xs text-slate-400">Daily sales revenue in Rupees (₹)</p>
+                <h2 className="font-display text-base sm:text-lg font-semibold text-med-navy">7-Day Sales Trend</h2>
+                <p className="text-[10px] sm:text-xs text-slate-400 font-medium">Daily sales revenue in Rupees (₹)</p>
               </div>
-            </div>
-
-            {trend && trend.length > 0 ? (
+              <span className="md:hidden rounded-full bg-slate-100 px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wide text-slate-500 flex items-center gap-1 animate-pulse">
+                Swipe ↔
+              </span>
+            </div>            {trend && trend.length > 0 ? (
               <div className="overflow-x-auto pb-2 scrollbar-none">
                 <div className="relative h-48 min-w-[500px]">
                   <svg className="w-full h-full" viewBox="0 0 600 160" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="maxBar" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10b981" />
+                        <stop offset="100%" stopColor="#059669" />
+                      </linearGradient>
+                      <linearGradient id="normalBar" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f8fafc" />
+                        <stop offset="100%" stopColor="#cbd5e1" />
+                      </linearGradient>
+                    </defs>
                     {/* Grid lines & Y-axis labels */}
                     {(() => {
                       const maxSales = Math.max(...trend.map((d) => d.sales), 100);
@@ -120,9 +131,9 @@ export default function ShopDashboard() {
                           {steps.map((val, idx) => {
                             const y = 15 + idx * 35;
                             return (
-                              <g key={idx} className="opacity-40">
+                              <g key={idx} className="opacity-45">
                                 <line x1="60" y1={y} x2="580" y2={y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
-                                <text x="50" y={y + 4} textAnchor="end" className="text-[10px] font-semibold fill-slate-400 font-sans">
+                                <text x="50" y={y + 4} textAnchor="end" className="text-[10px] font-bold fill-slate-400 font-sans">
                                   ₹{Math.round(val)}
                                 </text>
                               </g>
@@ -153,21 +164,18 @@ export default function ShopDashboard() {
                                   y={y}
                                   width="30"
                                   height={Math.max(barHeight, 4)}
-                                  rx="4"
-                                  className={`transition-all duration-300 ${
-                                    isMax 
-                                      ? "fill-med-green hover:fill-med-greenDark" 
-                                      : "fill-slate-300 hover:fill-med-greenSoft text-slate-500"
-                                  }`}
+                                  rx="5"
+                                  fill={isMax ? "url(#maxBar)" : "url(#normalBar)"}
+                                  className="transition-all duration-300 hover:opacity-90"
                                 />
 
                                 {/* Day Label */}
-                                <text x={x + 15} y="140" textAnchor="middle" className="text-[11px] font-semibold fill-slate-500 font-sans">
+                                <text x={x + 15} y="140" textAnchor="middle" className="text-[11px] font-bold fill-slate-500 font-sans">
                                   {item.day}
                                 </text>
 
                                 {/* Bills count */}
-                                <text x={x + 15} y="152" textAnchor="middle" className="text-[9px] fill-slate-400 font-sans">
+                                <text x={x + 15} y="152" textAnchor="middle" className="text-[9px] fill-slate-400 font-semibold font-sans">
                                   {item.bills} bills
                                 </text>
                               </g>
@@ -188,17 +196,17 @@ export default function ShopDashboard() {
 
           {/* Quick actions */}
           <section className="glass-card p-5">
-            <h2 className="font-display text-lg font-semibold text-med-navy mb-4">Quick Actions</h2>
+            <h2 className="font-display text-base sm:text-lg font-semibold text-med-navy mb-4">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                { label: "New Bill", href: "/shop/billing", icon: ShoppingCart, color: "bg-emerald-50 text-med-green hover:bg-emerald-100" },
-                { label: "Add Stock", href: "/shop/inventory", icon: Package, color: "bg-sky-50 text-sky-600 hover:bg-sky-100" },
-                { label: "Reports", href: "/shop/reports", icon: BarChart3, color: "bg-purple-50 text-purple-600 hover:bg-purple-100" },
-                { label: "Purchase", href: "/shop/purchases", icon: Plus, color: "bg-orange-50 text-orange-600 hover:bg-orange-100" },
+                { label: "New Bill", href: "/shop/billing", icon: ShoppingCart, color: "bg-emerald-50/70 text-med-green hover:bg-emerald-100 border border-emerald-100/50" },
+                { label: "Add Stock", href: "/shop/inventory", icon: Package, color: "bg-sky-50/70 text-sky-600 hover:bg-sky-100 border border-sky-100/50" },
+                { label: "Reports", href: "/shop/reports", icon: BarChart3, color: "bg-purple-50/70 text-purple-600 hover:bg-purple-100 border border-purple-100/50" },
+                { label: "Purchase", href: "/shop/purchases", icon: Plus, color: "bg-orange-50/70 text-orange-600 hover:bg-orange-100 border border-orange-100/50" },
               ].map((action) => (
-                <Link key={action.href} href={action.href} className={`flex flex-col items-center gap-2 rounded-xl p-4 transition-colors ${action.color}`}>
+                <Link key={action.href} href={action.href} className={`flex flex-col items-center justify-center gap-2 rounded-2xl p-4 transition-all hover:scale-[1.03] hover:shadow-xs active:scale-95 duration-200 ${action.color}`}>
                   <action.icon className="h-6 w-6" />
-                  <span className="text-xs font-semibold">{action.label}</span>
+                  <span className="text-xs font-bold">{action.label}</span>
                 </Link>
               ))}
             </div>
@@ -216,11 +224,16 @@ export default function ShopDashboard() {
             {lowStock.length === 0 ? (
               <p className="text-sm text-slate-400 py-4 text-center">All items are well-stocked ✓</p>
             ) : (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
                 {lowStock.slice(0, 8).map((n) => (
-                  <div key={n.id} className="flex items-start gap-2 rounded-lg bg-orange-50 p-2.5">
-                    <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
-                    <p className="text-xs text-orange-700">{n.message}</p>
+                  <div key={n.id} className="flex items-center gap-3 rounded-xl border border-orange-100 bg-orange-50/40 p-3 shadow-xs transition-colors hover:bg-orange-50">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+                      <AlertTriangle className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-800 leading-tight">{n.message}</p>
+                      <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wider text-orange-600 bg-orange-100/50 px-1.5 py-0.5 rounded">Low Stock</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -236,11 +249,18 @@ export default function ShopDashboard() {
             {expiry.length === 0 ? (
               <p className="text-sm text-slate-400 py-4 text-center">No expiry warnings ✓</p>
             ) : (
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
                 {expiry.slice(0, 8).map((n) => (
-                  <div key={n.id} className={`flex items-start gap-2 rounded-lg p-2.5 ${n.severity === "danger" ? "bg-red-50" : "bg-yellow-50"}`}>
-                    <Clock className={`h-4 w-4 mt-0.5 shrink-0 ${n.severity === "danger" ? "text-red-500" : "text-yellow-500"}`} />
-                    <p className={`text-xs ${n.severity === "danger" ? "text-red-700" : "text-yellow-700"}`}>{n.message}</p>
+                  <div key={n.id} className={`flex items-center gap-3 rounded-xl border p-3 shadow-xs transition-colors ${n.severity === "danger" ? "border-red-100 bg-red-50/40 hover:bg-red-50" : "border-yellow-100 bg-yellow-50/40 hover:bg-yellow-50"}`}>
+                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${n.severity === "danger" ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-600"}`}>
+                      <Clock className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-semibold leading-tight ${n.severity === "danger" ? "text-slate-800" : "text-slate-700"}`}>{n.message}</p>
+                      <span className={`inline-block mt-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${n.severity === "danger" ? "text-red-600 bg-red-100/50" : "text-yellow-600 bg-yellow-100/50"}`}>
+                        {n.severity === "danger" ? "Expired" : "Expiring"}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

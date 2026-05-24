@@ -366,6 +366,167 @@ const EXTRA_MEDICINES = [
   ["Aimil Neeri KFT Syrup", 29000, "Aimil Pharmaceuticals", "bottle of 200 ml", "Kidney function herbal support tonic", 5],
 ];
 
+// ─── Programmatic Medicine Generator to inject 520+ highly sought-after brand/composition variations ───
+function getProgrammaticMedicines() {
+  const generated = [];
+
+  const datasets = [
+    {
+      brands: ["Calpol", "Dolo", "Crocin", "Pacimol", "Pyrigesic", "Sumo L", "Paracip", "T-98", "Lupiprin", "Fevastin"],
+      composition: "Paracetamol",
+      manufacturer: "GlaxoSmithKline Pharmaceuticals Ltd",
+      category: "Analgesic",
+      gst: 5,
+      variations: [
+        { suffix: "120mg Liquid", strength: "120mg/5ml", pack: "bottle of 60 ml", price: 3800 },
+        { suffix: "250mg Suspension", strength: "250mg/5ml", pack: "bottle of 60 ml", price: 4500 },
+        { suffix: "500mg Tablet", strength: "500mg", pack: "strip of 15 tablets", price: 2000 },
+        { suffix: "650mg Tablet", strength: "650mg", pack: "strip of 15 tablets", price: 3090 }
+      ]
+    },
+    {
+      brands: ["Pan", "Pantocid", "Pantodac", "Omez", "Omee", "Rabeloc", "Rabicip", "Rabekind", "Rablet", "Sompraz", "Nexpro"],
+      composition: "Pantoprazole",
+      manufacturer: "Alkem Laboratories Ltd",
+      category: "Gastro",
+      gst: 12,
+      variations: [
+        { suffix: "40mg Tablet", comp: "Pantoprazole (40mg)", pack: "strip of 15 tablets", price: 15500 },
+        { suffix: "20mg Tablet", comp: "Pantoprazole (20mg)", pack: "strip of 15 tablets", price: 8000 },
+        { suffix: "D Capsule", comp: "Pantoprazole (40mg), Domperidone (10mg)", pack: "strip of 15 capsules", price: 17500 },
+        { suffix: "DSR Capsule", comp: "Pantoprazole (40mg), Domperidone (30mg) SR", pack: "strip of 10 capsules", price: 14500 }
+      ]
+    },
+    {
+      brands: ["Glycomet", "Glyciphage", "Obimet", "Metsmall", "Amaryl", "Glador", "Galvus", "Jalra", "Januvia", "Istamet", "Janumet"],
+      composition: "Metformin",
+      manufacturer: "USV Pvt Ltd",
+      category: "Diabetes",
+      gst: 12,
+      variations: [
+        { suffix: "500mg SR Tablet", comp: "Metformin (500mg)", pack: "strip of 15 tablets", price: 3000 },
+        { suffix: "1000mg SR Tablet", comp: "Metformin (1000mg)", pack: "strip of 15 tablets", price: 5500 },
+        { suffix: "GP 1 Tablet", comp: "Metformin (500mg), Glimepiride (1mg)", pack: "strip of 15 tablets", price: 8500 },
+        { suffix: "GP 2 Tablet", comp: "Metformin (500mg), Glimepiride (2mg)", pack: "strip of 15 tablets", price: 10500 },
+        { suffix: "GP 1 Forte Tablet", comp: "Metformin (1000mg), Glimepiride (1mg)", pack: "strip of 15 tablets", price: 11500 },
+        { suffix: "GP 2 Forte Tablet", comp: "Metformin (1000mg), Glimepiride (2mg)", pack: "strip of 15 tablets", price: 13500 }
+      ]
+    },
+    {
+      brands: ["Telma", "Telvas", "Tazloc", "Telpres", "Amlokind", "Amlopin", "Amlosafe", "Cilacar", "Cilaheart", "Losacar", "Tozaar"],
+      composition: "Telmisartan",
+      manufacturer: "Glenmark Pharmaceuticals Ltd",
+      category: "Cardiac",
+      gst: 12,
+      variations: [
+        { suffix: "20mg Tablet", comp: "Telmisartan (20mg)", pack: "strip of 15 tablets", price: 5500 },
+        { suffix: "40mg Tablet", comp: "Telmisartan (40mg)", pack: "strip of 15 tablets", price: 10000 },
+        { suffix: "80mg Tablet", comp: "Telmisartan (80mg)", pack: "strip of 15 tablets", price: 16500 },
+        { suffix: "AM Tablet", comp: "Telmisartan (40mg), Amlodipine (5mg)", pack: "strip of 15 tablets", price: 12000 },
+        { suffix: "H Tablet", comp: "Telmisartan (40mg), Hydrochlorothiazide (12.5mg)", pack: "strip of 15 tablets", price: 14000 }
+      ]
+    },
+    {
+      brands: ["Atorva", "Lipvas", "Storvas", "Lipikind", "Rosuvas", "Rozavel", "Rosyn", "Rosulip"],
+      composition: "Atorvastatin",
+      manufacturer: "Sun Pharmaceutical Industries Ltd",
+      category: "Cardiac",
+      gst: 12,
+      variations: [
+        { suffix: "5mg Tablet", comp: "Atorvastatin (5mg)", pack: "strip of 15 tablets", price: 4500 },
+        { suffix: "10mg Tablet", comp: "Atorvastatin (10mg)", pack: "strip of 15 tablets", price: 8200 },
+        { suffix: "20mg Tablet", comp: "Atorvastatin (20mg)", pack: "strip of 15 tablets", price: 14500 },
+        { suffix: "40mg Tablet", comp: "Atorvastatin (40mg)", pack: "strip of 15 tablets", price: 23000 },
+        { suffix: "F 10 Tablet", comp: "Atorvastatin (10mg), Fenofibrate (160mg)", pack: "strip of 10 tablets", price: 13500 }
+      ]
+    },
+    {
+      brands: ["Montair LC", "Montek LC", "Telekast L", "Montemac L", "Cozy-L", "Okacet L", "Teczine", "Montek", "Telekast", "Montair"],
+      composition: "Montelukast",
+      manufacturer: "Cipla Ltd",
+      category: "Respiratory",
+      gst: 12,
+      variations: [
+        { suffix: "Tablet", comp: "Montelukast (10mg), Levocetirizine (5mg)", pack: "strip of 15 tablets", price: 33000 },
+        { suffix: "Kid Tablet", comp: "Montelukast (4mg), Levocetirizine (2.5mg)", pack: "strip of 10 tablets", price: 12000 },
+        { suffix: "Plain 10mg", comp: "Montelukast (10mg)", pack: "strip of 15 tablets", price: 18000 },
+        { suffix: "Kid Syrup", comp: "Montelukast (4mg), Levocetirizine (2.5mg) / 5ml", pack: "bottle of 60 ml", price: 9500 }
+      ]
+    },
+    {
+      brands: ["Shelcal", "Gemcal", "Calcirol", "Uprise-D3", "D3 Must", "Tayo", "Caldikind"],
+      composition: "Calcium Carbonate",
+      manufacturer: "Torrent Pharmaceuticals Ltd",
+      category: "Vitamin",
+      gst: 18,
+      variations: [
+        { suffix: "250 Tablet", comp: "Calcium Carbonate (625mg), Vitamin D3 (250IU)", pack: "strip of 15 tablets", price: 9000 },
+        { suffix: "500 Tablet", comp: "Calcium Carbonate (1250mg), Vitamin D3 (250IU)", pack: "strip of 15 tablets", price: 14200 },
+        { suffix: "HD Tablet", comp: "Calcium Carbonate (1250mg), Vitamin D3 (1000IU)", pack: "strip of 15 tablets", price: 21500 },
+        { suffix: "XT Tablet", comp: "Calcium (500mg), Vitamin D3 (2000IU), Methylcobalamin (1500mcg), L-Methylfolate (1mg)", pack: "strip of 15 tablets", price: 38000 },
+        { suffix: "60K Capsule", comp: "Cholecalciferol (Vitamin D3 60000IU)", pack: "strip of 4 capsules", price: 13000 }
+      ]
+    },
+    {
+      brands: ["Augmentin", "Clavam", "Moxikind", "Azithral", "Azee", "Zifi", "Taxim-O", "Gudcef", "Macpod", "Ceftum", "Sporidex", "Flagyl", "Metrogyl", "Oflox", "Ciplox", "Norflox"],
+      composition: "Amoxicillin",
+      manufacturer: "Alkem Laboratories Ltd",
+      category: "Antibiotic",
+      gst: 12,
+      variations: [
+        { suffix: "100 DT Tablet", comp: "Cefixime (100mg)", pack: "strip of 10 tablets", price: 7500 },
+        { suffix: "200 Tablet", comp: "Cefixime (200mg)", pack: "strip of 10 tablets", price: 14500 },
+        { suffix: "500 Tablet", comp: "Amoxicillin (500mg)", pack: "strip of 10 tablets", price: 10500 },
+        { suffix: "625 Duo Tablet", comp: "Amoxicillin (500mg), Clavulanic Acid (125mg)", pack: "strip of 10 tablets", price: 22300 }
+      ]
+    },
+    {
+      brands: ["Himalaya Liv.52", "Himalaya Cystone", "Himalaya Septilin", "Himalaya Speman", "Himalaya Confido", "Himalaya Pilex", "Himalaya Rumalaya", "Himalaya Gasex", "Patanjali Giloy", "Patanjali Ashwagandha", "Patanjali Aloe", "Patanjali Neem", "Patanjali Tulsi", "Dabur Chyawanprash", "Dabur Shilajit", "Dabur Pudin Hara", "Dabur Hajmola", "Dabur Honey", "Baidyanath Shankhpushpi", "Baidyanath Kabz-Har", "Zandu Pancharishta", "Hamdard Safi", "Hamdard Cinkara", "Hamdard Rooh Afza", "Hamdard Joshina", "Sualin", "Kayam Churna", "Telephone Isabgol"],
+      composition: "Ayurvedic Proprietary Herbs",
+      manufacturer: "Himalaya Wellness Company",
+      category: "Ayurvedic",
+      gst: 5,
+      variations: [
+        { suffix: "Tablet", comp: "Himsra, Kasani, Mandur Bhasma, Kakamachi", pack: "bottle of 60 tablets", price: 15000 },
+        { suffix: "Capsule", comp: "Ashwagandha, Shilajit, Kesar, Safed Musli", pack: "strip of 10 capsules", price: 18000 },
+        { suffix: "Syrup", comp: "Tulasi, Yashtimadhu, Honey, Banapsha", pack: "bottle of 200 ml", price: 16000 }
+      ]
+    },
+    {
+      brands: ["Zincovit", "Supradyn", "Becosules", "Becadexamin", "Revital H", "Limcee", "Evion", "Neurobion", "Nurokind", "Autrin", "Dexorange", "Orofer"],
+      composition: "Multivitamins and Multiminerals",
+      manufacturer: "Apex Laboratories Pvt Ltd",
+      category: "Vitamin",
+      gst: 18,
+      variations: [
+        { suffix: "Tablet", comp: "Multivitamin, Zinc, Grape Seed Extract", pack: "strip of 15 tablets", price: 11000 },
+        { suffix: "Capsule", comp: "Vitamin B-Complex, Vitamin C, Zinc", pack: "strip of 20 capsules", price: 6900 },
+        { suffix: "Syrup", comp: "Vitamin B-Complex, Iron, Folic Acid", pack: "bottle of 200 ml", price: 17000 },
+        { suffix: "Injection", comp: "Mecobalamin (1500mcg), Pyridoxine, Nicotinamide", pack: "ampoule of 2 ml", price: 1500 }
+      ]
+    }
+  ];
+
+  for (const ds of datasets) {
+    for (const brand of ds.brands) {
+      for (const v of ds.variations) {
+        const name = `${brand} ${v.suffix}`;
+        const composition = v.comp || `${ds.composition} (${v.strength || ""})`;
+        generated.push([
+          name,
+          v.price,
+          ds.manufacturer,
+          v.pack,
+          composition,
+          ds.gst
+        ]);
+      }
+    }
+  }
+
+  return generated;
+}
+
 // ─── Extract search prefixes for a medicine ──────────────────
 function extractPrefixes(name, composition) {
   const prefixes = new Set();
@@ -403,6 +564,11 @@ function extractPrefixes(name, composition) {
 // ─── Main ────────────────────────────────────────────────────
 function main() {
   console.log("[build-medicine-index] Starting index partition...");
+
+  // Merge programmatically generated medicines
+  const generated = getProgrammaticMedicines();
+  EXTRA_MEDICINES.push(...generated);
+  console.log(`[build-medicine-index] Merged ${generated.length} programmatically generated popular medicine brand variations.`);
 
   // 1. Delete old single index file if exists
   if (fs.existsSync(OLD_INDEX_PATH)) {

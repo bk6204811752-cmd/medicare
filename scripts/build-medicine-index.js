@@ -337,6 +337,33 @@ const EXTRA_MEDICINES = [
   ["Sualin Cough Tablet", 3000, "Hamdard Laboratories", "strip of 10 tablets", "Herbal cough remedy", 5],
   ["Himalaya Herbolax Tablet", 16000, "Himalaya Wellness Company", "bottle of 100 tablets", "Natural laxative", 5],
   ["Baidyanath Shankhpushpi Syrup", 14000, "Baidyanath", "bottle of 200 ml", "Memory booster brain tonic", 5],
+
+  // Crucial chronic, respiratory, multivitamin & wellness additions
+  ["Telma H Tablet", 14000, "Glenmark Pharmaceuticals Ltd", "strip of 15 tablets", "Telmisartan (40mg), Hydrochlorothiazide (12.5mg)", 12],
+  ["Cilacar 10mg Tablet", 13000, "J.B. Chemicals & Pharmaceuticals Ltd", "strip of 15 tablets", "Cilnidipine (10mg)", 12],
+  ["Concor 5mg Tablet", 8500, "Merck Ltd", "strip of 10 tablets", "Bisoprolol Fumarate (5mg)", 12],
+  ["Metrogyl 400mg Tablet", 2200, "J.B. Chemicals & Pharmaceuticals Ltd", "strip of 15 tablets", "Metronidazole (400mg)", 12],
+  ["Rabekind-DSR Capsule", 11000, "Mankind Pharma Ltd", "strip of 10 capsules", "Rabeprazole (20mg), Domperidone (30mg)", 12],
+  ["Sompraz D 40 Capsule", 19500, "Sun Pharmaceutical Industries Ltd", "strip of 15 capsules", "Esomeprazole (40mg), Domperidone (30mg)", 12],
+  ["Nexpro RD 20 Capsule", 13000, "Torrent Pharmaceuticals Ltd", "strip of 15 capsules", "Esomeprazole (20mg), Domperidone (30mg)", 12],
+  ["Librax Tablet", 16000, "Abbott", "strip of 20 tablets", "Chlordiazepoxide (5mg), Clidinium Bromide (2.5mg)", 12],
+  ["Colospa Retard Capsule", 32000, "Abbott", "strip of 15 capsules", "Mebeverine Hydrochloride (200mg)", 12],
+  ["Lopamide 2mg Tablet", 2500, "Torrent Pharmaceuticals Ltd", "strip of 10 tablets", "Loperamide Hydrochloride (2mg)", 12],
+  ["Montair 10mg Tablet", 18000, "Cipla Ltd", "strip of 15 tablets", "Montelukast (10mg)", 12],
+  ["Montair LC Kid Tablet", 12000, "Cipla Ltd", "strip of 10 tablets", "Montelukast (4mg), Levocetirizine (2.5mg)", 12],
+  ["Teczine 5mg Tablet", 8500, "Cipla Ltd", "strip of 10 tablets", "Levocetirizine Dihydrochloride (5mg)", 12],
+  ["Corex DX Cough Syrup", 13500, "Pfizer Ltd", "bottle of 100 ml", "Dextromethorphan Hydrobromide (10mg), Chlorpheniramine Maleate (4mg)", 12],
+  ["Phensedyl Cough Syrup", 16500, "Abbott", "bottle of 100 ml", "Codeine Phosphate (10mg), Chlorpheniramine Maleate (4mg)", 12],
+  ["Nurokind-OD Tablet", 18000, "Mankind Pharma Ltd", "strip of 20 tablets", "Mecobalamin (Vitamin B12) (1500mcg)", 18],
+  ["Rejunex CD3 Capsule", 19000, "Intas Pharmaceuticals Ltd", "strip of 10 capsules", "Mecobalamin (1500mcg), Calcitriol (0.25mcg), Calcium Carbonate (500mg)", 18],
+  ["Cobadex CZS Tablet", 9500, "GlaxoSmithKline Pharmaceuticals Ltd", "strip of 15 tablets", "Multivitamins, Zinc, Chromium, Selenium", 18],
+  ["Monocef 1g Injection", 6500, "Aristo Pharmaceuticals Pvt Ltd", "vial of 1 injection", "Ceftriaxone (1g)", 12],
+  ["Lariago 250mg Tablet", 1500, "Ipca Laboratories Ltd", "strip of 10 tablets", "Chloroquine Phosphate (250mg)", 12],
+  ["Himalaya Confido Tablet", 15000, "Himalaya Wellness Company", "bottle of 60 tablets", "Ayurvedic sexual health and wellness", 5],
+  ["Himalaya Pilex Tablet", 16000, "Himalaya Wellness Company", "bottle of 60 tablets", "Hemorrhoids piles support tablet", 5],
+  ["Dabur Hajmola Regular", 6000, "Dabur India Ltd", "bottle of 120 tablets", "Digestive herbal chewable tablets", 5],
+  ["Kayam Tablet", 9000, "Sheth Brothers", "strip of 30 tablets", "Ayurvedic herbal laxative tablets", 5],
+  ["Aimil Neeri KFT Syrup", 29000, "Aimil Pharmaceuticals", "bottle of 200 ml", "Kidney function herbal support tonic", 5],
 ];
 
 // ─── Extract search prefixes for a medicine ──────────────────

@@ -1000,7 +1000,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                     ))
                   )}
                   
-                  {/* Smart Suggestions */}
+                  {/* Medicine Database Suggestions */}
                   {(drugMasterHits.length > 0 || drugMasterLoading) && (
                     <div>
                       <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1.5">
@@ -1010,7 +1010,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                           <Database className="h-3 w-3 text-blue-500" />
                         )}
                         <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
-                          Smart Suggestions {drugMasterLoading ? "— Searching..." : `— ${drugMasterHits.length} found`}
+                          Medicine Database {drugMasterLoading ? "— Searching..." : `— ${drugMasterHits.length} found`}
                         </span>
                         <Sparkles className="h-3 w-3 text-blue-400 ml-auto" />
                       </div>
@@ -1027,7 +1027,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
                               <p className="truncate text-sm font-semibold text-slate-800">{hit.name}</p>
-                              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">Verified ✓</span>
+                              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">Database ✓</span>
                             </div>
                             {hit.genericName && <p className="truncate text-xs text-slate-500">{hit.genericName}{hit.manufacturer ? ` • ${hit.manufacturer}` : ""}</p>}
                           </div>

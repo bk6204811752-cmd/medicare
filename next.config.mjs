@@ -12,6 +12,11 @@ const nextConfig = {
     optimizePackageImports: ["lucide-react", "recharts", "date-fns", "sonner"],
   },
 
+  // Include the 246K medicine CSV in all serverless function bundles
+  outputFileTracingIncludes: {
+    "/api/drug-master/search": ["./Indian_Medicine_Database_246k.csv"],
+  },
+
   // Security headers
   async headers() {
     return [

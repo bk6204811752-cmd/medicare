@@ -796,10 +796,10 @@ export function BillingPos({ tenant }: { tenant: any }) {
           </div>
         )}
 
-        {/* ─── "Not Found" — Smart Suggestions + Manual Add ─── */}
+        {/* ─── "Not Found" — Medicine Database Suggestions + Manual Add ─── */}
         {query.length >= 2 && matches.length === 0 && suggestions.length === 0 && !showAddMedicine && (
           <div className="mt-3 space-y-3">
-            {/* Smart Suggestions */}
+            {/* Medicine Database Suggestions */}
             {(drugMasterHits.length > 0 || drugMasterLoading) && (
               <div className="rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 p-3">
                 <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-blue-800">
@@ -817,7 +817,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
                       <span className="text-sm font-semibold text-slate-900">{hit.name}</span>
                       {hit.genericName && <span className="ml-1.5 text-xs text-slate-600">({hit.genericName})</span>}
                       {hit.mrpPaisa > 0 && <span className="ml-1.5 text-xs font-medium text-emerald-600">₹{(hit.mrpPaisa / 100).toFixed(2)}</span>}
-                      <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">Verified ✓</span>
+                      <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">Database ✓</span>
                     </div>
                     <button
                       onClick={() => {

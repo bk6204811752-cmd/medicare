@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
-import { searchDrugMaster, searchFallbackDatabase } from "@/lib/drug-master";
+import { searchMedicineDatabase } from "@/lib/medicine-db";
 
 /**
  * GET /api/drug-master/search?q=<query>
  *
- * Server-side proxy to Drug Master API + fallback database.
- * Returns unified medicine suggestions with source badges.
+ * Searches the local 246K Indian Medicine Database (loaded from CSV).
+ * Returns medicine suggestions with full details for auto-fill.
+ * Completely local — no external API calls.
  */
 export async function GET(request: Request) {
   const auth = await authenticateApiRequest();
@@ -20,25 +21,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const results = await searchDrugMaster(q);
-    const source = results.length > 0
-      ? results.some(r => r.source === "api")
-        ? results.some(r => r.source === "fallback") ? "mixed" : "api"
-        : "fallback"
-      : "none";
-
-    return NextResponse.json(
-      { data: results, source },
-      {
-        headers: {
-          "Cache-Control": "private, max-age=60",
-        },
-      }
-    );
+    const results = searchMedicineDatabase(q);
+    return NextResponse.json({
+      data: results,
+      source: results.length > 0 ? "local" : "none",
+    });
   } catch (error) {
-    console.error("Drug Master search error:", error);
-    // Graceful fallback: return offline results
-    const fallback = searchFallbackDatabase(q);
-    return NextResponse.json({ data: fallback, source: "fallback" });
+    console.error("Medicine database search error:", error);
+    return NextResponse.json({ data: [], source: "none" });
   }
 }

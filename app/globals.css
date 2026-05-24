@@ -351,7 +351,7 @@ html, body {
 /* Mobile floating action bar for billing */
 .mobile-fab {
   position: fixed;
-  bottom: calc(4rem + env(safe-area-inset-bottom));
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 35;

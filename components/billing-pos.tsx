@@ -541,7 +541,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
           </label>
           <button
             onClick={startScanning}
-            className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 font-semibold transition-colors ${
+            className={`hidden md:inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 font-semibold transition-colors ${
               scanning
                 ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
                 : "border-slate-300 text-med-navy hover:bg-slate-50"
@@ -552,7 +552,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
           </button>
           <button
             onClick={() => setShowManualBarcode(!showManualBarcode)}
-            className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 font-semibold ${
+            className={`hidden md:inline-flex min-h-12 items-center justify-center gap-2 rounded-md border px-3 font-semibold ${
               showManualBarcode ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-300 text-med-navy hover:bg-slate-50"
             }`}
           >

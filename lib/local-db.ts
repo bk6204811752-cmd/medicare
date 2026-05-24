@@ -102,6 +102,8 @@ export type LocalTenant = {
   plan: string;
   isActive: boolean;
   approvalStatus: "pending" | "approved" | "rejected";
+  profilePicUrl?: string | null;
+  address?: string | null;
 };
 
 export type LocalUser = {
@@ -356,7 +358,9 @@ function mapTenant(tenant: Tenant): LocalTenant {
     gstin: tenant.gstin, drugLicenseNo: tenant.drugLicenseNo, plan: tenant.plan,
     upiId: tenant.upiId ?? null,
     isActive: tenant.isActive,
-    approvalStatus: tenant.approvalStatus as LocalTenant["approvalStatus"]
+    approvalStatus: tenant.approvalStatus as LocalTenant["approvalStatus"],
+    profilePicUrl: tenant.profilePicUrl ?? null,
+    address: tenant.address ?? null
   };
 }
 

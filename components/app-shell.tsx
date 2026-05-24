@@ -128,6 +128,24 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const [currentProfilePic, setCurrentProfilePic] = useState(profilePicUrl);
+
+  // Keep internal state in sync with prop changes
+  useEffect(() => {
+    setCurrentProfilePic(profilePicUrl);
+  }, [profilePicUrl]);
+
+  // Listen to profile picture update events
+  useEffect(() => {
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      if (customEvent.detail) {
+        setCurrentProfilePic(customEvent.detail);
+      }
+    };
+    window.addEventListener("profile-pic-updated", handleUpdate);
+    return () => window.removeEventListener("profile-pic-updated", handleUpdate);
+  }, []);
 
   // Fetch notification count once (not on every navigation)
   useEffect(() => {
@@ -194,8 +212,8 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
         <div className="border-t border-slate-100 p-3">
           {!collapsed && (
             <Link href="/shop/profile" className="mb-2 flex items-center gap-2.5 px-2 group">
-              {profilePicUrl ? (
-                <img src={profilePicUrl} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 shrink-0" />
+              {currentProfilePic ? (
+                <img src={currentProfilePic} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 shrink-0" />
               ) : (
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-med-greenSoft text-med-green text-sm font-bold border border-med-green/15">{user.name.charAt(0)}</div>
               )}
@@ -236,8 +254,8 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
               </Link>
             )}
             <Link href="/shop/profile" className="flex h-9 w-9 items-center justify-center rounded-full overflow-hidden shadow-sm" title="View Profile">
-              {profilePicUrl ? (
-                <img src={profilePicUrl} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 hover:border-med-green transition-colors" />
+              {currentProfilePic ? (
+                <img src={currentProfilePic} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 hover:border-med-green transition-colors" />
               ) : (
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-med-green text-white text-sm font-bold hover:bg-med-greenDark transition-colors">{user.name.charAt(0)}</span>
               )}

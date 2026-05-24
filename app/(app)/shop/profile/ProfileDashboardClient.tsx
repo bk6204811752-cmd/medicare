@@ -67,6 +67,9 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
         setProfilePicUrl(data.url);
         tenant.profilePicUrl = data.url;
         setMessage({ type: "success", text: "Profile picture updated!" });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("profile-pic-updated", { detail: data.url }));
+        }
       } else {
         setMessage({ type: "error", text: data.error || "Failed to upload image." });
       }

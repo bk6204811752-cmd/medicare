@@ -24,8 +24,22 @@ type SelectItem = {
   packSize?: string;
 };
 
-// Smart regex parser function to extract invoice fields
-function parseInvoiceText(text: string, medicinesList: SelectItem[]) {
+type ScannedItem = {
+  id: string;
+  medicineId: string;
+  name: string;
+  batchNo: string;
+  expiryDate: string;
+  quantity: string;
+  purchaseRate: string;
+  mrp: string;
+  saleRate: string;
+  gstRate: string;
+  hsnCode: string;
+};
+
+// Fallback single-item parser
+function parseInvoiceTextSingle(text: string, medicinesList: SelectItem[]) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
   
   let detectedMedicineId = "";
@@ -39,7 +53,6 @@ function parseInvoiceText(text: string, medicinesList: SelectItem[]) {
   let detectedGst = "12";
   let detectedHsn = "";
 
-  // Normalize full text for searching
   const textLower = text.toLowerCase();
 
   // 1. Match medicine from database list
@@ -72,7 +85,7 @@ function parseInvoiceText(text: string, medicinesList: SelectItem[]) {
     }
   }
 
-  // Fallback: Extract brand names (e.g. Tab Dolo 650, Cap Pan-D)
+  // Fallback: Extract brand names
   if (!detectedName) {
     const medPatterns = [
       /(?:tab|tablet|cap|capsule|syr|syrup|inj|injection|oint|ointment|susp|sachet)\s+([a-zA-Z0-9\-\s]{3,30})/i,
@@ -112,16 +125,16 @@ function parseInvoiceText(text: string, medicinesList: SelectItem[]) {
     }
   }
 
-  // 3. Expiry Date detection
+  // 3. Expiry Date detection (resilient to spaces like "05 / 2022")
   const expPatterns = [
-    /(?:exp(?:\.?\s*date)?|expiry|exp\.?\s*dt|e\.?\s*date)\s*[:\-\s]*([0-9]{2}[/\-][0-9]{2,4})/i,
-    /\b(0[1-9]|1[0-2])[/\-](20[2-9][0-9]|[2-9][0-9])\b/,
-    /\b(20[2-9][0-9]|[2-9][0-9])[/\-](0[1-9]|1[0-2])\b/
+    /(?:exp(?:\.?\s*date)?|expiry|exp\.?\s*dt|e\.?\s*date)\s*[:\-\s]*([0-9]{2}\s*[\/\-]\s*[0-9]{2,4})/i,
+    /\b(0[1-9]|1[0-2])\s*[\/\-]\s*(20[2-9][0-9]|[2-9][0-9])\b/,
+    /\b(20[2-9][0-9]|[2-9][0-9])\s*[\/\-]\s*(0[1-9]|1[0-2])\b/
   ];
   for (const pattern of expPatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      const parts = match[1].split(/[/\-]/);
+      const parts = match[1].split(/[\/\-]/).map(p => p.trim());
       if (parts.length === 2) {
         let month = parts[0];
         let year = parts[1];
@@ -213,6 +226,203 @@ function parseInvoiceText(text: string, medicinesList: SelectItem[]) {
   };
 }
 
+// Table-aware Multi-Row Parser
+function parseInvoiceText(text: string, medicinesList: SelectItem[]): ScannedItem[] {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const items: ScannedItem[] = [];
+
+  for (const line of lines) {
+    const lineLower = line.toLowerCase();
+    
+    // Filter headers, footers, total rows and other noise
+    if (
+      lineLower.includes("particular") ||
+      lineLower.includes("quantity") ||
+      lineLower.includes("batch no") ||
+      lineLower.includes("exp.") ||
+      lineLower.includes("mfg.") ||
+      lineLower.includes("amount") ||
+      lineLower.includes("total") ||
+      lineLower.includes("return shall") ||
+      lineLower.includes("accepted only") ||
+      lineLower.includes("shop") ||
+      lineLower.includes("invoice") ||
+      lineLower.includes("bill")
+    ) {
+      continue;
+    }
+
+    // Expiry Date (supports spaces e.g. "05 / 2022")
+    const expRegex = /\b(0[1-9]|1[0-2])\s*[\/\-]\s*(20[2-9][0-9]|[2-9][0-9])\b/g;
+    let expiryDateStr = "";
+    let cleanLine = line;
+    const expMatch = expRegex.exec(line);
+    
+    if (expMatch) {
+      let month = expMatch[1];
+      let year = expMatch[2];
+      if (year.length === 2) {
+        year = "20" + year;
+      }
+      month = month.padStart(2, "0");
+      expiryDateStr = `${year}-${month}-28`;
+      cleanLine = cleanLine.replace(expMatch[0], " ");
+    }
+
+    // A valid invoice table row must have an expiry date
+    if (!expiryDateStr) {
+      continue;
+    }
+
+    // Extract decimal numbers (MRP, Purchase Rate, Amount)
+    const priceRegex = /\b([0-9]+\.[0-9]{2})\b/g;
+    const decimalNumbers: string[] = [];
+    let priceMatch;
+    while ((priceMatch = priceRegex.exec(cleanLine)) !== null) {
+      decimalNumbers.push(priceMatch[1]);
+    }
+
+    // Remove price numbers from cleanLine
+    let cleanLineNoPrices = cleanLine;
+    for (const dec of decimalNumbers) {
+      cleanLineNoPrices = cleanLineNoPrices.replace(dec, " ");
+    }
+
+    let detectedMrp = "";
+    let detectedRate = "";
+    if (decimalNumbers.length >= 2) {
+      // Index-based columns match: 1st is MRP, 2nd is Purchase Rate
+      detectedMrp = decimalNumbers[0];
+      detectedRate = decimalNumbers[1];
+    } else if (decimalNumbers.length === 1) {
+      detectedMrp = decimalNumbers[0];
+      detectedRate = decimalNumbers[0];
+    }
+
+    // Alphanumeric Batch Number detection
+    const tokens = cleanLineNoPrices.split(/\s+/).map(t => t.trim()).filter(Boolean);
+    let detectedBatch = "";
+    const commonMfgCodes = ["SPI", "GSP", "BAD", "CIP", "ABT", "GLP", "MFG", "EXP", "MRP", "QTY", "SR", "NO"];
+    
+    for (const token of tokens) {
+      const tokenUpper = token.toUpperCase();
+      const isAlphanumeric = /[A-Za-z]/.test(token) && /[0-9]/.test(token);
+      const isPureBatchToken = /^[A-Z0-9]{5,12}$/i.test(token);
+      
+      if (
+        (isAlphanumeric || isPureBatchToken) && 
+        token.length >= 5 && 
+        token.length <= 12 && 
+        !commonMfgCodes.includes(tokenUpper) &&
+        !/^[0-9]+$/.test(token)
+      ) {
+        detectedBatch = tokenUpper;
+        break;
+      }
+    }
+
+    if (!detectedBatch) {
+      for (const token of tokens) {
+        if (token.length >= 5 && token.length <= 12 && /^[A-Z0-9\-]+$/i.test(token) && !commonMfgCodes.includes(token.toUpperCase()) && !/^[0-9]+$/.test(token)) {
+          detectedBatch = token.toUpperCase();
+          break;
+        }
+      }
+    }
+
+    // Pack Size detection (e.g. "15 Capsule" or "10 Tablet")
+    const packQtyRegex = /\b([0-9]+)\s*(Capsule|Tablet|Edible Powder|Tab|Cap|Caps|Tabs|Syr|Susp|Softgel|Inj|Unit|Gm|Ml)s?\b/i;
+    const packQtyMatch = line.match(packQtyRegex);
+    let detectedPackSize = 10;
+    if (packQtyMatch) {
+      detectedPackSize = parseInt(packQtyMatch[1], 10) || 10;
+    }
+
+    // Purchased Qty detection
+    let detectedQty = "1";
+    const integers = tokens.map(t => parseInt(t, 10)).filter(n => !isNaN(n));
+    if (integers.length > 0) {
+      const candidateIntegers = integers.filter(n => n < 100 && n !== detectedPackSize);
+      if (candidateIntegers.length > 0) {
+        detectedQty = String(candidateIntegers[candidateIntegers.length - 1]);
+      } else {
+        detectedQty = String(integers[integers.length - 1]);
+      }
+    }
+
+    // Medicine Name Extraction
+    let rawName = "";
+    if (packQtyMatch && packQtyMatch.index !== undefined) {
+      rawName = line.substring(0, packQtyMatch.index).trim();
+    } else if (detectedBatch) {
+      const idx = line.indexOf(detectedBatch);
+      if (idx !== -1) {
+        rawName = line.substring(0, idx).trim();
+      }
+    } else {
+      rawName = line.trim();
+    }
+
+    // Clean brand name
+    rawName = rawName.replace(/^\d+[\s\.\-]/, "").trim();
+    for (const code of commonMfgCodes) {
+      rawName = rawName.replace(new RegExp(`\\b${code}\\b`, "i"), "").trim();
+    }
+
+    if (!rawName || rawName.length < 3) {
+      continue;
+    }
+
+    // Database check
+    let detectedMedicineId = "new";
+    let matchedName = rawName;
+    let detectedGst = "12";
+    let detectedHsn = "";
+
+    const nameLower = rawName.toLowerCase();
+    for (const med of medicinesList) {
+      const medNameLower = med.name.toLowerCase();
+      if (nameLower.includes(medNameLower) || medNameLower.includes(nameLower)) {
+        detectedMedicineId = med.id;
+        matchedName = med.name;
+        detectedGst = String(med.gstRate ?? 12);
+        detectedHsn = med.hsnCode ?? "";
+        break;
+      }
+    }
+
+    // Calculate total loose units
+    const finalQty = String(Number(detectedQty) * detectedPackSize);
+
+    items.push({
+      id: Math.random().toString(36).substring(2, 9),
+      medicineId: detectedMedicineId,
+      name: matchedName,
+      batchNo: detectedBatch,
+      expiryDate: expiryDateStr,
+      quantity: finalQty,
+      purchaseRate: detectedRate,
+      mrp: detectedMrp,
+      saleRate: detectedMrp,
+      gstRate: detectedGst,
+      hsnCode: detectedHsn
+    });
+  }
+
+  // Fallback if table line parsing failed completely
+  if (items.length === 0) {
+    const single = parseInvoiceTextSingle(text, medicinesList);
+    if (single.name || single.batchNo) {
+      items.push({
+        id: Math.random().toString(36).substring(2, 9),
+        ...single
+      });
+    }
+  }
+
+  return items;
+}
+
 export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]; suppliers: SelectItem[] }) {
   const router = useRouter();
   const [localMedicines, setLocalMedicines] = useState<SelectItem[]>(medicines);
@@ -279,18 +489,23 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
   // Confirmation editor States
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [scannedData, setScannedData] = useState<{
-    medicineId: string;
-    name: string;
-    batchNo: string;
-    expiryDate: string;
-    quantity: string;
-    purchaseRate: string;
-    mrp: string;
-    saleRate: string;
-    gstRate: string;
-    hsnCode: string;
-  } | null>(null);
+  const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [rowStatuses, setRowStatuses] = useState<Record<string, "idle" | "saving" | "success" | "error">>({});
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Device detection for camera options
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(
+        window.innerWidth < 768 || 
+        /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+      );
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -608,11 +823,14 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       
       let result;
       try {
-        // Attempt 1: Standard load letting Tesseract automatically load files with SIMD optimizations from default CDN
+        // Attempt 1: 100% Offline Local Scan Engine: Use files served locally from /public/ocr
         result = await Tesseract.recognize(
           imageSrc,
           "eng",
           {
+            workerPath: "/ocr/worker.min.js",
+            corePath: "/ocr",
+            langPath: "/ocr",
             logger: (m) => {
               if (m.status === "recognizing text") {
                 setLoadingStep(`🔍 Reading text from invoice: ${Math.round(m.progress * 100)}%`);
@@ -625,11 +843,11 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           }
         );
       } catch (firstErr) {
-        console.warn("Default CDN load failed, attempting Unpkg mirror fallback...", firstErr);
-        setLoadingStep("🔄 Mirror fallback: Initializing Unpkg OCR core...");
+        console.warn("Local offline Tesseract load failed, attempting fallback to remote CDNs...", firstErr);
+        setLoadingStep("🔄 Connection fallback: Loading remote OCR core...");
         setOcrProgress(12);
         
-        // Attempt 2: Resilient fallback to UNPKG mirror with correct directory reference for corePath
+        // Attempt 2: Connection fallback to CDN mirror in case local static hosting has issues
         result = await Tesseract.recognize(
           imageSrc,
           "eng",
@@ -639,10 +857,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             langPath: "https://tessdata.projectnaptha.com/4.0.0",
             logger: (m) => {
               if (m.status === "recognizing text") {
-                setLoadingStep(`🔍 Reading text from invoice (Mirror): ${Math.round(m.progress * 100)}%`);
+                setLoadingStep(`🔍 Reading text from invoice (CDN): ${Math.round(m.progress * 100)}%`);
                 setOcrProgress(15 + Math.round(m.progress * 80));
               } else if (m.status === "loading tesseract ocr core") {
-                setLoadingStep("⚙️ Loading WASM core from Unpkg mirror...");
+                setLoadingStep("⚙️ Loading WASM core from CDN mirror...");
                 setOcrProgress(14);
               }
             }
@@ -664,7 +882,20 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       
       // Parse details
       const parsed = parseInvoiceText(text, localMedicines);
-      setScannedData(parsed);
+      if (parsed.length === 0) {
+        toast.error("No medicines could be parsed. Please check the image quality or try pasting raw text.");
+        setOcrLoading(false);
+        return;
+      }
+      setScannedItems(parsed);
+      setSelectedRowIds(parsed.map(x => x.id));
+      
+      const initialStatuses: Record<string, "idle" | "saving" | "success" | "error"> = {};
+      parsed.forEach(x => {
+        initialStatuses[x.id] = "idle";
+      });
+      setRowStatuses(initialStatuses);
+
       setOcrLoading(false);
       setShowScanner(false);
       setShowConfirmModal(true);
@@ -704,80 +935,88 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     
     setImagePreview(null); // No preview since it was text pasting
     const parsed = parseInvoiceText(pastedText, localMedicines);
-    setScannedData(parsed);
+    if (parsed.length === 0) {
+      toast.error("No medicines could be parsed. Please check the pasted text.");
+      return;
+    }
+    setScannedItems(parsed);
+    setSelectedRowIds(parsed.map(x => x.id));
+    
+    const initialStatuses: Record<string, "idle" | "saving" | "success" | "error"> = {};
+    parsed.forEach(x => {
+      initialStatuses[x.id] = "idle";
+    });
+    setRowStatuses(initialStatuses);
+
     setShowPasteModal(false);
     setShowConfirmModal(true);
     setPastedText("");
     toast.success("Text parsed successfully!");
   };
 
-  const handleConfirmScanned = () => {
-    if (scannedData) {
-      if (scannedData.medicineId === "new") {
-        setMedicineId("new");
-        setMedicineSearch(scannedData.name || "");
-      } else if (scannedData.medicineId) {
-        setMedicineId(scannedData.medicineId);
-        const med = localMedicines.find(m => m.id === scannedData.medicineId);
-        if (med) setMedicineSearch(med.name);
-      } else if (scannedData.name) {
-        setMedicineId("new");
-        setMedicineSearch(scannedData.name);
-      }
-      
-      setBatchNo(scannedData.batchNo || "");
-      setExpiryDate(scannedData.expiryDate || "");
-      
-      const parsedQty = parseInt(scannedData.quantity || "0", 10);
-      setQuantity(scannedData.quantity || "");
-      
-      let pSize = 10;
-      if (scannedData.medicineId && scannedData.medicineId !== "new") {
-        const med = localMedicines.find(m => m.id === scannedData.medicineId);
-        if (med && med.packSize) pSize = parseUnitsPerPack(med.packSize);
-      }
-      setUnitsPerPack(String(pSize));
-      if (!isNaN(parsedQty) && parsedQty > 0) {
-        setPacks(String(Math.floor(parsedQty / pSize)));
-        setLooseUnits(String(parsedQty % pSize));
-      } else {
-        setPacks("");
-        setLooseUnits("");
-      }
-
-      setPurchaseRate(scannedData.purchaseRate || "");
-      setMrp(scannedData.mrp || "");
-      setSaleRate(scannedData.saleRate || "");
-      setGstRate(scannedData.gstRate || "12");
-      setHsnCode(scannedData.hsnCode || "");
-      
-      setShowConfirmModal(false);
-      toast.success("Invoice details populated in form successfully!");
+  const handleConfirmScannedSingle = (item: ScannedItem) => {
+    if (item.medicineId === "new") {
+      setMedicineId("new");
+      setMedicineSearch(item.name || "");
+    } else if (item.medicineId) {
+      setMedicineId(item.medicineId);
+      const med = localMedicines.find(m => m.id === item.medicineId);
+      if (med) setMedicineSearch(med.name);
+    } else if (item.name) {
+      setMedicineId("new");
+      setMedicineSearch(item.name);
     }
+    
+    setBatchNo(item.batchNo || "");
+    setExpiryDate(item.expiryDate || "");
+    
+    const parsedQty = parseInt(item.quantity || "0", 10);
+    setQuantity(item.quantity || "");
+    
+    let pSize = 10;
+    if (item.medicineId && item.medicineId !== "new") {
+      const med = localMedicines.find(m => m.id === item.medicineId);
+      if (med && med.packSize) pSize = parseUnitsPerPack(med.packSize);
+    }
+    setUnitsPerPack(String(pSize));
+    if (!isNaN(parsedQty) && parsedQty > 0) {
+      setPacks(String(Math.floor(parsedQty / pSize)));
+      setLooseUnits(String(parsedQty % pSize));
+    } else {
+      setPacks("");
+      setLooseUnits("");
+    }
+
+    setPurchaseRate(item.purchaseRate || "");
+    setMrp(item.mrp || "");
+    setSaleRate(item.saleRate || "");
+    setGstRate(item.gstRate || "12");
+    setHsnCode(item.hsnCode || "");
+    
+    setShowConfirmModal(false);
+    toast.success(`Populated "${item.name}" into main form! You can now adjust and save it.`);
   };
 
-  async function saveScannedStockDirectly() {
-    if (!scannedData) return;
-    setSaving(true);
-    let actualMedicineId = scannedData.medicineId;
+  async function saveSingleItem(item: ScannedItem): Promise<boolean> {
+    setRowStatuses(prev => ({ ...prev, [item.id]: 'saving' }));
+    let actualMedicineId = item.medicineId;
 
-    // Auto-create medicine record if it's a new on-the-fly entry
-    if (scannedData.medicineId === "new") {
-      const name = scannedData.name.trim();
+    if (item.medicineId === "new") {
+      const name = item.name.trim();
       if (!name) {
-        toast.error("Please enter a valid medicine name for the new record");
-        setSaving(false);
-        return;
+        toast.error("Please enter a valid medicine name");
+        setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+        return false;
       }
 
       try {
-        const mrpValue = Math.round(sanitizePrice(scannedData.mrp) * 100);
-        let gstRateValue = sanitizeInt(scannedData.gstRate, 12);
+        const mrpValue = Math.round(sanitizePrice(item.mrp) * 100);
+        let gstRateValue = sanitizeInt(item.gstRate, 12);
         const validGstRates = [0, 5, 12, 18, 28];
         if (!validGstRates.includes(gstRateValue)) {
-          gstRateValue = 12; // Fallback
+          gstRateValue = 12;
         }
-        const hsnCodeValue = String(scannedData.hsnCode || "").trim();
+        const hsnCodeValue = String(item.hsnCode || "").trim();
 
         const response = await fetch("/api/medicines/create", {
           method: "POST",
@@ -801,14 +1040,13 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
         const result = await response.json();
         if (!response.ok) {
-          toast.error(result.error ?? "Failed to create new medicine record");
-          setSaving(false);
-          return;
+          toast.error(result.error ?? `Failed to create medicine "${name}"`);
+          setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+          return false;
         }
 
         actualMedicineId = result.data.id;
         
-        // Immediately sync local list to bind with newly created medicine
         const newItem: SelectItem = {
           id: result.data.id,
           name: name,
@@ -818,58 +1056,55 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           mrpPaisa: mrpValue,
         };
         setLocalMedicines((prev) => [newItem, ...prev]);
-        setMedicineId(result.data.id);
-        setMedicineSearch(name);
       } catch (err) {
-        toast.error("Error creating new medicine record");
-        setSaving(false);
-        return;
+        toast.error(`Error creating medicine "${name}"`);
+        setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+        return false;
       }
     }
 
     if (!actualMedicineId) {
-      toast.error("Please select or match a medicine first");
-      setSaving(false);
-      return;
+      toast.error(`Please map "${item.name}" to a valid medicine first.`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
     }
 
-    // Validate and sanitize GST rate strictly to match Zod literals [0, 5, 12, 18]
-    let parsedGst = sanitizeInt(scannedData.gstRate, 12);
+    let parsedGst = sanitizeInt(item.gstRate, 12);
     const validGstRates = [0, 5, 12, 18, 28];
     if (!validGstRates.includes(parsedGst)) {
-      parsedGst = 12; // Fallback
+      parsedGst = 12;
     }
 
     const payload = {
       medicineId: actualMedicineId,
       supplierId: String(supplierId),
-      batchNo: String(scannedData.batchNo).trim(),
+      batchNo: String(item.batchNo).trim(),
       mfgDate: "",
-      expiryDate: String(scannedData.expiryDate || ""),
-      purchaseRatePaisa: Math.round(sanitizePrice(scannedData.purchaseRate) * 100),
-      mrpPaisa: Math.round(sanitizePrice(scannedData.mrp) * 100),
-      saleRatePaisa: Math.round(sanitizePrice(scannedData.saleRate) * 100),
+      expiryDate: String(item.expiryDate || ""),
+      purchaseRatePaisa: Math.round(sanitizePrice(item.purchaseRate) * 100),
+      mrpPaisa: Math.round(sanitizePrice(item.mrp) * 100),
+      saleRatePaisa: Math.round(sanitizePrice(item.saleRate) * 100),
       gstRate: parsedGst,
-      hsnCode: String(scannedData.hsnCode || "").trim(),
-      quantity: sanitizeInt(scannedData.quantity, 0),
+      hsnCode: String(item.hsnCode || "").trim(),
+      quantity: sanitizeInt(item.quantity, 0),
       reorderLevel: 10,
       rackLocation: ""
     };
 
     if (!payload.batchNo) {
-      toast.error("Batch number is required");
-      setSaving(false);
-      return;
+      toast.error(`Batch number is required for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
     }
     if (!payload.expiryDate) {
-      toast.error("Expiry date is required");
-      setSaving(false);
-      return;
+      toast.error(`Expiry date is required for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
     }
     if (payload.quantity <= 0) {
-      toast.error("Quantity must be greater than zero");
-      setSaving(false);
-      return;
+      toast.error(`Quantity must be greater than zero for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
     }
 
     try {
@@ -881,18 +1116,46 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       const result = await response.json();
 
       if (!response.ok) {
-        toast.error(result.error ?? "Unable to save stock");
-        return;
+        toast.error(result.error ?? `Unable to save stock for "${item.name}"`);
+        setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+        return false;
       }
 
-      toast.success("Stock saved and inventory updated successfully!");
-      setShowConfirmModal(false);
-      router.push("/shop/inventory");
-      router.refresh();
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'success' }));
+      return true;
     } catch {
-      toast.error("Network error — please check your connection and try again.");
-    } finally {
-      setSaving(false);
+      toast.error(`Network error adding stock for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
+    }
+  }
+
+  async function saveSelectedItems() {
+    const itemsToSave = scannedItems.filter(item => selectedRowIds.includes(item.id) && rowStatuses[item.id] !== 'success');
+    if (itemsToSave.length === 0) {
+      toast.error("No items selected or all selected items are already added.");
+      return;
+    }
+
+    setSaving(true);
+    let successCount = 0;
+    
+    for (const item of itemsToSave) {
+      const ok = await saveSingleItem(item);
+      if (ok) successCount++;
+    }
+
+    setSaving(false);
+    toast.success(`Bulk Entry: Successfully added ${successCount} of ${itemsToSave.length} medicines to inventory!`);
+    
+    // Check if everything is successfully added
+    const allDone = scannedItems.every(x => rowStatuses[x.id] === "success" || !selectedRowIds.includes(x.id));
+    if (allDone) {
+      setTimeout(() => {
+        setShowConfirmModal(false);
+        router.push("/shop/inventory");
+        router.refresh();
+      }, 1500);
     }
   }
 
@@ -1052,6 +1315,25 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     await submit();
   }
 
+  const updateScannedItem = (id: string, field: keyof ScannedItem, value: string) => {
+    setScannedItems(prev => prev.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: value };
+        if (field === 'medicineId') {
+          const med = localMedicines.find(m => m.id === value);
+          if (med) {
+            updated.gstRate = String(med.gstRate ?? 12);
+            updated.hsnCode = med.hsnCode ?? "";
+            updated.mrp = med.mrpPaisa ? String(med.mrpPaisa / 100) : updated.mrp;
+            updated.saleRate = med.mrpPaisa ? String(med.mrpPaisa / 100) : updated.saleRate;
+          }
+        }
+        return updated;
+      }
+      return item;
+    }));
+  };
+
   return (
     <div className="space-y-4">
       {/* Dynamic scan-trigger banner */}
@@ -1067,19 +1349,33 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         </div>
         
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Mobile/Native direct camera capture (bypasses browser constraints and secure context requirements) */}
-          <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-sm hover:shadow transition-all min-h-11 hover:scale-[1.02] active:scale-[0.98]">
-            <Camera className="h-4 w-4" />
-            <span>Mobile Camera (Native)</span>
-            <input 
-              ref={fileInputRef}
-              type="file" 
-              accept="image/*" 
-              capture="environment"
-              className="hidden" 
-              onChange={handleFileUpload} 
-            />
-          </label>
+          {/* Conditionally render a single camera option based on device detection */}
+          {isMobile ? (
+            <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-sm hover:shadow transition-all min-h-11 hover:scale-[1.02] active:scale-[0.98]">
+              <Camera className="h-4 w-4" />
+              <span>Camera Scan (Native)</span>
+              <input 
+                ref={fileInputRef}
+                type="file" 
+                accept="image/*" 
+                capture="environment"
+                className="hidden" 
+                onChange={handleFileUpload} 
+              />
+            </label>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setShowScanner(true);
+                startCamera();
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Camera className="h-4 w-4" />
+              <span>Camera Scan (Live Feed)</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -1088,18 +1384,6 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           >
             <Zap className="h-4 w-4" />
             <span>Scan Barcode</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setShowScanner(true);
-              startCamera();
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <Camera className="h-4 w-4" />
-            <span>Scan Camera (Live Feed)</span>
           </button>
           
           <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer shadow-sm min-h-11 transition-all hover:scale-[1.02] active:scale-[0.98]">
@@ -1121,37 +1405,6 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             <Clipboard className="h-4 w-4 text-slate-550" />
             <span>Paste Text (Fail-safe)</span>
           </button>
-        </div>
-      </div>
-
-      {/* Sleek, interactive Camera Help & Capabilities Guide */}
-      <div className="rounded-xl border border-slate-200 bg-slate-50/55 p-3.5 text-xs text-slate-600 shadow-sm transition-all space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-slate-700 flex items-center gap-1.5">
-            <Info className="h-4 w-4 text-emerald-600" />
-            <span>Which camera option should I choose?</span>
-          </span>
-          <span className="text-[10px] text-slate-400 font-bold bg-slate-200/50 px-2 py-0.5 rounded">Guide</span>
-        </div>
-        <div className="grid gap-2.5 sm:grid-cols-2">
-          <div className="p-2.5 rounded-lg bg-white border border-slate-100 flex items-start gap-2 shadow-sm">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-100 text-emerald-700 text-xs font-bold font-mono mt-0.5">📸</div>
-            <div className="space-y-0.5">
-              <p className="font-bold text-slate-800 text-[11px]">Mobile Camera (Native Snapshot)</p>
-              <p className="text-[10px] text-slate-500 leading-relaxed">
-                **Highly recommended for mobile devices.** Bypasses strict browser security locks, working perfectly over standard local Wi-Fi (HTTP) connections and offline. Opens your phone's native, high-resolution camera app.
-              </p>
-            </div>
-          </div>
-          <div className="p-2.5 rounded-lg bg-white border border-slate-100 flex items-start gap-2 shadow-sm">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-100 text-emerald-700 text-xs font-bold font-mono mt-0.5">🎥</div>
-            <div className="space-y-0.5">
-              <p className="font-bold text-slate-800 text-[11px]">Scan Camera (Live Feed viewfinder)</p>
-              <p className="text-[10px] text-slate-500 leading-relaxed">
-                **Real-time streaming feed inside the page.** Perfect for desktop webcams or secure setups. Note that modern browsers block access to this live camera stream when accessed over insecure local network IPs (HTTP links).
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -1710,20 +1963,20 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         </div>
       )}
 
-      {/* ─── MODAL 2: Side-by-Side Scanned Details Confirmation ─── */}
-      {showConfirmModal && scannedData && (
+      {/* ─── MODAL 2: Interactive Table-Aware Scanned Details Confirmation ─── */}
+      {showConfirmModal && scannedItems.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="relative w-full max-w-7xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
             
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-6 py-4">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                  <Sparkles className="h-5 w-5" />
+                  <Sparkles className="h-5 w-5 animate-pulse" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-950">Review Scanned Invoice Details</h3>
-                  <p className="text-xs text-slate-500 font-medium">Verify or adjust detected stockist values before applying them.</p>
+                  <p className="text-xs text-slate-500 font-medium">Verify or adjust detected stockist values below. We successfully extracted {scannedItems.length} rows.</p>
                 </div>
               </div>
               <button 
@@ -1736,21 +1989,21 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             </div>
 
             {/* Split Screen Modal Body */}
-            <div className="flex-1 overflow-y-auto p-6 grid gap-6 md:grid-cols-12 min-h-0">
+            <div className="flex-1 overflow-y-auto p-6 grid gap-6 lg:grid-cols-12 min-h-0">
               
               {/* Left Side: Captured Invoice Image Preview / Raw Text Info */}
-              <div className="md:col-span-5 flex flex-col space-y-3">
+              <div className="lg:col-span-3 flex flex-col space-y-3">
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-slate-500" />
                   <span>Scanned Document Source</span>
                 </span>
                 
-                <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative flex items-center justify-center min-h-[220px]">
+                <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl overflow-hidden relative flex items-center justify-center min-h-[220px] max-h-[400px]">
                   {imagePreview ? (
                     <img 
                       src={imagePreview} 
                       alt="Scanned Invoice Snapshot" 
-                      className="max-h-[350px] object-contain rounded-lg shadow-sm" 
+                      className="max-h-[380px] object-contain rounded-lg shadow-sm" 
                     />
                   ) : (
                     <div className="text-center p-6 space-y-2">
@@ -1767,227 +2020,249 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                     <p className="font-bold text-emerald-400 flex items-center gap-1">
                       <CheckCircle2 className="h-3 w-3" /> Parser Sync Succeeded (Local Environment)
                     </p>
-                    <p className="truncate opacity-75">All regex rules evaluated locally.</p>
+                    <p className="truncate opacity-75">All {scannedItems.length} rows parsed locally.</p>
                   </div>
                 </div>
               </div>
 
               {/* Right Side: Detected editable inputs editor */}
-              <div className="md:col-span-7 space-y-4">
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Auto-Detected Form Fields</span>
-                </span>
-
-                <div className="grid gap-3 sm:grid-cols-2 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
-                  
-                  {/* Medicine Selector Link */}
-                  <div className="sm:col-span-2 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-600">Matched Medicine *</label>
-                      {scannedData.name && (
-                        <span className="text-[10px] font-medium text-slate-400 truncate max-w-[250px]">
-                          Scanned text: &quot;{scannedData.name}&quot;
-                        </span>
-                      )}
-                    </div>
-                    <select
-                      value={scannedData.medicineId}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        const med = localMedicines.find(m => m.id === val);
-                        setScannedData(prev => prev ? {
-                          ...prev,
-                          medicineId: val,
-                          gstRate: med ? String(med.gstRate ?? 12) : prev.gstRate,
-                          hsnCode: med ? (med.hsnCode ?? "") : prev.hsnCode,
-                          mrp: med && med.mrpPaisa ? String(med.mrpPaisa / 100) : prev.mrp,
-                          saleRate: med && med.mrpPaisa ? String(med.mrpPaisa / 100) : prev.saleRate,
-                        } : null);
+              <div className="lg:col-span-9 space-y-4 flex flex-col min-h-0">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Auto-Detected Form Fields</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedRowIds.length === scannedItems.length) {
+                          setSelectedRowIds([]);
+                        } else {
+                          setSelectedRowIds(scannedItems.map(x => x.id));
+                        }
                       }}
-                      className="h-10 w-full rounded-lg border border-slate-350 bg-white px-3 text-xs outline-none focus:ring-1 focus:ring-med-green font-semibold"
+                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-250 bg-emerald-50 px-2.5 py-1 rounded transition-colors"
                     >
-                      <option value="">-- Click to bind to existing medicine --</option>
-                      <option value="new" className="text-amber-600 font-bold">
-                        ✨ Add as New Medicine
-                      </option>
-                      {localMedicines.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} {m.genericName ? `(${m.genericName})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      {selectedRowIds.length === scannedItems.length ? "Deselect All" : "Select All"}
+                    </button>
                   </div>
+                </div>
 
-                  {/* Editable New Medicine Name Field */}
-                  {scannedData.medicineId === "new" && (
-                    <div className="sm:col-span-2 space-y-1">
-                      <label className="text-xs font-bold text-slate-600">New Medicine Name *</label>
-                      <input
-                        type="text"
-                        value={scannedData.name || ""}
-                        onChange={(e) => setScannedData(prev => prev ? { ...prev, name: e.target.value } : null)}
-                        placeholder="Enter new medicine name..."
-                        className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
-                        required
-                      />
-                    </div>
-                  )}
-
-                  {/* Scanned Batch */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-600">Batch no</label>
-                      {scannedData.batchNo && <span className="text-[9px] text-emerald-600 font-bold">✨ Detected</span>}
-                    </div>
-                    <input
-                      type="text"
-                      value={scannedData.batchNo}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, batchNo: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-mono font-bold"
-                    />
-                  </div>
-
-                  {/* Scanned Expiry */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-600">Expiry Date</label>
-                      {scannedData.expiryDate && <span className="text-[9px] text-emerald-600 font-bold">✨ Detected</span>}
-                    </div>
-                    <input
-                      type="date"
-                      value={scannedData.expiryDate}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, expiryDate: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* Scanned Qty */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-600">Quantity</label>
-                      {scannedData.quantity && <span className="text-[9px] text-emerald-600 font-bold">✨ Detected</span>}
-                    </div>
-                    <input
-                      type="number"
-                      value={scannedData.quantity}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, quantity: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* Scanned Purchase Rate */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-600">Purchase Rate (₹)</label>
-                      {scannedData.purchaseRate && <span className="text-[9px] text-emerald-600 font-bold">✨ Detected</span>}
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={scannedData.purchaseRate}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, purchaseRate: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* Scanned MRP */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-600">MRP (₹)</label>
-                      {scannedData.mrp && <span className="text-[9px] text-emerald-600 font-bold">✨ Detected</span>}
-                    </div>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={scannedData.mrp}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, mrp: e.target.value, saleRate: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* Scanned Sale Rate */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600">Sale Rate (₹)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={scannedData.saleRate}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, saleRate: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* Scanned GST */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600">GST Rate (%)</label>
-                    <input
-                      type="number"
-                      value={scannedData.gstRate}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, gstRate: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* Scanned HSN */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-600">HSN Code</label>
-                    <input
-                      type="text"
-                      value={scannedData.hsnCode}
-                      onChange={(e) => setScannedData(prev => prev ? { ...prev, hsnCode: e.target.value } : null)}
-                      className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold"
-                    />
-                  </div>
-
+                <div className="flex-1 overflow-x-auto overflow-y-auto border border-slate-200 rounded-xl bg-slate-50/20 max-h-[50vh]">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-12 text-center">Import?</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold min-w-[200px]">Medicine Match</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-28">Batch No</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-36">Expiry Date</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Qty (Loose)</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Rate (₹)</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-24">MRP (₹)</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-28 text-center">Status / Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-150 bg-white">
+                      {scannedItems.map((item) => {
+                        const status = rowStatuses[item.id] || "idle";
+                        const isSelected = selectedRowIds.includes(item.id);
+                        
+                        return (
+                          <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors ${status === 'success' ? 'bg-emerald-50/20' : ''}`}>
+                            <td className="py-2.5 px-3 text-center">
+                              <input 
+                                type="checkbox"
+                                checked={isSelected}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedRowIds(prev => [...prev, item.id]);
+                                  } else {
+                                    setSelectedRowIds(prev => prev.filter(id => id !== item.id));
+                                  }
+                                }}
+                                className="h-4.5 w-4.5 rounded border-slate-350 text-emerald-600 focus:ring-emerald-500"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="space-y-1">
+                                <select
+                                  value={item.medicineId}
+                                  disabled={status === 'success' || status === 'saving'}
+                                  onChange={(e) => updateScannedItem(item.id, 'medicineId', e.target.value)}
+                                  className="h-8.5 w-full rounded border border-slate-300 bg-white px-2 font-semibold text-slate-800 text-[11px] outline-none focus:ring-1 focus:ring-med-green"
+                                >
+                                  <option value="new" className="text-amber-605 font-bold">✨ Add as New Medicine</option>
+                                  {localMedicines.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                      {m.name} {m.genericName ? `(${m.genericName})` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                
+                                {item.medicineId === "new" && (
+                                  <input 
+                                    type="text"
+                                    value={item.name}
+                                    placeholder="Enter Brand name..."
+                                    disabled={status === 'success' || status === 'saving'}
+                                    onChange={(e) => updateScannedItem(item.id, 'name', e.target.value)}
+                                    className="h-8 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                  />
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input 
+                                type="text"
+                                value={item.batchNo}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'batchNo', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-mono uppercase font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input 
+                                type="date"
+                                value={item.expiryDate}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'expiryDate', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input 
+                                type="number"
+                                value={item.quantity}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'quantity', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input 
+                                type="number"
+                                step="0.01"
+                                value={item.purchaseRate}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'purchaseRate', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input 
+                                type="number"
+                                step="0.01"
+                                value={item.mrp}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'mrp', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {status === 'idle' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => saveSingleItem(item)}
+                                      className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-sm transition-all"
+                                    >
+                                      Import
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleConfirmScannedSingle(item)}
+                                      title="Populate in Main Form"
+                                      className="px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 text-slate-700 text-[10px] font-bold transition-all"
+                                    >
+                                      Edit
+                                    </button>
+                                  </>
+                                )}
+                                {status === 'saving' && (
+                                  <span className="flex items-center gap-1 text-[10px] font-semibold text-blue-600">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    <span>Saving...</span>
+                                  </span>
+                                )}
+                                {status === 'success' && (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-250 px-2 py-0.5 rounded-full">
+                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Added ✓</span>
+                                  </span>
+                                )}
+                                {status === 'error' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => saveSingleItem(item)}
+                                    className="flex items-center gap-1 text-[10px] font-bold text-red-650 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors"
+                                    title="Retry Import"
+                                  >
+                                    <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />
+                                    <span>Retry</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
 
                 {/* Info Tip block */}
                 <div className="flex items-start gap-2.5 p-3 rounded-lg bg-emerald-50 text-emerald-850 text-xs border border-emerald-100">
-                  <Info className="h-4.5 w-4.5 shrink-0 text-emerald-600 mt-0.5" />
-                  <p className="leading-normal">
-                    Confirming will automatically populate all fields on the main form. You can still modify any values before submitting the final stock addition.
-                  </p>
+                  <Info className="h-4.5 w-4.5 shrink-0 text-emerald-650 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="leading-normal font-semibold">Bulk Medicine Processing Instructions:</p>
+                    <ul className="list-disc pl-4 space-y-0.5 text-[11px] leading-relaxed text-slate-650 font-medium">
+                      <li>Use the dropdown inside each row to bind it to an existing medicine in the database or select <strong>Add as New Medicine</strong> to auto-create it.</li>
+                      <li>Modify quantities, rates, MRPs, batches, or dates immediately inline. No screen transitions required!</li>
+                      <li>Click <strong>Import</strong> on a specific row to save that single item, or click <strong>Edit</strong> to copy details into the main form.</li>
+                      <li>Select multiple rows using checkboxes and click <strong>Import Selected to Stock</strong> below to run batch creation!</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs min-h-10 transition-colors"
-              >
-                Discard Scan
-              </button>
+            <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs font-semibold text-slate-500">
+                Selected: {selectedRowIds.length} of {scannedItems.length} items
+              </span>
               
-              <button
-                type="button"
-                onClick={handleConfirmScanned}
-                className="px-4 py-2.5 rounded-lg border border-slate-350 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs min-h-10 transition-colors"
-              >
-                Confirm & Edit in Form
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  className="px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs min-h-10 transition-colors"
+                >
+                  Discard Scan
+                </button>
 
-              <button
-                type="button"
-                disabled={saving}
-                onClick={saveScannedStockDirectly}
-                className="flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs min-h-10 shadow-sm transition-all disabled:opacity-60"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Saving Stock...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Confirm & Save to Stock (Direct)</span>
-                  </>
-                )}
-              </button>
+                <button
+                  type="button"
+                  disabled={saving || selectedRowIds.length === 0}
+                  onClick={saveSelectedItems}
+                  className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs min-h-10 shadow-sm transition-all disabled:opacity-50"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving Selected ({selectedRowIds.length})...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Import Selected to Stock ({selectedRowIds.length})</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
-import { searchByBarcode, searchInventory, searchMedicinesByName } from "@/lib/local-db";
+import { searchByBarcode, searchInventory, searchMedicinesByName, getGenericSubstitutes } from "@/lib/local-db";
 
 export async function GET(request: Request) {
   const auth = await authenticateApiRequest();
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
     // Barcode fast-path: if query is a pure numeric string of 6+ digits, try barcode matching first
     const isBarcode = q.length >= 6 && /^\d+$/.test(q);
-    let inventoryRows;
+    let inventoryRows: any[];
     if (isBarcode) {
       inventoryRows = await searchByBarcode(auth.ctx.tenantId, q);
       if (inventoryRows.length > 0) {
@@ -54,6 +54,54 @@ export async function GET(request: Request) {
     // Filter out medicine master suggestions that are already in inventory results
     const inventoryMedicineIds = new Set(inventoryRows.map((r: any) => r.medicineId));
     const suggestions = medicineResult.filter((m: any) => !inventoryMedicineIds.has(m.id));
+
+    // ─── Smart Generic Substitutes Logic ───
+    const hasOutOfStock = inventoryRows.some((r: any) => r.quantity <= 0);
+    const hasSuggestions = suggestions.length > 0;
+    
+    if (hasOutOfStock || hasSuggestions) {
+      const genericNames = new Set<string>();
+      
+      // 1. Gather generic names from out-of-stock matches
+      inventoryRows.forEach((r: any) => {
+        if (r.quantity <= 0 && r.medicine?.genericName && r.medicine.genericName.trim().length > 3) {
+          genericNames.add(r.medicine.genericName.trim());
+        }
+      });
+      
+      // 2. Gather generic names from master list suggestions (which are out-of-stock by definition)
+      suggestions.forEach((m: any) => {
+        if (m.genericName && m.genericName.trim().length > 3) {
+          genericNames.add(m.genericName.trim());
+        }
+      });
+
+      if (genericNames.size > 0) {
+        try {
+          const substituteRows = await getGenericSubstitutes(
+            auth.ctx.tenantId,
+            Array.from(genericNames),
+            Array.from(inventoryMedicineIds)
+          );
+          
+          // Attach substitute tags to each substitute row
+          const taggedSubstitutes = substituteRows.map((sub: any) => {
+            const targetBrand = inventoryRows.find((r: any) => r.quantity <= 0 && r.medicine?.genericName === sub.medicine.genericName)?.medicine?.name ||
+                                suggestions.find((m: any) => m.genericName === sub.medicine.genericName)?.name || "";
+            return {
+              ...sub,
+              isGenericSubstitute: true,
+              substituteFor: targetBrand
+            };
+          });
+          
+          // Merge substitutes into inventoryRows
+          inventoryRows = [...taggedSubstitutes, ...inventoryRows];
+        } catch (err) {
+          console.error("Failed to query generic substitutes:", err);
+        }
+      }
+    }
 
     return NextResponse.json({
       data: inventoryRows,

@@ -760,6 +760,25 @@ export async function searchInventory(tenantId: string, q: string) {
   return rows.map(mapInventory);
 }
 
+export async function getGenericSubstitutes(tenantId: string, genericNames: string[], excludeMedicineIds: string[]) {
+  await ensureDefaultData();
+  const rows = await prisma.inventoryItem.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      quantity: { gt: 0 },
+      expiryDate: { gt: new Date() },
+      medicine: {
+        genericName: { in: genericNames },
+        id: { notIn: excludeMedicineIds }
+      }
+    },
+    include: { medicine: true, supplier: true },
+    orderBy: { expiryDate: "asc" }
+  });
+  return rows.map(mapInventory);
+}
+
 export async function getMedicines() {
   await ensureDefaultData();
   const rows = await prisma.medicine.findMany({ orderBy: { name: "asc" } });

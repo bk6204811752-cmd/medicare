@@ -23,6 +23,8 @@ type InventorySearchRow = {
   gstRate: SaleLine["gstRate"];
   hsnCode: string;
   quantity: number;
+  isGenericSubstitute?: boolean;
+  substituteFor?: string;
   medicine: {
     name: string;
     genericName?: string;
@@ -634,11 +636,27 @@ export function BillingPos({ tenant }: { tenant: any }) {
               }
 
               return (
-                <button key={row.id} onClick={() => addLine(row.id)} disabled={isExpired || row.quantity <= 0} className={`grid w-full gap-2 border-b border-slate-100 p-3 text-left md:grid-cols-[1fr_auto] ${
-                  isExpired ? "bg-red-50/50 opacity-60 cursor-not-allowed" : "hover:bg-med-greenSoft"
-                }`}>
+                <button 
+                  key={row.id} 
+                  onClick={() => addLine(row.id)} 
+                  disabled={isExpired || row.quantity <= 0} 
+                  className={`grid w-full gap-2 border-b border-slate-100 p-3 text-left md:grid-cols-[1fr_auto] transition-colors ${
+                    isExpired 
+                      ? "bg-red-50/50 opacity-60 cursor-not-allowed" 
+                      : row.isGenericSubstitute
+                        ? "bg-blue-50/45 border-l-4 border-l-blue-500 hover:bg-blue-50"
+                        : "hover:bg-med-greenSoft"
+                  }`}
+                >
                   <div>
-                    <span className="block font-semibold text-med-navy">{row.medicine.name}</span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-semibold text-med-navy">{row.medicine.name}</span>
+                      {row.isGenericSubstitute && (
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-extrabold text-blue-700 tracking-wide uppercase">
+                          Composition Match (Substitute for {row.substituteFor})
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-slate-500">
                       {row.medicine.genericName && <>{row.medicine.genericName} • </>}
                       Batch {row.batchNo}

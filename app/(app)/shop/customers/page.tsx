@@ -83,42 +83,42 @@ export default function CustomersPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Total Customers */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-              <Users className="h-5 w-5 text-blue-600" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50/80 text-blue-600 border border-blue-100/50">
+              <Users className="h-5.5 w-5.5" />
             </div>
-            <div>
-              <p className="text-[10px] sm:text-xs font-medium text-slate-500">Total Customers</p>
-              <p className="text-base sm:text-xl font-bold text-med-navy">{customers.length}</p>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-500 truncate">Total Customers</p>
+              <p className="text-xl font-bold text-med-navy tracking-tight mt-0.5">{customers.length}</p>
             </div>
           </div>
         </div>
 
         {/* Outstanding */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
-              <CreditCard className="h-5 w-5 text-amber-600" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50/80 text-amber-600 border border-amber-100/50">
+              <CreditCard className="h-5.5 w-5.5" />
             </div>
-            <div>
-              <p className="text-[10px] sm:text-xs font-medium text-slate-500">Outstanding</p>
-              <p className="text-base sm:text-xl font-bold text-med-navy">{formatCurrency(totalOutstanding)}</p>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-500 truncate">Total Outstanding</p>
+              <p className="text-xl font-bold text-amber-600 tracking-tight mt-0.5 truncate">{formatCurrency(totalOutstanding)}</p>
             </div>
           </div>
         </div>
 
         {/* Loyalty Points */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:scale-[1.01] hover:shadow-md">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
-              <Star className="h-5 w-5 text-purple-600" />
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50/80 text-purple-600 border border-purple-100/50">
+              <Star className="h-5.5 w-5.5 animate-pulse" />
             </div>
-            <div>
-              <p className="text-[10px] sm:text-xs font-medium text-slate-500">Loyalty Points</p>
-              <p className="text-base sm:text-xl font-bold text-med-navy">{totalLoyalty.toLocaleString()}</p>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-slate-500 truncate">Loyalty Points</p>
+              <p className="text-xl font-bold text-purple-600 tracking-tight mt-0.5 truncate">{totalLoyalty.toLocaleString()}</p>
             </div>
           </div>
         </div>

@@ -17,7 +17,6 @@ export function CustomerForm() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
     fetch("/api/customers")
       .then((r) => r.json())
       .then((res) => {

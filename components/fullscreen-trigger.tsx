@@ -5,8 +5,14 @@ import { Minimize2, Maximize2 } from "lucide-react";
 
 export function FullscreenTrigger() {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showManualTrigger, setShowManualTrigger] = useState(false);
-  const [hasExitedExplicitly, setHasExitedExplicitly] = useState(false);
+  const [showManualTrigger, setShowManualTrigger] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+  });
+  const [hasExitedExplicitly, setHasExitedExplicitly] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+  });
 
   // Check if browser is desktop
   const isDesktop = () => {
@@ -54,13 +60,13 @@ export function FullscreenTrigger() {
     // Check if user previously exited in this session
     const exited = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
     if (exited) {
-      setHasExitedExplicitly(true);
-      setShowManualTrigger(true);
       return;
     }
 
-    // Try going fullscreen immediately
-    requestFullscreen(false); // Don't show manual trigger button if immediate auto-request fails on mount
+    // Try going fullscreen immediately (deferred to avoid synchronous state setter warnings in effect)
+    const mountTimer = setTimeout(() => {
+      requestFullscreen(false);
+    }, 50);
 
     // Auto-trigger on first user gesture (click/keydown)
     const handleGesture = async () => {
@@ -142,6 +148,7 @@ export function FullscreenTrigger() {
     window.addEventListener("afterprint", handleAfterPrint);
 
     return () => {
+      clearTimeout(mountTimer);
       document.removeEventListener("click", handleGesture);
       document.removeEventListener("keydown", handleGesture);
       window.removeEventListener("focus", handleWindowFocus);

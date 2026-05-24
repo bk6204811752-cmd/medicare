@@ -17,7 +17,6 @@ export function SupplierForm() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
     fetch("/api/suppliers")
       .then((r) => r.json())
       .then((res) => {

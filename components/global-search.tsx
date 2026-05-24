@@ -21,13 +21,9 @@ export function GlobalSearch() {
 
   useEffect(() => {
     if (query.trim().length < 2) {
-      const timer = setTimeout(() => {
-        setResults([]);
-      }, 0);
-      return () => clearTimeout(timer);
+      return;
     }
 
-    setLoading(true);
     const controller = new AbortController();
     const timer = setTimeout(() => {
       fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
@@ -67,7 +63,16 @@ export function GlobalSearch() {
           className="h-10 w-full bg-transparent text-sm outline-none"
           placeholder="Search medicines, bills, customers..."
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            const val = event.target.value;
+            setQuery(val);
+            if (val.trim().length >= 2) {
+              setLoading(true);
+            } else {
+              setLoading(false);
+              setResults([]);
+            }
+          }}
           onFocus={() => setOpen(true)}
         />
         {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-med-green" />}

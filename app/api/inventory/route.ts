@@ -1,11 +1,19 @@
 import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
-import { addInventory, addStockAdjustment, getInventoryRows, getStockMovements } from "@/lib/local-db";
+import { addInventory, addStockAdjustment, getInventoryRows, getStockMovements, getInventoryByMedicine } from "@/lib/local-db";
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
   try {
+    const { searchParams } = new URL(request.url);
+    const medicineId = searchParams.get("medicineId");
+
+    if (medicineId) {
+      const data = await getInventoryByMedicine(auth.ctx.tenantId, medicineId);
+      return NextResponse.json({ data });
+    }
+
     const data = await getInventoryRows(auth.ctx.tenantId);
     return NextResponse.json({ data });
   } catch (error) {

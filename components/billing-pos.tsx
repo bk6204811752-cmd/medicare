@@ -16,6 +16,7 @@ import { BillDetailClient } from "@/app/(app)/shop/billing/[id]/BillDetailClient
 
 type InventorySearchRow = {
   id: string;
+  medicineId: string;
   batchNo: string;
   expiryDate: string;
   mrpPaisa: number;
@@ -52,6 +53,7 @@ type CustomerOption = {
 
 type BillingLine = SaleLine & {
   maxQuantity: number;
+  medicineId?: string;
 };
 
 export function BillingPos({ tenant }: { tenant: any }) {
@@ -71,6 +73,23 @@ export function BillingPos({ tenant }: { tenant: any }) {
   const [modalPrintFormat, setModalPrintFormat] = useState<"a4" | "thermal">("a4");
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [availableBatches, setAvailableBatches] = useState<Record<string, InventorySearchRow[]>>({});
+
+  // ─── Background Alternative Batches Loader ───
+  useEffect(() => {
+    const medIds = lines.map((l) => l.medicineId).filter((id): id is string => !!id);
+    medIds.forEach((medId) => {
+      if (availableBatches[medId]) return;
+      fetch(`/api/inventory?medicineId=${encodeURIComponent(medId)}`)
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.data) {
+            setAvailableBatches((prev) => ({ ...prev, [medId]: json.data }));
+          }
+        })
+        .catch((err) => console.error("Failed to load alternative batches for:", medId, err));
+    });
+  }, [lines, availableBatches]);
   const [showManualBarcode, setShowManualBarcode] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
   const [addMedicinePrefill, setAddMedicinePrefill] = useState<{ barcode?: string; name?: string }>({});
@@ -232,7 +251,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
           gstRate: item.gstRate,
           hsnCode: String(item.hsnCode ?? ""),
           schedule: item.medicine.schedule,
-          maxQuantity: Number(item.quantity)
+          maxQuantity: Number(item.quantity),
+          medicineId: item.medicineId
         }
       ];
     });
@@ -256,6 +276,33 @@ export function BillingPos({ tenant }: { tenant: any }) {
         next.discountPercent = Math.min(Math.max(0, isNaN(Number(next.discountPercent)) ? 0 : Number(next.discountPercent)), 100);
         next.saleRatePaisa = Math.max(0, isNaN(Number(next.saleRatePaisa)) ? 0 : Number(next.saleRatePaisa));
         return next;
+      })
+    );
+  }
+
+  function switchBatch(currentInventoryId: string, nextItem: InventorySearchRow) {
+    setLines((current) =>
+      current.map((line) => {
+        if (line.inventoryId !== currentInventoryId) return line;
+        
+        // Prevent swapping to a batch that is already added in the bill
+        const exists = current.find((l) => l.inventoryId === nextItem.id);
+        if (exists) {
+          toast.warning(`${nextItem.medicine.name} (Batch: ${nextItem.batchNo}) is already in your bill.`);
+          return line;
+        }
+
+        toast.success(`Swapped to Batch: ${nextItem.batchNo}`);
+        return {
+          ...line,
+          inventoryId: nextItem.id,
+          batchNo: nextItem.batchNo,
+          expiryDate: nextItem.expiryDate,
+          mrpPaisa: Number(nextItem.mrpPaisa),
+          saleRatePaisa: Number(nextItem.saleRatePaisa),
+          maxQuantity: Number(nextItem.quantity),
+          quantity: Math.min(line.quantity, Number(nextItem.quantity))
+        };
       })
     );
   }
@@ -326,6 +373,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
       const inv = result.inventory;
       const newItem: InventorySearchRow = {
         id: inv.id,
+        medicineId: inv.medicineId,
         batchNo: inv.batchNo,
         expiryDate: inv.expiryDate,
         mrpPaisa: inv.mrpPaisa,
@@ -795,7 +843,28 @@ export function BillingPos({ tenant }: { tenant: any }) {
                       )}
                       <span className="block text-[10px] text-slate-400 mt-0.5">MRP {formatCurrency(line.mrpPaisa)}</span>
                     </td>
-                    <td className="px-2 py-2 font-mono text-[10px]">{line.batchNo}</td>
+                    <td className="px-2 py-2">
+                      {availableBatches[line.medicineId ?? ""] && availableBatches[line.medicineId ?? ""].length > 1 ? (
+                        <select
+                          value={line.inventoryId}
+                          onChange={(e) => {
+                            const selected = availableBatches[line.medicineId ?? ""].find((b) => b.id === e.target.value);
+                            if (selected) switchBatch(line.inventoryId, selected);
+                          }}
+                          className="h-7 rounded border border-slate-250 bg-white px-1 text-[10px] font-mono text-slate-800 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green"
+                        >
+                          {availableBatches[line.medicineId ?? ""].map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.batchNo} (Avl: {b.quantity})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-600">
+                          {line.batchNo}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-0.5">
                         <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
@@ -839,7 +908,27 @@ export function BillingPos({ tenant }: { tenant: any }) {
                     {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
                       <span className="rounded bg-orange-50 border border-orange-150 px-2 py-0.5 text-[10px] font-bold text-orange-700 uppercase tracking-wide">{line.schedule}</span>
                     )}
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium text-slate-500 font-mono">Batch {line.batchNo}</span>
+                    {availableBatches[line.medicineId ?? ""] && availableBatches[line.medicineId ?? ""].length > 1 ? (
+                      <div className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-150 px-2.5 py-0.5 text-[10px] text-blue-700">
+                        <span className="font-bold uppercase tracking-wide text-[9px] text-blue-800">Batch:</span>
+                        <select
+                          value={line.inventoryId}
+                          onChange={(e) => {
+                            const selected = availableBatches[line.medicineId ?? ""].find((b) => b.id === e.target.value);
+                            if (selected) switchBatch(line.inventoryId, selected);
+                          }}
+                          className="bg-transparent font-mono font-bold outline-none cursor-pointer text-blue-700"
+                        >
+                          {availableBatches[line.medicineId ?? ""].map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.batchNo} (Avl: {b.quantity})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium text-slate-500 font-mono">Batch {line.batchNo}</span>
+                    )}
                     <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-med-greenDark">MRP {formatCurrency(line.mrpPaisa)}</span>
                   </div>
                 </div>

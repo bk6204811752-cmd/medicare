@@ -691,6 +691,15 @@ export async function getInventoryRows(tenantId: string) {
   return sortInventory(rows.map(mapInventory));
 }
 
+export async function getInventoryByMedicine(tenantId: string, medicineId: string) {
+  await ensureDefaultData();
+  const rows = await prisma.inventoryItem.findMany({
+    where: { tenantId, medicineId, isActive: true },
+    include: { medicine: true, supplier: true }
+  });
+  return sortInventory(rows.map(mapInventory));
+}
+
 export async function searchInventory(tenantId: string, q: string) {
   const normalized = q.trim().toLowerCase();
   if (!normalized) return [];

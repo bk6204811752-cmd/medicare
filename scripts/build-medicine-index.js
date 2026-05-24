@@ -493,16 +493,231 @@ function getProgrammaticMedicines() {
       ]
     },
     {
-      brands: ["Zincovit", "Supradyn", "Becosules", "Becadexamin", "Revital H", "Limcee", "Evion", "Neurobion", "Nurokind", "Autrin", "Dexorange", "Orofer"],
-      composition: "Multivitamins and Multiminerals",
-      manufacturer: "Apex Laboratories Pvt Ltd",
-      category: "Vitamin",
-      gst: 18,
+      brands: ["Dettol", "Detol"],
+      composition: "Chloroxylenol Antiseptic Liquid",
+      manufacturer: "Reckitt Benckiser",
+      category: "Antiseptic",
+      gst: 12,
       variations: [
-        { suffix: "Tablet", comp: "Multivitamin, Zinc, Grape Seed Extract", pack: "strip of 15 tablets", price: 11000 },
-        { suffix: "Capsule", comp: "Vitamin B-Complex, Vitamin C, Zinc", pack: "strip of 20 capsules", price: 6900 },
-        { suffix: "Syrup", comp: "Vitamin B-Complex, Iron, Folic Acid", pack: "bottle of 200 ml", price: 17000 },
-        { suffix: "Injection", comp: "Mecobalamin (1500mcg), Pyridoxine, Nicotinamide", pack: "ampoule of 2 ml", price: 1500 }
+        { suffix: "Liquid 100ml", comp: "Chloroxylenol (4.8% w/v)", pack: "bottle of 100 ml", price: 4500 },
+        { suffix: "Liquid 200ml", comp: "Chloroxylenol (4.8% w/v)", pack: "bottle of 200 ml", price: 9000 },
+        { suffix: "Liquid 500ml", comp: "Chloroxylenol (4.8% w/v)", pack: "bottle of 500 ml", price: 20000 },
+        { suffix: "Liquid 1L", comp: "Chloroxylenol (4.8% w/v)", pack: "bottle of 1000 ml", price: 36000 },
+        { suffix: "Antiseptic Soap Original", comp: "Chloroxylenol Bath Soap", pack: "bar of 75 gm", price: 4200 },
+        { suffix: "Antiseptic Soap Cool", comp: "Chloroxylenol Bath Soap with Menthol", pack: "bar of 125 gm", price: 6800 },
+        { suffix: "Liquid Handwash Refill", comp: "Antiseptic Liquid Handwash Refill", pack: "pouch of 175 ml", price: 3500 },
+        { suffix: "Liquid Handwash Original", comp: "Antiseptic Liquid Handwash with pump", pack: "bottle of 200 ml", price: 9900 },
+        { suffix: "Liquid Handwash Refill Bottle", comp: "Antiseptic Handwash Refill", pack: "bottle of 900 ml", price: 17900 },
+        { suffix: "Instant Hand Sanitizer", comp: "Alcohol-based Hand Sanitizer", pack: "bottle of 50 ml", price: 2500 },
+        { suffix: "Instant Hand Sanitizer Pump", comp: "Alcohol-based Hand Sanitizer", pack: "bottle of 200 ml", price: 10000 },
+        { suffix: "First Aid Kit", comp: "Essential First Aid Supplies Kit", pack: "box of 1 unit", price: 35000 },
+        { suffix: "Disinfectant Sanitizer Wipes", comp: "Antiseptic Sanitizer Wipes", pack: "pack of 10 wipes", price: 4900 },
+        { suffix: "Disinfectant Sanitizer Wipes Large", comp: "Antiseptic Sanitizer Wipes", pack: "pack of 80 wipes", price: 24900 }
+      ]
+    },
+    {
+      brands: ["Savlon", "Sevlon"],
+      composition: "Chlorhexidine Gluconate, Cetrimide Solution",
+      manufacturer: "ITC Ltd",
+      category: "Antiseptic",
+      gst: 12,
+      variations: [
+        { suffix: "Antiseptic Liquid 100ml", comp: "Chlorhexidine Gluconate (1.5% v/v), Cetrimide (3.0% w/v)", pack: "bottle of 100 ml", price: 4000 },
+        { suffix: "Antiseptic Liquid 200ml", comp: "Chlorhexidine Gluconate (1.5% v/v), Cetrimide (3.0% w/v)", pack: "bottle of 200 ml", price: 8000 },
+        { suffix: "Antiseptic Liquid 500ml", comp: "Chlorhexidine Gluconate (1.5% v/v), Cetrimide (3.0% w/v)", pack: "bottle of 500 ml", price: 18000 },
+        { suffix: "Antiseptic Liquid 1L", comp: "Chlorhexidine Gluconate (1.5% v/v), Cetrimide (3.0% w/v)", pack: "bottle of 1000 ml", price: 33000 },
+        { suffix: "Glycerin Soap", comp: "Antiseptic Glycerin Bath Soap", pack: "bar of 75 gm", price: 3800 },
+        { suffix: "Glycerin Soap Large", comp: "Antiseptic Glycerin Bath Soap", pack: "bar of 125 gm", price: 6000 },
+        { suffix: "Liquid Handwash Refill", comp: "Savlon Herbal Handwash Refill pouch", pack: "pouch of 175 ml", price: 3000 },
+        { suffix: "Liquid Handwash Pump", comp: "Savlon Herbal Handwash with pump", pack: "bottle of 200 ml", price: 8900 }
+      ]
+    },
+    {
+      brands: ["Betadine", "Betadin"],
+      composition: "Povidone-Iodine Antiseptic",
+      manufacturer: "Win-Medicare Pvt Ltd",
+      category: "Antiseptic",
+      gst: 12,
+      variations: [
+        { suffix: "10% Antiseptic Solution 50ml", comp: "Povidone-Iodine (10% w/v)", pack: "bottle of 50 ml", price: 9000 },
+        { suffix: "10% Antiseptic Solution 100ml", comp: "Povidone-Iodine (10% w/v)", pack: "bottle of 100 ml", price: 17000 },
+        { suffix: "10% Antiseptic Solution 500ml", comp: "Povidone-Iodine (10% w/v)", pack: "bottle of 500 ml", price: 49500 },
+        { suffix: "5% Antiseptic Solution 50ml", comp: "Povidone-Iodine (5% w/v)", pack: "bottle of 50 ml", price: 7000 },
+        { suffix: "5% Antiseptic Solution 100ml", comp: "Povidone-Iodine (5% w/v)", pack: "bottle of 100 ml", price: 13000 },
+        { suffix: "5% Antiseptic Ointment 15g", comp: "Povidone-Iodine (5% w/w)", pack: "tube of 15 gm", price: 11000 },
+        { suffix: "5% Antiseptic Ointment 20g", comp: "Povidone-Iodine (5% w/w)", pack: "tube of 20 gm", price: 13900 },
+        { suffix: "5% Antiseptic Ointment 120g", comp: "Povidone-Iodine (5% w/w)", pack: "jar of 120 gm", price: 42000 },
+        { suffix: "Surgical Scrub 100ml", comp: "Povidone-Iodine (7.5% w/v)", pack: "bottle of 100 ml", price: 12000 },
+        { suffix: "Surgical Scrub 500ml", comp: "Povidone-Iodine (7.5% w/v)", pack: "bottle of 500 ml", price: 45000 },
+        { suffix: "Dry Powder Spray", comp: "Povidone-Iodine Dry Powder Spray", pack: "can of 55 gm", price: 18900 },
+        { suffix: "Mint Gargle 2% 50ml", comp: "Povidone-Iodine Germicide Gargle (2% w/v)", pack: "bottle of 50 ml", price: 10500 },
+        { suffix: "Mint Gargle 2% 100ml", comp: "Povidone-Iodine Germicide Gargle (2% w/v)", pack: "bottle of 100 ml", price: 16500 }
+      ]
+    },
+    {
+      brands: ["Surgical Cotton Roll", "Absorbent Cotton Roll", "Cotton Roll", "Surgical Cotton", "Absorbent Cotton", "Cotton Cotton Roll"],
+      composition: "Absorbent Cotton Wool IP",
+      manufacturer: "Surgical Essentials Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "50g", comp: "Pure Absorbent Cotton Roll (50g)", pack: "roll of 50 gm", price: 3000 },
+        { suffix: "100g", comp: "Pure Absorbent Cotton Roll (100g)", pack: "roll of 100 gm", price: 5500 },
+        { suffix: "200g", comp: "Pure Absorbent Cotton Roll (200g)", pack: "roll of 200 gm", price: 10000 },
+        { suffix: "400g", comp: "Pure Absorbent Cotton Roll (400g)", pack: "roll of 400 gm", price: 18000 },
+        { suffix: "500g Large", comp: "Pure Absorbent Cotton Roll (500g)", pack: "roll of 500 gm", price: 22000 },
+        { suffix: "Sterile Cotton Balls (50s)", comp: "Sterile Cotton Balls", pack: "pack of 50 balls", price: 4500 }
+      ]
+    },
+    {
+      brands: ["Surgical Rolled Bandage", "Rolled Bandage", "Cotton Bandage", "Surgical Bandage", "Bandages", "Bandage"],
+      composition: "Surgical Cotton Dressing Bandage",
+      manufacturer: "Surgical Essentials Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "2 inch x 3m", comp: "Rolled Bandage 5cm width", pack: "pack of 10 bandages", price: 6000 },
+        { suffix: "3 inch x 3m", comp: "Rolled Bandage 7.5cm width", pack: "pack of 10 bandages", price: 8000 },
+        { suffix: "4 inch x 3m", comp: "Rolled Bandage 10cm width", pack: "pack of 10 bandages", price: 10000 },
+        { suffix: "6 inch x 3m", comp: "Rolled Bandage 15cm width", pack: "pack of 10 bandages", price: 14000 }
+      ]
+    },
+    {
+      brands: ["Crepe Bandage", "Crepe Bandages", "Elastic Bandage"],
+      composition: "Cotton Crepe Elastic Bandage",
+      manufacturer: "Surgical Essentials Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "2 inch", comp: "Crepe Bandage with clips 5cm", pack: "pack of 1 bandage", price: 8000 },
+        { suffix: "3 inch", comp: "Crepe Bandage with clips 7.5cm", pack: "pack of 1 bandage", price: 11000 },
+        { suffix: "4 inch", comp: "Crepe Bandage with clips 10cm", pack: "pack of 1 bandage", price: 15000 },
+        { suffix: "6 inch", comp: "Crepe Bandage with clips 15cm", pack: "pack of 1 bandage", price: 21000 }
+      ]
+    },
+    {
+      brands: ["Hansaplast", "Band-Aid", "Handiplast", "Hansaplast Plaster", "Handiplast Plaster", "Band-Aid Plaster"],
+      composition: "Adhesive First Aid Plasters",
+      manufacturer: "Johnson & Johnson",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "Regular Strips (pack of 10)", comp: "Adhesive Medicated Plasters", pack: "box of 10 strips", price: 3000 },
+        { suffix: "Washproof Strips (pack of 10)", comp: "Waterproof First Aid Plasters", pack: "box of 10 strips", price: 4000 },
+        { suffix: "Regular Strips (box of 100)", comp: "Adhesive First Aid Strips", pack: "box of 100 strips", price: 25000 },
+        { suffix: "Spot Plasters (box of 50)", comp: "Round Spot Plasters for cuts", pack: "box of 50 spots", price: 12000 },
+        { suffix: "Handiplast Medicated Dressings", comp: "Handiplast Medicated Strip Dressings", pack: "box of 10 strips", price: 3500 }
+      ]
+    },
+    {
+      brands: ["3M Micropore Tape", "Micropore Surgical Tape", "Surgical Paper Tape", "Micropore Tape"],
+      composition: "Surgical Paper Adhesive Tape",
+      manufacturer: "3M India Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "0.5 inch x 9m", comp: "Micropore Paper Tape 1.25cm", pack: "roll of 1 tape", price: 3500 },
+        { suffix: "1 inch x 9m", comp: "Micropore Paper Tape 2.5cm", pack: "roll of 1 tape", price: 6500 },
+        { suffix: "2 inch x 9m", comp: "Micropore Paper Tape 5cm", pack: "roll of 1 tape", price: 12000 }
+      ]
+    },
+    {
+      brands: ["Sterile Gauze Swab", "Surgical Gauze swab", "Gauze Swab", "Sterile Gauze"],
+      composition: "Sterile Absorbent Gauze Pad",
+      manufacturer: "Surgical Essentials Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "5cm x 5cm (12 Ply)", comp: "Sterile Gauze Swabs 5cm x 5cm", pack: "pack of 10 swabs", price: 3000 },
+        { suffix: "7.5cm x 7.5cm (12 Ply)", comp: "Sterile Gauze Swabs 7.5cm x 7.5cm", pack: "pack of 10 swabs", price: 4500 },
+        { suffix: "10cm x 10cm (12 Ply)", comp: "Sterile Gauze Swabs 10cm x 10cm", pack: "pack of 10 swabs", price: 6000 }
+      ]
+    },
+    {
+      brands: ["Lumbosacral Waist Support Belt", "LS Contour Belt", "Lumbosacral West Support Belt", "LS West Belt", "LS Waist Belt", "Lumbosacral Belt"],
+      composition: "Lumbar Lumbosacral Lower Back Support Belt",
+      manufacturer: "Ortho Supports Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "(Size S)", comp: "Lumbar LS Belt Small", pack: "pack of 1 belt", price: 65000 },
+        { suffix: "(Size M)", comp: "Lumbar LS Belt Medium", pack: "pack of 1 belt", price: 65000 },
+        { suffix: "(Size L)", comp: "Lumbar LS Belt Large", pack: "pack of 1 belt", price: 65000 },
+        { suffix: "(Size XL)", comp: "Lumbar LS Belt Extra Large", pack: "pack of 1 belt", price: 65000 },
+        { suffix: "(Size XXL)", comp: "Lumbar LS Belt Double Extra Large", pack: "pack of 1 belt", price: 65000 }
+      ]
+    },
+    {
+      brands: ["Abdominal Binder Belt", "Waist Belt Support", "Abdominal Binder", "Waist Belt", "West Belt", "West Belt Support"],
+      composition: "Post Surgery Abdominal Support Binder",
+      manufacturer: "Ortho Supports Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "(Size S)", comp: "Abdominal Belt Small", pack: "pack of 1 belt", price: 45000 },
+        { suffix: "(Size M)", comp: "Abdominal Belt Medium", pack: "pack of 1 belt", price: 45000 },
+        { suffix: "(Size L)", comp: "Abdominal Belt Large", pack: "pack of 1 belt", price: 45000 },
+        { suffix: "(Size XL)", comp: "Abdominal Belt Extra Large", pack: "pack of 1 belt", price: 45000 }
+      ]
+    },
+    {
+      brands: ["Cervical Collar Soft", "Neck Collar support", "Cervical Collar", "Neck Collar"],
+      composition: "Cervical Neck Soft Foam Support Collar",
+      manufacturer: "Ortho Supports Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "(Size S)", comp: "Cervical Neck Collar Small", pack: "pack of 1 collar", price: 22000 },
+        { suffix: "(Size M)", comp: "Cervical Neck Collar Medium", pack: "pack of 1 collar", price: 22000 },
+        { suffix: "(Size L)", comp: "Cervical Neck Collar Large", pack: "pack of 1 collar", price: 22000 },
+        { suffix: "(Size XL)", comp: "Cervical Neck Collar Extra Large", pack: "pack of 1 collar", price: 22000 }
+      ]
+    },
+    {
+      brands: ["Knee Cap Support Compression", "Knee Cap", "Knee Support", "Knee Cap Support"],
+      composition: "Knee Joint Pain Compression Sleeves Cap",
+      manufacturer: "Ortho Supports Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "(Size S)", comp: "Knee Cap Compression Sleeves pair Small", pack: "box of 1 pair", price: 28000 },
+        { suffix: "(Size M)", comp: "Knee Cap Compression Sleeves pair Medium", pack: "box of 1 pair", price: 28000 },
+        { suffix: "(Size L)", comp: "Knee Cap Compression Sleeves pair Large", pack: "box of 1 pair", price: 28000 },
+        { suffix: "(Size XL)", comp: "Knee Cap Compression Sleeves pair Extra Large", pack: "box of 1 pair", price: 28000 }
+      ]
+    },
+    {
+      brands: ["Ankle Binder Support", "Ortho Ankle Support", "Ankle Binder", "Ankle Support"],
+      composition: "Ankle Joint Compression Binder and Support",
+      manufacturer: "Ortho Supports Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "(Size S)", comp: "Ankle Support Binder Small", pack: "pack of 1 binder", price: 25000 },
+        { suffix: "(Size M)", comp: "Ankle Support Binder Medium", pack: "pack of 1 binder", price: 25000 },
+        { suffix: "(Size L)", comp: "Ankle Support Binder Large", pack: "pack of 1 binder", price: 25000 },
+        { suffix: "(Size XL)", comp: "Ankle Support Binder Extra Large", pack: "pack of 1 binder", price: 25000 }
+      ]
+    },
+    {
+      brands: ["Wrist Support with Splint", "Ortho Wrist Support", "Wrist Support Splint", "Wrist Belt", "Wrist Splint"],
+      composition: "Wrist Joint Support Splint and Band",
+      manufacturer: "Ortho Supports Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "Universal Size", comp: "Wrist Splint Support Band Universal", pack: "pack of 1 support", price: 32000 }
+      ]
+    },
+    {
+      brands: ["Electric Hot Water Bag", "Heating Pad Ortho", "Heating Belt Electric", "Ortho Heating Pad", "Hot Water Bag"],
+      composition: "Orthopedic Pain Relief Heat Therapy Pad",
+      manufacturer: "Ortho Supports Ltd",
+      category: "Surgical",
+      gst: 12,
+      variations: [
+        { suffix: "Electric Heating Pad", comp: "Ortho Pain Relief Electric Heating Pad", pack: "box of 1 unit", price: 59900 },
+        { suffix: "Classic Hot Water Bag", comp: "Non-Electric Heating Therapy Rubber Bag", pack: "box of 1 unit", price: 29900 }
       ]
     }
   ];

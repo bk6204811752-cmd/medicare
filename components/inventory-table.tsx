@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Download, Filter, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { LocalInventoryRow } from "@/lib/local-db";
-import { daysUntil, formatCurrency, formatDate } from "@/lib/utils";
+import { daysUntil, formatCurrency, formatDate, parseUnitsPerPack } from "@/lib/utils";
 
 type StockStatus = "all" | "healthy" | "low" | "expiring" | "expired";
 const PAGE_SIZE = 50;
@@ -123,7 +123,7 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
-              {["Medicine", "Batch", "Expiry", "Stock", "Rate", "MRP", "GST", "Supplier", "Rack", "Status"].map((head) => (
+              {["Medicine", "Batch", "Expiry", "Packs", "Stock", "Rate", "MRP", "GST", "Supplier", "Rack", "Status"].map((head) => (
                 <th key={head} className={`px-3 py-2.5 font-medium text-xs ${["MRP", "GST", "Supplier", "Rack"].includes(head) ? "hidden lg:table-cell" : ""}`}>
                   {head}
                 </th>
@@ -136,6 +136,9 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
               const low = row.quantity <= row.reorderLevel;
               const expired = days < 0;
               const expiring = days >= 0 && days <= 60;
+              const unitsPerPack = parseUnitsPerPack(row.medicine.packSize);
+              const packs = Math.floor(row.quantity / unitsPerPack);
+              const loose = row.quantity % unitsPerPack;
               return (
                 <tr key={row.id} className="border-t border-slate-100">
                   <td className="px-3 py-2.5">
@@ -147,8 +150,15 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
                   <td className="px-3 py-2.5 font-mono text-xs">{row.batchNo}</td>
                   <td className="px-3 py-2.5">{formatDate(row.expiryDate)}</td>
                   <td className="px-3 py-2.5">
-                    <span className={low ? "font-semibold text-orange-700" : ""}>{row.quantity}</span>
-                    <span className="text-xs text-slate-500"> / {row.reorderLevel}</span>
+                    <span className="font-semibold text-slate-700">{packs}</span>
+                    {loose > 0 && (
+                      <span className="text-xs text-slate-500 ml-1">+{loose} loose</span>
+                    )}
+                    <span className="text-[10px] text-slate-400 block">{row.medicine.packSize || "1 unit"}</span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className={low ? "font-semibold text-orange-700" : "font-medium text-slate-600"}>{row.quantity} units</span>
+                    <span className="text-xs text-slate-400 block">min: {row.reorderLevel}</span>
                   </td>
                   <td className="px-3 py-2.5">{formatCurrency(row.saleRatePaisa)}</td>
                   <td className="hidden lg:table-cell px-3 py-2.5">{formatCurrency(row.mrpPaisa)}</td>

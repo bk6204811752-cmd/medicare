@@ -12,7 +12,8 @@ export default async function AddInventoryPage() {
     genericName: String(medicine.genericName ?? ""),
     gstRate: Number(medicine.gstRate),
     hsnCode: String(medicine.hsnCode ?? ""),
-    mrpPaisa: Number(medicine.mrpPaisa)
+    mrpPaisa: Number(medicine.mrpPaisa),
+    packSize: String(medicine.packSize ?? "")
   }));
   const suppliers = supplierRows.map((supplier) => ({
     id: String(supplier.id),

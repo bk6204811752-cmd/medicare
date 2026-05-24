@@ -48,3 +48,33 @@ export function daysUntil(date: string | Date) {
   target.setHours(0, 0, 0, 0);
   return Math.ceil((target.getTime() - getTodayMidnight()) / 86400000);
 }
+
+export function parseUnitsPerPack(packSize: string | null | undefined): number {
+  if (!packSize) return 1;
+  const clean = packSize.trim().toLowerCase();
+  
+  if (/^\d+$/.test(clean)) {
+    return parseInt(clean, 10);
+  }
+  
+  const ofMatch = clean.match(/(?:strip|pack|box|vial|ampoule|bottle)?\s*of\s*(\d+)/i);
+  if (ofMatch && ofMatch[1]) {
+    return parseInt(ofMatch[1], 10);
+  }
+  
+  const unitsMatch = clean.match(/^(\d+)\s*(?:tablet|capsule|tab|cap|s|unit|pc|piece)s?$/i);
+  if (unitsMatch && unitsMatch[1]) {
+    return parseInt(unitsMatch[1], 10);
+  }
+  
+  const anyNumMatch = clean.match(/(\d+)/);
+  if (anyNumMatch && anyNumMatch[1]) {
+    const val = parseInt(anyNumMatch[1], 10);
+    if (clean.includes("ml") || clean.includes("mg") || clean.includes("gm") || clean.includes("mcg")) {
+      return 1;
+    }
+    return val;
+  }
+  
+  return 1;
+}

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { AddMedicineForm } from "@/components/add-medicine-form";
 import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
+import { parseUnitsPerPack } from "@/lib/utils";
 
 type SelectItem = {
   id: string;
@@ -19,6 +20,7 @@ type SelectItem = {
   gstRate?: number;
   hsnCode?: string;
   mrpPaisa?: number;
+  packSize?: string;
 };
 
 // Smart regex parser function to extract invoice fields
@@ -223,6 +225,9 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const [mfgDate, setMfgDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [packs, setPacks] = useState("");
+  const [unitsPerPack, setUnitsPerPack] = useState("");
+  const [looseUnits, setLooseUnits] = useState("");
   const [purchaseRate, setPurchaseRate] = useState("");
   const [mrp, setMrp] = useState("");
   const [saleRate, setSaleRate] = useState("");
@@ -230,6 +235,22 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const [hsnCode, setHsnCode] = useState("");
   const [reorderLevel, setReorderLevel] = useState("10");
   const [rackLocation, setRackLocation] = useState("");
+
+  const calculateAndSetQuantity = (p: string, u: string, l: string) => {
+    const packsVal = parseInt(p, 10);
+    const unitsVal = parseInt(u, 10);
+    const looseVal = parseInt(l, 10) || 0;
+
+    if (!isNaN(packsVal) && !isNaN(unitsVal)) {
+      setQuantity(String(packsVal * unitsVal + looseVal));
+    } else if (!isNaN(packsVal) && isNaN(unitsVal)) {
+      setQuantity(String(packsVal + looseVal));
+    } else if (isNaN(packsVal) && !isNaN(unitsVal)) {
+      setQuantity(String(looseVal));
+    } else {
+      setQuantity(String(looseVal));
+    }
+  };
 
   // Searchable combobox states
   const [medicineSearch, setMedicineSearch] = useState("");
@@ -333,6 +354,13 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     setSaleRate(hit.mrpPaisa > 0 ? String(hit.mrpPaisa / 100) : "");
     setGstRate(String(hit.gstRate ?? 12));
     setHsnCode(hit.hsnCode ?? "");
+
+    const pSize = hit.packSize ? parseUnitsPerPack(hit.packSize) : 10;
+    setUnitsPerPack(String(pSize));
+    setPacks("1");
+    setLooseUnits("0");
+    setQuantity(String(pSize));
+
     toast.success(`✅ Auto-filled: ${hit.name}`, { duration: 2500 });
   }
 
@@ -346,6 +374,12 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     setSaleRate(m.mrpPaisa ? String(m.mrpPaisa / 100) : "");
     setGstRate(String(m.gstRate ?? 12));
     setHsnCode(m.hsnCode ?? "");
+
+    const pSize = m.packSize ? parseUnitsPerPack(m.packSize) : 10;
+    setUnitsPerPack(String(pSize));
+    setPacks("1");
+    setLooseUnits("0");
+    setQuantity(String(pSize));
   }
 
   function clearSelection() {
@@ -363,6 +397,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       gstRate: med.gstRate,
       hsnCode: med.hsnCode,
       mrpPaisa: med.mrpPaisa,
+      packSize: med.packSize,
     };
     setLocalMedicines((prev) => [newItem, ...prev]);
     selectMedicine(newItem);
@@ -538,7 +573,24 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       
       setBatchNo(scannedData.batchNo || "");
       setExpiryDate(scannedData.expiryDate || "");
+      
+      const parsedQty = parseInt(scannedData.quantity || "0", 10);
       setQuantity(scannedData.quantity || "");
+      
+      let pSize = 10;
+      if (scannedData.medicineId && scannedData.medicineId !== "new") {
+        const med = localMedicines.find(m => m.id === scannedData.medicineId);
+        if (med && med.packSize) pSize = parseUnitsPerPack(med.packSize);
+      }
+      setUnitsPerPack(String(pSize));
+      if (!isNaN(parsedQty) && parsedQty > 0) {
+        setPacks(String(Math.floor(parsedQty / pSize)));
+        setLooseUnits(String(parsedQty % pSize));
+      } else {
+        setPacks("");
+        setLooseUnits("");
+      }
+
       setPurchaseRate(scannedData.purchaseRate || "");
       setMrp(scannedData.mrp || "");
       setSaleRate(scannedData.saleRate || "");
@@ -1100,14 +1152,78 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         </label>
 
         <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-600 font-semibold">Quantity *</span>
+          <span className="text-sm font-medium text-slate-600 font-semibold flex items-center gap-1.5">
+            Packs / Strips
+            <span className="text-xs font-normal text-slate-400">(e.g. 10 strips)</span>
+          </span>
+          <input 
+            name="packs" 
+            type="number" 
+            value={packs} 
+            onChange={(e) => {
+              const val = e.target.value;
+              setPacks(val);
+              calculateAndSetQuantity(val, unitsPerPack, looseUnits);
+            }} 
+            className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm" 
+            placeholder="0"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-slate-600 font-semibold flex items-center gap-1.5">
+            Pack Size (Qty/Pack)
+            <span className="text-xs font-normal text-slate-400">(e.g. 10 tabs/strip)</span>
+          </span>
+          <input 
+            name="unitsPerPack" 
+            type="number" 
+            value={unitsPerPack} 
+            onChange={(e) => {
+              const val = e.target.value;
+              setUnitsPerPack(val);
+              calculateAndSetQuantity(packs, val, looseUnits);
+            }} 
+            className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm" 
+            placeholder="e.g. 10"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-slate-600 font-semibold flex items-center gap-1.5">
+            Loose Units
+            <span className="text-xs font-normal text-slate-400">(Optional loose tablets)</span>
+          </span>
+          <input 
+            name="looseUnits" 
+            type="number" 
+            value={looseUnits} 
+            onChange={(e) => {
+              const val = e.target.value;
+              setLooseUnits(val);
+              calculateAndSetQuantity(packs, unitsPerPack, val);
+            }} 
+            className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm" 
+            placeholder="0"
+          />
+        </label>
+
+        <label className="space-y-2">
+          <span className="text-sm font-medium text-slate-600 font-semibold flex items-center gap-1">
+            Total Qty (Loose Units) *
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">Calculated</span>
+          </span>
           <input 
             name="quantity" 
             type="number" 
             required 
             value={quantity} 
-            onChange={(e) => setQuantity(e.target.value)} 
-            className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm" 
+            onChange={(e) => {
+              setQuantity(e.target.value);
+              setPacks("");
+              setLooseUnits("");
+            }} 
+            className="h-11 w-full rounded-md border border-slate-200 bg-slate-50 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm font-semibold text-slate-700" 
             placeholder="0"
           />
         </label>

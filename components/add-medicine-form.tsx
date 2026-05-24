@@ -260,7 +260,7 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
     setValue("schedule", hit.schedule || "OTC");
     setValue("gstRate", String(hit.gstRate ?? 12));
     if (hit.mrpPaisa > 0) setValue("mrp", String(hit.mrpPaisa / 100));
-    toast.success(`✅ Auto-filled from Drug Master: ${hit.name}`, { duration: 2500 });
+    toast.success(`✅ Auto-filled: ${hit.name}`, { duration: 2500 });
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -390,30 +390,30 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
           />
           {(nameSuggestions.length > 0 || drugMasterResults.length > 0 || drugMasterLoading) && (
             <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-              {/* Drug Master API Results */}
+              {/* Smart Suggestions */}
               {(drugMasterResults.length > 0 || drugMasterLoading) && (
                 <div>
-                  <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-1.5">
+                  <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1.5">
                     {drugMasterLoading ? (
-                      <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
+                      <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
                     ) : (
-                      <Database className="h-3 w-3 text-purple-500" />
+                      <Database className="h-3 w-3 text-blue-500" />
                     )}
-                    <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">
-                      Drug Master Database {drugMasterLoading ? "— Searching..." : `— ${drugMasterResults.length} found`}
+                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
+                      Smart Suggestions {drugMasterLoading ? "— Searching..." : `— ${drugMasterResults.length} found`}
                     </span>
-                    <Sparkles className="h-3 w-3 text-purple-400 ml-auto" />
+                    <Sparkles className="h-3 w-3 text-blue-400 ml-auto" />
                   </div>
                   {drugMasterResults.slice(0, 8).map((hit, i) => (
                     <button
                       key={`dm-${hit.name}-${i}`}
                       type="button"
                       onClick={() => fillFromDrugMaster(hit)}
-                      className="block w-full border-b border-slate-50 px-3 py-2 text-left hover:bg-purple-50/60 transition-colors"
+                      className="block w-full border-b border-slate-50 px-3 py-2 text-left hover:bg-blue-50/60 transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <span className="block text-sm font-semibold text-slate-800">{hit.name}</span>
-                        <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-600">Drug Master ⚡</span>
+                        <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">Verified ✓</span>
                       </div>
                       <span className="text-xs text-slate-500">
                         {hit.genericName}{hit.strength ? ` • ${hit.strength}` : ""}{hit.manufacturer ? ` • ${hit.manufacturer}` : ""}

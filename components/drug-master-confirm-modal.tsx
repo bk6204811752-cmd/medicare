@@ -73,8 +73,8 @@ export function DrugMasterConfirmModal({ suggestion, onConfirm, onCancel, mode =
     setData((prev) => ({ ...prev, [field]: value }));
   }
 
-  const sourceLabel = data.source === "api" ? "Drug Master API ⚡" : data.source === "local" ? "Local Database" : "Drug Master Database";
-  const sourceColor = data.source === "api" ? "bg-blue-100 text-blue-700" : data.source === "local" ? "bg-emerald-100 text-emerald-700" : "bg-purple-100 text-purple-700";
+  const sourceLabel = data.source === "api" ? "Verified ✓" : data.source === "local" ? "Local Database" : "Medicine Database";
+  const sourceColor = data.source === "api" ? "bg-emerald-100 text-emerald-700" : data.source === "local" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700";
 
   return (
     <div

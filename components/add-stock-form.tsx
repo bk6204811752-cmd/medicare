@@ -333,7 +333,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     setSaleRate(hit.mrpPaisa > 0 ? String(hit.mrpPaisa / 100) : "");
     setGstRate(String(hit.gstRate ?? 12));
     setHsnCode(hit.hsnCode ?? "");
-    toast.success(`⚡ Auto-filled from Drug Master: ${hit.name}`, { duration: 2500 });
+    toast.success(`✅ Auto-filled: ${hit.name}`, { duration: 2500 });
   }
 
   function selectMedicine(m: SelectItem) {
@@ -948,19 +948,19 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                     ))
                   )}
                   
-                  {/* Drug Master Database Results */}
+                  {/* Smart Suggestions */}
                   {(drugMasterHits.length > 0 || drugMasterLoading) && (
                     <div>
-                      <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-1.5">
+                      <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-1.5">
                         {drugMasterLoading ? (
-                          <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
+                          <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
                         ) : (
-                          <Database className="h-3 w-3 text-purple-500" />
+                          <Database className="h-3 w-3 text-blue-500" />
                         )}
-                        <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">
-                          Drug Master Database {drugMasterLoading ? "— Searching..." : `— ${drugMasterHits.length} found`}
+                        <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
+                          Smart Suggestions {drugMasterLoading ? "— Searching..." : `— ${drugMasterHits.length} found`}
                         </span>
-                        <Sparkles className="h-3 w-3 text-purple-400 ml-auto" />
+                        <Sparkles className="h-3 w-3 text-blue-400 ml-auto" />
                       </div>
                       {drugMasterHits.slice(0, 8).map((hit, i) => (
                         <button
@@ -970,12 +970,12 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                             e.preventDefault();
                             selectDrugMasterHit(hit);
                           }}
-                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-purple-50/60"
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-blue-50/60"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
                               <p className="truncate text-sm font-semibold text-slate-800">{hit.name}</p>
-                              <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-600">Drug Master ⚡</span>
+                              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">Verified ✓</span>
                             </div>
                             {hit.genericName && <p className="truncate text-xs text-slate-500">{hit.genericName}{hit.manufacturer ? ` • ${hit.manufacturer}` : ""}</p>}
                           </div>

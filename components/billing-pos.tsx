@@ -766,36 +766,36 @@ export function BillingPos() {
           </div>
         )}
 
-        {/* ─── "Not Found" — Drug Master Suggestions + Manual Add ─── */}
+        {/* ─── "Not Found" — Smart Suggestions + Manual Add ─── */}
         {query.length >= 2 && matches.length === 0 && suggestions.length === 0 && !showAddMedicine && (
           <div className="mt-3 space-y-3">
-            {/* Drug Master API suggestions */}
+            {/* Smart Suggestions */}
             {(drugMasterHits.length > 0 || drugMasterLoading) && (
-              <div className="rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50/50 to-indigo-50/30 p-3">
-                <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-purple-800">
+              <div className="rounded-lg border border-blue-200 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 p-3">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-blue-800">
                   {drugMasterLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-500" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" />
                   ) : (
-                    <Database className="h-3.5 w-3.5 text-purple-500" />
+                    <Database className="h-3.5 w-3.5 text-blue-500" />
                   )}
-                  {drugMasterLoading ? "Searching Drug Master Database..." : `Found ${drugMasterHits.length} in Drug Master Database`}
-                  <Sparkles className="h-3 w-3 text-purple-400 ml-auto" />
+                  {drugMasterLoading ? "Searching medicines..." : `Found ${drugMasterHits.length} matching medicines`}
+                  <Sparkles className="h-3 w-3 text-blue-400 ml-auto" />
                 </p>
                 {drugMasterHits.slice(0, 5).map((hit, i) => (
-                  <div key={`dm-${hit.name}-${i}`} className="flex items-center justify-between border-b border-purple-100/50 py-2 last:border-b-0">
+                  <div key={`dm-${hit.name}-${i}`} className="flex items-center justify-between border-b border-blue-100/50 py-2 last:border-b-0">
                     <div>
-                      <span className="text-sm font-semibold text-purple-900">{hit.name}</span>
-                      {hit.genericName && <span className="ml-1.5 text-xs text-purple-700">({hit.genericName})</span>}
+                      <span className="text-sm font-semibold text-slate-900">{hit.name}</span>
+                      {hit.genericName && <span className="ml-1.5 text-xs text-slate-600">({hit.genericName})</span>}
                       {hit.mrpPaisa > 0 && <span className="ml-1.5 text-xs font-medium text-emerald-600">₹{(hit.mrpPaisa / 100).toFixed(2)}</span>}
-                      <span className="ml-1.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-600">Drug Master ⚡</span>
+                      <span className="ml-1.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600">Verified ✓</span>
                     </div>
                     <button
                       onClick={() => {
                         setAddMedicinePrefill({ name: hit.name });
                         setShowAddMedicine(true);
-                        toast.info(`Quick-add form opened with Drug Master data for "${hit.name}"`);
+                        toast.info(`Quick-add form opened for "${hit.name}"`);
                       }}
-                      className="rounded-md bg-purple-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-purple-700 transition-colors"
+                      className="rounded-md bg-med-green px-2.5 py-1 text-xs font-semibold text-white hover:bg-med-greenDark transition-colors"
                     >
                       <Plus className="inline h-3 w-3 mr-0.5" /> Quick Add
                     </button>

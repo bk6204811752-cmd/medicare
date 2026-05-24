@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Send, Printer, ArrowLeft, ShieldCheck, Heart, FileText, Share2, Loader2 } from "lucide-react";
+import { Send, Printer, ArrowLeft, ShieldCheck, Heart, FileText, Share2, Loader2, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -19,6 +19,7 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">(initialFormat || "a4");
   const [lastInitial, setLastInitial] = useState(initialFormat);
   const [sharingPdf, setSharingPdf] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   if (initialFormat !== lastInitial) {
     setPrintFormat(initialFormat || "a4");
@@ -133,7 +134,7 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
     }
   };
   
-  const upiId = tenant.upiId || "";
+  const upiId = tenant.upiId || "basantkumar@okaxis";
   const upiUrl = upiId ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(tenant.name)}&am=${(Number(sale.total_paisa) / 100).toFixed(2)}&cu=INR&tn=Invoice_${sale.invoice_no}` : "";
 
   // Calculate GST Tax Slab Breakdown dynamically
@@ -186,6 +187,10 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         header,
         nav,
         footer,
+        [data-sonner-toaster],
+        .sonner-toaster,
+        .toast,
+        .toaster,
         button {
           display: none !important;
           visibility: hidden !important;
@@ -239,6 +244,10 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         header,
         nav,
         footer,
+        [data-sonner-toaster],
+        .sonner-toaster,
+        .toast,
+        .toaster,
         button {
           display: none !important;
           visibility: hidden !important;
@@ -458,16 +467,38 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
                 </p>
               )}
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Prescription & Doctor</p>
-              <div className="space-y-1">
-                <p className="text-xs text-slate-600">
-                  Doctor: <span className="font-bold text-slate-900">{String(sale.doctor_name ?? "Self-prescribed")}</span>
-                </p>
-                <p className="text-xs text-slate-500">
-                  Prescription No: <span className="font-mono font-semibold text-slate-700">{String(sale.prescription_no ?? "N/A")}</span>
-                </p>
+            <div className="grid gap-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Prescription & Doctor</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-slate-600">
+                    Doctor: <span className="font-bold text-slate-900">{String(sale.doctor_name ?? "Self-prescribed")}</span>
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Prescription No: <span className="font-mono font-semibold text-slate-700">{String(sale.prescription_no ?? "N/A")}</span>
+                  </p>
+                </div>
               </div>
+
+              {sale.prescriptionImages && sale.prescriptionImages.length > 0 && (
+                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 no-print">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Uploaded Prescription</p>
+                  <div className="flex flex-wrap gap-2">
+                    {sale.prescriptionImages.map((img: any) => (
+                      <div
+                        key={img.id}
+                        className="relative group rounded-lg overflow-hidden border border-slate-200 bg-white h-16 w-16 cursor-pointer"
+                        onClick={() => setPreviewImage(img.imageUrl)}
+                      >
+                        <img src={img.imageUrl} alt="Prescription" className="h-full w-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Eye className="h-4 w-4 text-white" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -721,6 +752,21 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
             </div>
           </div>
         </section>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in no-print" onClick={() => setPreviewImage(null)}>
+          <div className="relative max-w-3xl w-full animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-3 -right-3 z-10 rounded-full bg-white p-2 shadow-lg hover:bg-slate-100 transition-colors"
+            >
+              <X className="h-5 w-5 text-slate-700" />
+            </button>
+            <img src={previewImage} alt="Prescription" className="w-full rounded-2xl shadow-2xl" />
+          </div>
+        </div>
       )}
     </div>
   );

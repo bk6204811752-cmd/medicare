@@ -12,7 +12,7 @@ type PrescriptionRecord = {
   patientName: string | null;
   notes: string | null;
   uploadedAt: string;
-  sale?: { id: string; invoiceNo: string } | null;
+  sale?: { id: string; invoiceNo: string; doctorName: string | null; customerName: string | null } | null;
 };
 
 export function PrescriptionArchiveClient() {
@@ -110,11 +110,15 @@ export function PrescriptionArchiveClient() {
   const filtered = prescriptions.filter((p) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
+    const doc = p.doctorName || p.sale?.doctorName || "";
+    const pat = p.patientName || p.sale?.customerName || "";
+    const note = p.notes || "";
+    const inv = p.sale?.invoiceNo || "";
     return (
-      p.doctorName?.toLowerCase().includes(q) ||
-      p.patientName?.toLowerCase().includes(q) ||
-      p.notes?.toLowerCase().includes(q) ||
-      p.sale?.invoiceNo?.toLowerCase().includes(q)
+      doc.toLowerCase().includes(q) ||
+      pat.toLowerCase().includes(q) ||
+      note.toLowerCase().includes(q) ||
+      inv.toLowerCase().includes(q)
     );
   });
 
@@ -323,11 +327,11 @@ export function PrescriptionArchiveClient() {
               <div className="p-4 space-y-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    {p.doctorName && (
-                      <p className="text-sm font-bold text-med-navy truncate">Dr. {p.doctorName}</p>
+                    {(p.doctorName || p.sale?.doctorName) && (
+                      <p className="text-sm font-bold text-med-navy truncate">Dr. {p.doctorName || p.sale?.doctorName}</p>
                     )}
-                    {p.patientName && (
-                      <p className="text-xs text-slate-500 truncate">Patient: {p.patientName}</p>
+                    {(p.patientName || p.sale?.customerName) && (
+                      <p className="text-xs text-slate-500 truncate">Patient: {p.patientName || p.sale?.customerName}</p>
                     )}
                   </div>
                   <div className="shrink-0 text-right">

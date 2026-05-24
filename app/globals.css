@@ -275,12 +275,31 @@ button[type="submit"]:active,
 
 /* ─── Print styles ──────────────────────────────────────── */
 @media print {
-  .no-print {
+  .no-print,
+  [data-sonner-toaster],
+  .sonner-toaster,
+  .toast,
+  .toaster {
     display: none !important;
   }
 
   body {
     background: white;
+  }
+
+  /* Strip green border highlights, shadows and transitions during printing */
+  .card-highlight,
+  .rounded-lg.border.bg-white,
+  .rounded-2xl.border.bg-white,
+  .rounded-xl.border.bg-white,
+  .rounded-lg.border-slate-200.bg-white,
+  .rounded-2xl.border-slate-200.bg-white,
+  .rounded-xl.border-slate-200.bg-white,
+  .glass-card {
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+    transition: none !important;
   }
 }
 

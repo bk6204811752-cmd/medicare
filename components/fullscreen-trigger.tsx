@@ -14,7 +14,7 @@ export function FullscreenTrigger() {
     return window.matchMedia("(hover: hover)").matches && window.innerWidth > 1024;
   };
 
-  const requestFullscreen = async () => {
+  const requestFullscreen = async (showButtonOnFail = true) => {
     if (!isDesktop()) return;
     try {
       if (!document.fullscreenElement) {
@@ -24,8 +24,10 @@ export function FullscreenTrigger() {
         setShowManualTrigger(false);
       }
     } catch (err) {
-      // Programmatic request failed, show manual button
-      setShowManualTrigger(true);
+      // Programmatic request failed. Only show manual button if requested.
+      if (showButtonOnFail) {
+        setShowManualTrigger(true);
+      }
     }
   };
 
@@ -58,7 +60,7 @@ export function FullscreenTrigger() {
     }
 
     // Try going fullscreen immediately
-    requestFullscreen();
+    requestFullscreen(false); // Don't show manual trigger button if immediate auto-request fails on mount
 
     // Auto-trigger on first user gesture (click/keydown)
     const handleGesture = async () => {
@@ -67,7 +69,7 @@ export function FullscreenTrigger() {
         document.removeEventListener("keydown", handleGesture);
         return;
       }
-      await requestFullscreen();
+      await requestFullscreen(true);
       // Remove listeners once fullscreen is successful
       if (document.fullscreenElement) {
         document.removeEventListener("click", handleGesture);
@@ -81,15 +83,17 @@ export function FullscreenTrigger() {
     // Listen to window focus (re-focusing after file picker or dialog closes)
     const handleWindowFocus = async () => {
       const exitedSession = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+      const isPrinting = sessionStorage.getItem("isSystemPrinting") === "true" || sessionStorage.getItem("restoreFullscreenAfterPrint") === "true";
+      
       if (!exitedSession && !document.fullscreenElement) {
-        // Try requesting fullscreen immediately
-        await requestFullscreen();
+        // Try requesting fullscreen, but fail silently if no user gesture is present
+        await requestFullscreen(false);
         
-        // If immediate fails, listen for next click to re-enter
+        // Listen for next click to re-enter with user gesture
         const reEnterOnNextClick = async () => {
           const checkExited = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
           if (!checkExited && !document.fullscreenElement) {
-            await requestFullscreen();
+            await requestFullscreen(!isPrinting); // Show manual button only if not printing
           }
           document.removeEventListener("click", reEnterOnNextClick);
         };
@@ -97,12 +101,52 @@ export function FullscreenTrigger() {
       }
     };
 
+    // Print event listeners to handle browser print dialog fullscreen exits
+    let wasFullscreenBeforePrint = false;
+    const handleBeforePrint = () => {
+      wasFullscreenBeforePrint = !!document.fullscreenElement;
+      sessionStorage.setItem("isSystemPrinting", "true");
+      if (wasFullscreenBeforePrint) {
+        sessionStorage.setItem("restoreFullscreenAfterPrint", "true");
+      }
+    };
+
+    const handleAfterPrint = () => {
+      sessionStorage.removeItem("isSystemPrinting");
+      // Hide manual trigger button during this print focus transition
+      setShowManualTrigger(false);
+      
+      // Setup listener on next interaction to restore fullscreen
+      const restoreOnInteraction = async () => {
+        const checkExited = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+        const restoreNeeded = sessionStorage.getItem("restoreFullscreenAfterPrint") === "true";
+        if (!checkExited && restoreNeeded && !document.fullscreenElement) {
+          sessionStorage.removeItem("restoreFullscreenAfterPrint");
+          await requestFullscreen(false);
+        }
+        document.removeEventListener("click", restoreOnInteraction);
+        document.removeEventListener("keydown", restoreOnInteraction);
+      };
+      
+      document.addEventListener("click", restoreOnInteraction);
+      document.addEventListener("keydown", restoreOnInteraction);
+      
+      // Auto clear after 2 seconds if no interaction
+      setTimeout(() => {
+        sessionStorage.removeItem("restoreFullscreenAfterPrint");
+      }, 2000);
+    };
+
     window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("beforeprint", handleBeforePrint);
+    window.addEventListener("afterprint", handleAfterPrint);
 
     return () => {
       document.removeEventListener("click", handleGesture);
       document.removeEventListener("keydown", handleGesture);
       window.removeEventListener("focus", handleWindowFocus);
+      window.removeEventListener("beforeprint", handleBeforePrint);
+      window.removeEventListener("afterprint", handleAfterPrint);
     };
   }, []);
 
@@ -111,15 +155,19 @@ export function FullscreenTrigger() {
       const active = !!document.fullscreenElement;
       setIsFullscreen(active);
       
-      // If we exited fullscreen but did NOT click explicit exit,
-      // it means browser exited fullscreen automatically (e.g. from file upload dialog).
-      // We will queue up a listener to re-enter on the next click/action.
       const exitedSession = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+      const isPrinting = sessionStorage.getItem("isSystemPrinting") === "true" || sessionStorage.getItem("restoreFullscreenAfterPrint") === "true";
+
       if (!active && !exitedSession) {
+        // If exiting fullscreen was due to print or auto focus change, suppress manual trigger display
+        if (isPrinting) {
+          setShowManualTrigger(false);
+        }
+
         const reEnter = async () => {
           const checkExited = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
           if (!checkExited && !document.fullscreenElement) {
-            await requestFullscreen();
+            await requestFullscreen(!isPrinting); // Show manual button only if not printing
           }
           document.removeEventListener("click", reEnter);
           document.removeEventListener("keydown", reEnter);
@@ -142,8 +190,11 @@ export function FullscreenTrigger() {
     return null;
   }
 
-  // If manual trigger is required
-  if (showManualTrigger) {
+  // If manual trigger is required and we are not printing/restoring
+  const isPrintingState = typeof window !== "undefined" && 
+    (sessionStorage.getItem("isSystemPrinting") === "true" || sessionStorage.getItem("restoreFullscreenAfterPrint") === "true");
+
+  if (showManualTrigger && !isPrintingState) {
     return (
       <div className="fixed bottom-6 right-6 z-[9999] no-print">
         <button

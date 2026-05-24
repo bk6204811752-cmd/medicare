@@ -111,14 +111,40 @@ export async function POST(request: NextRequest) {
     const cloudinaryData = await uploadRes.json();
     const secureUrl: string = cloudinaryData.secure_url;
 
+    let resolvedDoctorName = doctorName;
+    let resolvedPatientName = patientName;
+    let resolvedNotes = notes;
+
+    if (saleId && (!resolvedDoctorName || !resolvedPatientName)) {
+      const associatedSale = await prisma.sale.findUnique({
+        where: { id: saleId },
+        select: {
+          doctorName: true,
+          customerName: true,
+          prescriptionNo: true,
+        }
+      });
+      if (associatedSale) {
+        if (!resolvedDoctorName) {
+          resolvedDoctorName = associatedSale.doctorName;
+        }
+        if (!resolvedPatientName) {
+          resolvedPatientName = associatedSale.customerName;
+        }
+        if (!resolvedNotes && associatedSale.prescriptionNo) {
+          resolvedNotes = `Prescription No: ${associatedSale.prescriptionNo}`;
+        }
+      }
+    }
+
     const prescription = await prisma.prescriptionImage.create({
       data: {
         tenantId: user.tenantId,
         saleId,
         imageUrl: secureUrl,
-        doctorName,
-        patientName,
-        notes,
+        doctorName: resolvedDoctorName,
+        patientName: resolvedPatientName,
+        notes: resolvedNotes,
       },
     });
 

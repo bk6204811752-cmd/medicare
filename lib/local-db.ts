@@ -1029,15 +1029,21 @@ export async function createSale(tenantId: string, input: unknown) {
   const saleId = uid("sale");
 
   await prisma.$transaction(async (tx) => {
+    const inventoryIds = data.lines.map((l) => l.inventoryId);
+    const inventories = await tx.inventoryItem.findMany({
+      where: { id: { in: inventoryIds }, tenantId, isActive: true },
+      include: { medicine: true, supplier: true }
+    });
+
+    const inventoryMap = new Map(inventories.map((inv) => [inv.id, inv]));
     const inventoryRows: { row: LocalInventoryRow; line: (typeof data.lines)[number] }[] = [];
 
     for (const line of data.lines) {
-      const inventory = await tx.inventoryItem.findFirst({
-        where: { id: line.inventoryId, tenantId, isActive: true },
-        include: { medicine: true, supplier: true }
-      });
+      const inventory = inventoryMap.get(line.inventoryId);
       if (!inventory) throw new Error("Inventory item not found");
-      if (inventory.quantity < line.quantity) throw new Error(`${inventory.medicine.name} has only ${inventory.quantity} in stock`);
+      if (inventory.quantity < line.quantity) {
+        throw new Error(`${inventory.medicine.name} has only ${inventory.quantity} in stock`);
+      }
       inventoryRows.push({ row: mapInventory(inventory), line });
     }
 
@@ -1086,10 +1092,13 @@ export async function createSale(tenantId: string, input: unknown) {
       }
     });
 
+    const operations: Promise<any>[] = [];
+
     for (const [index, line] of saleLines.entries()) {
       const lineTotal = totals.lineTotals[index];
       const saleItemId = uid("item");
-      await tx.saleItem.create({
+      
+      operations.push(tx.saleItem.create({
         data: {
           id: saleItemId, saleId, tenantId, inventoryId: line.inventoryId,
           medicineName: line.medicineName, batchNo: line.batchNo,
@@ -1101,20 +1110,25 @@ export async function createSale(tenantId: string, input: unknown) {
           igstPaisa: lineTotal.igstPaisa, taxablePaisa: lineTotal.taxablePaisa,
           totalPaisa: lineTotal.totalPaisa, schedule: line.schedule
         }
-      });
+      }));
 
-      await tx.inventoryItem.update({ where: { id: line.inventoryId }, data: { quantity: { decrement: line.quantity } } });
+      operations.push(tx.inventoryItem.update({
+        where: { id: line.inventoryId },
+        data: { quantity: { decrement: line.quantity } }
+      }));
 
       if (["H", "H1", "X"].includes(line.schedule)) {
-        await tx.scheduleHRegister.create({
+        operations.push(tx.scheduleHRegister.create({
           data: {
             id: uid("sch"), tenantId, saleItemId, medicineName: line.medicineName,
             quantity: line.quantity, customerName, customerPhone: data.customerPhone || null,
             doctorName: data.doctorName || null, prescriptionNo: data.prescriptionNo || null
           }
-        });
+        }));
       }
     }
+
+    await Promise.all(operations);
 
     if (data.paymentMode === "credit" && customerId) {
       await tx.customer.update({ where: { id: customerId }, data: { outstandingPaisa: { increment: totals.totalPaisa } } });
@@ -1135,19 +1149,39 @@ export async function getSales(tenantId: string) {
 export async function getSale(tenantId: string, saleId: string) {
   await ensureDefaultData();
   const sale = await prisma.sale.findFirst({
-    where: { id: saleId, tenantId }, include: { items: true }
+    where: { id: saleId, tenantId }, include: { items: true, prescriptionImages: true }
   });
-  return { sale: sale ? mapSaleRow(sale) : null, items: sale ? sale.items.map(mapSaleItemRow) : [] };
+  return { 
+    sale: sale ? {
+      ...mapSaleRow(sale),
+      prescriptionImages: sale.prescriptionImages.map(img => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        uploadedAt: img.uploadedAt.toISOString()
+      }))
+    } : null, 
+    items: sale ? sale.items.map(mapSaleItemRow) : [] 
+  };
 }
 
 export async function getSaleByIdOrInvoice(tenantId: string, idOrInvoice: string) {
   await ensureDefaultData();
   const sale = await prisma.sale.findFirst({
     where: { tenantId, OR: [{ id: idOrInvoice }, { invoiceNo: idOrInvoice }] },
-    include: { items: true }
+    include: { items: true, prescriptionImages: true }
   });
   if (!sale) return null;
-  return { sale: mapSaleRow(sale), items: sale.items.map(mapSaleItemRow) };
+  return { 
+    sale: {
+      ...mapSaleRow(sale),
+      prescriptionImages: sale.prescriptionImages.map(img => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        uploadedAt: img.uploadedAt.toISOString()
+      }))
+    }, 
+    items: sale.items.map(mapSaleItemRow) 
+  };
 }
 
 // ─── Reports (tenant-scoped) ─────────────────────────────────

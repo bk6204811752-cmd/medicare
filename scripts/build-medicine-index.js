@@ -81,6 +81,7 @@ const EXTRA_MEDICINES = [
   ["Neurobion Forte Tablet", 3200, "P&G Health", "strip of 30 tablets", "Vitamin B1 (10mg), Vitamin B6 (3mg), Vitamin B12 (15mcg)", 5],
   ["Limcee 500mg Tablet", 1960, "Abbott", "strip of 15 tablets", "Ascorbic Acid (500mg)", 5],
   ["Evion 400mg Capsule", 2870, "P&G Health", "strip of 10 capsules", "Tocopheryl Acetate (400mg)", 5],
+  ["Autrin Capsule", 18200, "Pfizer Ltd", "strip of 30 capsules", "Cyanocobalamin (15mcg), Folic Acid (1.5mg), Ferrous Fumarate (300mg)", 5],
   ["Ferrous Fumarate 300mg Tablet", 1500, "Generic", "strip of 10 tablets", "Ferrous Fumarate (300mg)", 5],
 
   // Cardiac / BP

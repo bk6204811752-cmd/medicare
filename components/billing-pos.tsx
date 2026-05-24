@@ -408,7 +408,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
         setModalAutoShare(false);
         setTimeout(() => {
           window.print();
-        }, 500);
+        }, 1200); // Increased print delay to 1200ms to guarantee dynamic external assets like QR code are downloaded
       } else if (actionAfterSave === "share") {
         setModalAutoShare(true);
       } else {
@@ -423,11 +423,10 @@ export function BillingPos({ tenant }: { tenant: any }) {
       setPrescriptionNo("");
       toast.success(`Bill saved: ${result.data?.sale?.invoice_no ?? "invoice created"}`);
 
-      // Show prescription upload prompt if bill had H/H1/X medicines
+      // Store prescription sale ID for upload but don't show the modal yet (wait until print modal closes)
       const hadControlled = controlled.length > 0;
       if (hadControlled && result.data?.sale?.id) {
         setPrescriptionSaleId(result.data.sale.id);
-        setShowPrescriptionUpload(true);
       }
     } catch {
       toast.error("Network error — please check your connection and try again.");
@@ -482,7 +481,9 @@ export function BillingPos({ tenant }: { tenant: any }) {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Premium Viewport Tab Switcher (Visible on screens < xl) */}
+      {/* Wrapper to hide entire POS layout on print if invoice modal is active */}
+      <div className={`flex flex-col gap-4 ${savedSaleDetails ? "print:hidden" : ""}`}>
+        {/* Premium Viewport Tab Switcher (Visible on screens < xl) */}
       <div className="sticky top-0 z-30 -mx-4 flex border-b border-slate-200 bg-white/95 p-1.5 backdrop-blur-md xl:hidden no-print">
         <button
           type="button"
@@ -1042,6 +1043,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
         </section>
       </aside>
     </div>
+  </div>
 
     {/* Render the Exact Bill Detail Client Component Overlay Modal */}
       {savedSaleDetails && (
@@ -1078,9 +1080,13 @@ export function BillingPos({ tenant }: { tenant: any }) {
                 onClick={() => {
                   setSavedSaleDetails(null);
                   setLastInvoice(null);
-                  setTimeout(() => {
-                    searchInputRef.current?.focus();
-                  }, 50);
+                  if (prescriptionSaleId) {
+                    setShowPrescriptionUpload(true);
+                  } else {
+                    setTimeout(() => {
+                      searchInputRef.current?.focus();
+                    }, 50);
+                  }
                 }}
                 className="rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 transition-all active:scale-95 animate-fade-in"
               >

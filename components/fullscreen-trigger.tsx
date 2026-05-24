@@ -6,60 +6,127 @@ import { Minimize2, Maximize2 } from "lucide-react";
 export function FullscreenTrigger() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showManualTrigger, setShowManualTrigger] = useState(false);
+  const [hasExitedExplicitly, setHasExitedExplicitly] = useState(false);
+
+  // Check if browser is desktop
+  const isDesktop = () => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(hover: hover)").matches && window.innerWidth > 1024;
+  };
+
+  const requestFullscreen = async () => {
+    if (!isDesktop()) return;
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        sessionStorage.setItem("autoFullscreenTriggered", "true");
+        setHasExitedExplicitly(false);
+        setShowManualTrigger(false);
+      }
+    } catch (err) {
+      // Programmatic request failed, show manual button
+      setShowManualTrigger(true);
+    }
+  };
+
+  const handleExplicitExit = async () => {
+    setHasExitedExplicitly(true);
+    sessionStorage.setItem("explicitlyExitedFullscreen", "true");
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch (e) {}
+    }
+    setShowManualTrigger(true);
+  };
+
+  const handleManualEnter = async () => {
+    setHasExitedExplicitly(false);
+    sessionStorage.removeItem("explicitlyExitedFullscreen");
+    await requestFullscreen();
+  };
 
   useEffect(() => {
-    const isDesktop =
-      window.matchMedia("(hover: hover)").matches && window.innerWidth > 1024;
+    if (!isDesktop()) return;
 
-    if (!isDesktop) return;
+    // Check if user previously exited in this session
+    const exited = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+    if (exited) {
+      setHasExitedExplicitly(true);
+      setShowManualTrigger(true);
+      return;
+    }
 
-    // Check if we've already triggered it this session
-    const triggered = sessionStorage.getItem("autoFullscreenTriggered");
-    if (triggered === "true") return;
+    // Try going fullscreen immediately
+    requestFullscreen();
 
-    // Try immediately
-    const tryFullscreen = async () => {
-      try {
-        if (!document.fullscreenElement) {
-          await document.documentElement.requestFullscreen();
-          sessionStorage.setItem("autoFullscreenTriggered", "true");
-        }
-      } catch {
-        // Blocked by browser - will retry on user gesture
-        setShowManualTrigger(true);
-      }
-    };
-
-    // Attempt immediately
-    tryFullscreen();
-
-    // Also trigger on the first click anywhere on the page
+    // Auto-trigger on first user gesture (click/keydown)
     const handleGesture = async () => {
-      try {
-        if (!document.fullscreenElement) {
-          await document.documentElement.requestFullscreen();
-          sessionStorage.setItem("autoFullscreenTriggered", "true");
-          setShowManualTrigger(false);
-        }
+      if (sessionStorage.getItem("explicitlyExitedFullscreen") === "true") {
         document.removeEventListener("click", handleGesture);
         document.removeEventListener("keydown", handleGesture);
-      } catch {
-        // Keep listening if it failed
+        return;
+      }
+      await requestFullscreen();
+      // Remove listeners once fullscreen is successful
+      if (document.fullscreenElement) {
+        document.removeEventListener("click", handleGesture);
+        document.removeEventListener("keydown", handleGesture);
       }
     };
 
     document.addEventListener("click", handleGesture);
     document.addEventListener("keydown", handleGesture);
 
+    // Listen to window focus (re-focusing after file picker or dialog closes)
+    const handleWindowFocus = async () => {
+      const exitedSession = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+      if (!exitedSession && !document.fullscreenElement) {
+        // Try requesting fullscreen immediately
+        await requestFullscreen();
+        
+        // If immediate fails, listen for next click to re-enter
+        const reEnterOnNextClick = async () => {
+          const checkExited = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+          if (!checkExited && !document.fullscreenElement) {
+            await requestFullscreen();
+          }
+          document.removeEventListener("click", reEnterOnNextClick);
+        };
+        document.addEventListener("click", reEnterOnNextClick);
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+
     return () => {
       document.removeEventListener("click", handleGesture);
       document.removeEventListener("keydown", handleGesture);
+      window.removeEventListener("focus", handleWindowFocus);
     };
   }, []);
 
   useEffect(() => {
     function handleChange() {
-      setIsFullscreen(!!document.fullscreenElement);
+      const active = !!document.fullscreenElement;
+      setIsFullscreen(active);
+      
+      // If we exited fullscreen but did NOT click explicit exit,
+      // it means browser exited fullscreen automatically (e.g. from file upload dialog).
+      // We will queue up a listener to re-enter on the next click/action.
+      const exitedSession = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+      if (!active && !exitedSession) {
+        const reEnter = async () => {
+          const checkExited = sessionStorage.getItem("explicitlyExitedFullscreen") === "true";
+          if (!checkExited && !document.fullscreenElement) {
+            await requestFullscreen();
+          }
+          document.removeEventListener("click", reEnter);
+          document.removeEventListener("keydown", reEnter);
+        };
+        document.addEventListener("click", reEnter);
+        document.addEventListener("keydown", reEnter);
+      }
     }
 
     document.addEventListener("fullscreenchange", handleChange);
@@ -70,40 +137,30 @@ export function FullscreenTrigger() {
     };
   }, []);
 
-  const handleManualEnter = async () => {
-    try {
-      await document.documentElement.requestFullscreen();
-      sessionStorage.setItem("autoFullscreenTriggered", "true");
-      setShowManualTrigger(false);
-    } catch {
-      // Ignored
-    }
-  };
-
-  // If in fullscreen, show Exit button on hover
+  // While in fullscreen, render a persistent exit button at the bottom center of the viewport
   if (isFullscreen) {
     return (
-      <div className="group fixed top-0 right-0 z-[9999] h-16 w-40 no-print">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] no-print opacity-60 hover:opacity-100 transition-opacity duration-300">
         <button
-          onClick={() => document.exitFullscreen()}
-          className="absolute top-4 right-4 flex items-center gap-1.5 rounded-lg bg-med-navy/60 px-3 py-1.5 text-xs font-medium text-white opacity-0 backdrop-blur-sm transition-opacity duration-200 group-hover:opacity-100 hover:bg-med-navy/80"
+          onClick={handleExplicitExit}
+          className="flex items-center gap-2 rounded-full bg-slate-900/80 hover:bg-slate-950 border border-slate-700/50 px-5 py-2.5 text-xs font-bold text-white shadow-2xl backdrop-blur-md transition-all active:scale-[0.95]"
         >
-          <Minimize2 className="h-3.5 w-3.5" />
+          <Minimize2 className="h-4 w-4 text-emerald-400" />
           Exit Fullscreen
         </button>
       </div>
     );
   }
 
-  // If browser blocked it and we haven't gone fullscreen yet, show a clean floating button to trigger it manually
+  // If manual trigger is required
   if (showManualTrigger) {
     return (
-      <div className="fixed bottom-4 right-4 z-[9999] no-print">
+      <div className="fixed bottom-6 right-6 z-[9999] no-print">
         <button
           onClick={handleManualEnter}
-          className="flex items-center gap-1.5 rounded-lg bg-med-green px-3.5 py-2 text-xs font-bold text-white shadow-lg hover:bg-med-greenDark transition-all active:scale-[0.95]"
+          className="flex items-center gap-2 rounded-full bg-med-green px-5 py-3 text-xs font-bold text-white shadow-2xl hover:bg-med-greenDark transition-all active:scale-[0.95] border border-white/20"
         >
-          <Maximize2 className="h-3.5 w-3.5" />
+          <Maximize2 className="h-4 w-4" />
           Go Fullscreen
         </button>
       </div>

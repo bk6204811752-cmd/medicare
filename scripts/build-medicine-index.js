@@ -308,6 +308,23 @@ const EXTRA_MEDICINES = [
   ["Aimil BGR-34 Tablet", 60000, "Aimil Pharmaceuticals", "bottle of 100 tablets", "Blood Glucose Regulator herbal tablet", 5],
   ["Charak M2-Tone Syrup", 16000, "Charak Pharma Pvt Ltd", "bottle of 200 ml", "Female health herbal tonic", 5],
   ["Dabur Lal Tail", 22000, "Dabur India Ltd", "bottle of 200 ml", "Baby massage herbal oil", 5],
+
+  // Additional highly demanded family health brand names
+  ["Glycomet 500mg SR Tablet", 3000, "USV Pvt Ltd", "strip of 15 tablets", "Metformin (500mg)", 12],
+  ["Glycomet 1g SR Tablet", 5500, "USV Pvt Ltd", "strip of 15 tablets", "Metformin (1000mg)", 12],
+  ["Vildagliptin 50mg Tablet", 12000, "Cipla Ltd", "strip of 15 tablets", "Vildagliptin (50mg)", 12],
+  ["Allegra M Tablet", 22000, "Sanofi India Ltd", "strip of 10 tablets", "Montelukast (10mg), Fexofenadine Hydrochloride (120mg)", 12],
+  ["Candid Gold Cream", 9500, "Glenmark Pharmaceuticals Ltd", "tube of 15 gm", "Clotrimazole (1%), Beclometasone Dipropionate (0.025%)", 12],
+  ["Betnovate Cream", 3500, "GlaxoSmithKline Pharmaceuticals Ltd", "tube of 20 gm", "Betamethasone Valerate (0.12%)", 12],
+  ["Lulifin 1% Cream", 16000, "Lupin Ltd", "tube of 10 gm", "Luliconazole (1%)", 12],
+  ["Quadriderm RF Cream", 9000, "Fulford India Ltd", "tube of 5 gm", "Beclometasone Dipropionate (0.025%), Neomycin (0.5%), Clotrimazole (1%)", 12],
+  ["Combiflam Suspension", 4000, "Sanofi India Ltd", "bottle of 60 ml", "Ibuprofen (100mg), Paracetamol (162.5mg)", 12],
+  ["Calpol Pead Syrup", 4000, "GlaxoSmithKline Pharmaceuticals Ltd", "bottle of 60 ml", "Paracetamol (120mg/5ml)", 5],
+  ["Shelcal 250 Tablet", 9000, "Torrent Pharmaceuticals Ltd", "strip of 15 tablets", "Calcium Carbonate (625mg), Vitamin D3 (250IU)", 18],
+  ["Ciplox Eye/Ear Drops", 2000, "Cipla Ltd", "bottle of 10 ml", "Ciprofloxacin (0.3%)", 5],
+  ["Otorex Ear Drops", 7000, "Solvay Pharma", "bottle of 5 ml", "Benzocaine (2.7%), Chlorobutol (5%)", 5],
+  ["Unienzyme Liquid", 14000, "Unichem Laboratories Ltd", "bottle of 200 ml", "Fungal Diastase (50mg), Papain (50mg)", 12],
+  ["Digene Gel Orange", 15000, "Abbott", "bottle of 200 ml", "Aluminium Hydroxide, Magnesium Hydroxide, Simethicone Antacid Gel", 12],
 ];
 
 // ─── Extract search prefixes for a medicine ──────────────────

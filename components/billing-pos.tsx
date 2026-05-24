@@ -6,7 +6,7 @@ import { Camera, CameraOff, ChevronDown, ChevronUp, Database, Keyboard, Loader2,
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
 import type { SaleLine } from "@/lib/types";
-import { daysUntil, formatCurrency } from "@/lib/utils";
+import { daysUntil, formatCurrency, parseUnitsPerPack } from "@/lib/utils";
 import { AddMedicineForm } from "@/components/add-medicine-form";
 import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
 import { BillDetailClient } from "@/app/(app)/shop/billing/[id]/BillDetailClient";
@@ -36,6 +36,7 @@ type InventorySearchRow = {
     genericName?: string;
     manufacturer?: string;
     barcode?: string;
+    packSize?: string | null;
     schedule: SaleLine["schedule"];
   };
 };
@@ -738,6 +739,23 @@ export function BillingPos({ tenant }: { tenant: any }) {
               const isExpired = expDays < 0;
               const isNearExpiry = expDays >= 0 && expDays <= 30;
               const isLowStock = row.quantity > 0 && row.quantity <= 10;
+              
+              const unitsPerPack = parseUnitsPerPack(row.medicine.packSize);
+              const packs = Math.floor(row.quantity / unitsPerPack);
+              const loose = row.quantity % unitsPerPack;
+              
+              let stockLabelText = "";
+              if (row.quantity <= 0) {
+                stockLabelText = "Out of stock";
+              } else if (unitsPerPack > 1) {
+                stockLabelText = `${packs} Pack${packs !== 1 ? "s" : ""}`;
+                if (loose > 0) {
+                  stockLabelText += ` + ${loose} Unit${loose !== 1 ? "s" : ""}`;
+                }
+              } else {
+                stockLabelText = `${row.quantity} Unit${row.quantity !== 1 ? "s" : ""}`;
+              }
+
               return (
                 <button key={row.id} onClick={() => addLine(row.id)} disabled={isExpired || row.quantity <= 0} className={`grid w-full gap-2 border-b border-slate-100 p-3 text-left md:grid-cols-[1fr_auto] ${
                   isExpired ? "bg-red-50/50 opacity-60 cursor-not-allowed" : "hover:bg-med-greenSoft"
@@ -748,13 +766,14 @@ export function BillingPos({ tenant }: { tenant: any }) {
                       {row.medicine.genericName && <>{row.medicine.genericName} • </>}
                       Batch {row.batchNo}
                       {row.medicine.manufacturer && <> • {row.medicine.manufacturer}</>}
+                      {row.medicine.packSize && <> • {row.medicine.packSize}</>}
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       row.quantity <= 0 ? "bg-red-100 text-red-700" : isLowStock ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
                     }`}>
-                      {row.quantity <= 0 ? "Out of stock" : `Stock ${row.quantity}`}
+                      {stockLabelText}
                     </span>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       isExpired ? "bg-red-100 text-red-700" : isNearExpiry ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"

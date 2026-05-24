@@ -173,12 +173,37 @@ const EXTRA_MEDICINES = [
   ["Tobramycin Eye Drops", 6500, "Sun Pharmaceutical Industries Ltd", "bottle of 5 ml", "Tobramycin (0.3%)", 5],
   ["Refresh Tears Eye Drops", 12500, "Allergan India Pvt Ltd", "bottle of 10 ml", "Carboxymethylcellulose (0.5%)", 5],
 
-  // OTC
+  // OTC & Digestion
   ["Strepsils Lozenges", 3200, "Reckitt Benckiser", "strip of 8 lozenges", "Amylmetacresol (0.6mg), Dichlorobenzyl Alcohol (1.2mg)", 5],
   ["Vicks VapoRub", 5900, "Procter & Gamble", "jar of 50 ml", "Menthol, Camphor, Eucalyptus Oil", 5],
   ["Volini Gel", 10500, "Sun Pharmaceutical Industries Ltd", "tube of 30 gm", "Diclofenac Diethylamine (1.16%)", 5],
   ["Iodex Pain Balm", 4500, "GlaxoSmithKline Consumer Healthcare", "tube of 40 gm", "Methyl Salicylate, Menthol", 5],
   ["Moov Spray", 15500, "Reckitt Benckiser", "bottle of 80 gm", "Diclofenac Diethylamine (1.16%)", 5],
+  ["Unienzyme Tablet", 7500, "Unichem Laboratories Ltd", "strip of 15 tablets", "Fungal Diastase (100mg), Papain (60mg), Activated Charcoal (75mg)", 5],
+  ["Eno Powder Regular", 1000, "GlaxoSmithKline Consumer Healthcare", "sachet of 5 gm", "Svarjiksara (2.91g), Nimbukamlam (2.09g)", 5],
+  ["Pudin Hara Pearls Capsule", 3000, "Dabur India Ltd", "strip of 10 capsules", "Pudina Satva (Mentha Piperita, 0.180ml)", 5],
+
+  // Common Allergy & Anti-Cold
+  ["Allegra 120mg Tablet", 21000, "Sanofi India Ltd", "strip of 10 tablets", "Fexofenadine Hydrochloride (120mg)", 5],
+  ["Allegra 180mg Tablet", 29500, "Sanofi India Ltd", "strip of 10 tablets", "Fexofenadine Hydrochloride (180mg)", 5],
+  ["Avil 25 Tablet", 1050, "Sanofi India Ltd", "strip of 15 tablets", "Pheniramine Maleate (25mg)", 5],
+  ["Grilinctus Syrup", 13000, "Franco-Indian Pharmaceuticals Pvt Ltd", "bottle of 100 ml", "Dextromethorphan Hydrobromide (5mg), Ammonium Chloride (60mg), Chlorpheniramine Maleate (2.5mg)", 5],
+
+  // Common Pain & Muscle Relaxants
+  ["Combiflam Tablet", 4350, "Sanofi India Ltd", "strip of 20 tablets", "Ibuprofen (400mg), Paracetamol (325mg)", 5],
+  ["Zerodol SP Tablet", 11500, "Ipca Laboratories Ltd", "strip of 10 tablets", "Aceclofenac (100mg), Paracetamol (325mg), Serratiopeptidase (15mg)", 5],
+  ["Zerodol P Tablet", 6200, "Ipca Laboratories Ltd", "strip of 10 tablets", "Aceclofenac (100mg), Paracetamol (325mg)", 5],
+
+  // Common Antibiotics & De-worming
+  ["Clavam 625 Tablet", 22350, "Alkem Laboratories Ltd", "strip of 10 tablets", "Amoxicillin (500mg), Clavulanic Acid (125mg)", 5],
+  ["Taxim-O 200 Tablet", 14500, "Alkem Laboratories Ltd", "strip of 10 tablets", "Cefixime (200mg)", 5],
+  ["Gudsaf 200 Tablet", 17500, "Mankind Pharma Ltd", "strip of 10 tablets", "Cefpodoxime Proxetil (200mg)", 5],
+  ["Bandy-Plus Tablet", 4500, "Mankind Pharma Ltd", "strip of 1 tablet", "Ivermectin (6mg), Albendazole (400mg)", 5],
+  ["Zentel 400mg Tablet", 1000, "GlaxoSmithKline Pharmaceuticals Ltd", "strip of 1 tablet", "Albendazole (400mg)", 5],
+
+  // Other supplements
+  ["Shelcal XT Tablet", 38000, "Torrent Pharmaceuticals Ltd", "strip of 15 tablets", "Calcium (500mg), Vitamin D3 (2000IU), Methylcobalamin (1500mcg), L-Methylfolate (1mg)", 5],
+  ["Becadexamin Capsule", 4800, "GlaxoSmithKline Pharmaceuticals Ltd", "bottle of 30 capsules", "Multivitamins and Multiminerals", 5],
 ];
 
 // ─── Extract search prefixes for a medicine ──────────────────

@@ -1,0 +1,327 @@
+#!/usr/bin/env node
+/**
+ * build-medicine-index.js
+ *
+ * Pre-processes the 246K CSV into small, optimized, prefix-based JSON files.
+ * This runs at build time — NOT at runtime. It eliminates cold start delays
+ * and guarantees 100% search quality without scanning limits.
+ *
+ * Output directory: data/medicine-index/
+ * Filename format: [prefix].json (e.g. data/medicine-index/do.json)
+ * Tuple format: [name, mrpPaisa, manufacturer, packSize, composition, gstRate]
+ */
+
+const fs = require("fs");
+const path = require("path");
+
+const CSV_PATH = path.join(__dirname, "..", "Indian_Medicine_Database_246k.csv");
+const INDEX_DIR = path.join(__dirname, "..", "data", "medicine-index");
+const OLD_INDEX_PATH = path.join(__dirname, "..", "data", "medicine-index.json");
+
+// ─── Stop words for indexing ────────────────────────────────
+const INDEX_STOP_WORDS = new Set([
+  "tablet", "tablets", "capsule", "capsules", "syrup", "syrups", "injection",
+  "injections", "infusion", "cream", "ointment", "drops", "inhaler", "gel",
+  "spray", "suspension", "powder", "solution", "liquid", "lotion", "respules",
+  "emulsion", "lozenges", "lozenge", "balm", "mg", "ml", "gm", "mcg", "forte",
+  "duo", "daily", "plus", "extra", "ultra", "soft", "gelatin", "oral", "dry",
+  "acid", "for", "with", "and", "of", "in"
+]);
+
+// ─── CSV line parser (handles quoted fields) ─────────────────
+function parseCsvLine(line) {
+  const fields = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = false;
+      } else current += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ",") { fields.push(current.trim()); current = ""; }
+      else current += ch;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+// ─── GST parser ──────────────────────────────────────────────
+function parseGst(raw) {
+  const n = parseInt((raw || "").replace(/[^0-9]/g, ""), 10);
+  return [0, 5, 12, 18, 28].includes(n) ? n : 5;
+}
+
+// ─── Common Indian medicines NOT in the CSV ──────────────────
+const EXTRA_MEDICINES = [
+  // Pain Relief
+  ["Dolo 650 Tablet", 3427, "Micro Labs Ltd", "strip of 15 tablets", "Paracetamol (650mg)", 5],
+  ["Dolo 500 Tablet", 2700, "Micro Labs Ltd", "strip of 15 tablets", "Paracetamol (500mg)", 5],
+  ["Saridon Tablet", 2685, "Bayer Zydus Pharma", "strip of 10 tablets", "Propiphenazone (150mg), Paracetamol (250mg), Caffeine (50mg)", 5],
+  ["Disprin Tablet", 945, "Reckitt Benckiser", "strip of 10 tablets", "Aspirin (350mg)", 5],
+  ["Flexon Tablet", 4752, "Aristo Pharmaceuticals Pvt Ltd", "strip of 15 tablets", "Ibuprofen (400mg), Paracetamol (325mg)", 5],
+  ["Brufen 400 Tablet", 1485, "Abbott", "strip of 15 tablets", "Ibuprofen (400mg)", 5],
+  ["Sumo Tablet", 6200, "Alkem Laboratories Ltd", "strip of 15 tablets", "Nimesulide (100mg), Paracetamol (325mg)", 5],
+  ["Ultracet Tablet", 13000, "Johnson & Johnson", "strip of 15 tablets", "Tramadol (37.5mg), Paracetamol (325mg)", 5],
+
+  // Vitamins / Supplements
+  ["Shelcal 500 Tablet", 14200, "Torrent Pharmaceuticals Ltd", "strip of 15 tablets", "Calcium Carbonate (1250mg), Vitamin D3 (250IU)", 5],
+  ["Shelcal HD Tablet", 21500, "Torrent Pharmaceuticals Ltd", "strip of 15 tablets", "Calcium Carbonate (1250mg), Vitamin D3 (1000IU)", 5],
+  ["Supradyn Tablet", 3715, "Abbott", "strip of 15 tablets", "Multivitamin, Multimineral", 5],
+  ["Becosules Capsule", 3245, "Pfizer Ltd", "strip of 20 capsules", "Vitamin B-Complex, Vitamin C", 5],
+  ["Becosules Z Capsule", 6900, "Pfizer Ltd", "strip of 20 capsules", "Vitamin B-Complex, Vitamin C, Zinc", 5],
+  ["Zincovit Tablet", 10905, "Apex Laboratories Pvt Ltd", "strip of 15 tablets", "Multivitamin, Zinc, Grape Seed Extract", 5],
+  ["Revital H Capsule", 18700, "Sun Pharmaceutical Industries Ltd", "strip of 10 capsules", "Multivitamin, Ginseng", 5],
+  ["Folvite 5mg Tablet", 2065, "Pfizer Ltd", "strip of 45 tablets", "Folic Acid (5mg)", 5],
+  ["Calcirol 60000IU Capsule", 3800, "Cadila Healthcare", "strip of 4 capsules", "Cholecalciferol (60000IU)", 5],
+  ["Neurobion Forte Tablet", 3200, "P&G Health", "strip of 30 tablets", "Vitamin B1 (10mg), Vitamin B6 (3mg), Vitamin B12 (15mcg)", 5],
+  ["Limcee 500mg Tablet", 1960, "Abbott", "strip of 15 tablets", "Ascorbic Acid (500mg)", 5],
+  ["Evion 400mg Capsule", 2870, "P&G Health", "strip of 10 capsules", "Tocopheryl Acetate (400mg)", 5],
+  ["Ferrous Fumarate 300mg Tablet", 1500, "Generic", "strip of 10 tablets", "Ferrous Fumarate (300mg)", 5],
+
+  // Cardiac / BP
+  ["Ecosprin 75 Tablet", 815, "USV Pvt Ltd", "strip of 14 tablets", "Aspirin (75mg)", 5],
+  ["Ecosprin AV 75/10 Capsule", 6530, "USV Pvt Ltd", "strip of 15 capsules", "Aspirin (75mg), Atorvastatin (10mg)", 5],
+  ["Ecosprin Gold 20 Capsule", 14400, "USV Pvt Ltd", "strip of 15 capsules", "Aspirin (75mg), Atorvastatin (20mg), Clopidogrel (75mg)", 5],
+  ["Amlodipine 5mg Tablet", 2700, "Cipla Ltd", "strip of 15 tablets", "Amlodipine (5mg)", 5],
+  ["Amlodipine 10mg Tablet", 3500, "Cipla Ltd", "strip of 15 tablets", "Amlodipine (10mg)", 5],
+  ["Telmisartan 40mg Tablet", 7200, "Glenmark Pharmaceuticals Ltd", "strip of 15 tablets", "Telmisartan (40mg)", 5],
+  ["Telmisartan 80mg Tablet", 10000, "Glenmark Pharmaceuticals Ltd", "strip of 15 tablets", "Telmisartan (80mg)", 5],
+  ["Losartan 50mg Tablet", 5900, "Cipla Ltd", "strip of 15 tablets", "Losartan (50mg)", 5],
+  ["Atenolol 50mg Tablet", 1235, "Cipla Ltd", "strip of 14 tablets", "Atenolol (50mg)", 5],
+  ["Metoprolol 50mg Tablet", 3300, "Cipla Ltd", "strip of 15 tablets", "Metoprolol Succinate (50mg)", 5],
+  ["Atorvastatin 10mg Tablet", 6200, "Cipla Ltd", "strip of 15 tablets", "Atorvastatin (10mg)", 5],
+  ["Atorvastatin 20mg Tablet", 9200, "Cipla Ltd", "strip of 15 tablets", "Atorvastatin (20mg)", 5],
+  ["Rosuvastatin 10mg Tablet", 6400, "Sun Pharmaceutical Industries Ltd", "strip of 15 tablets", "Rosuvastatin (10mg)", 5],
+  ["Clopidogrel 75mg Tablet", 6800, "Sun Pharmaceutical Industries Ltd", "strip of 15 tablets", "Clopidogrel (75mg)", 5],
+  ["Enoxaparin 40mg Injection", 34200, "Sanofi India Ltd", "box of 1 injection", "Enoxaparin (40mg)", 5],
+
+  // Diabetes
+  ["Metformin 500mg Tablet", 1200, "USV Pvt Ltd", "strip of 20 tablets", "Metformin (500mg)", 5],
+  ["Metformin 1000mg Tablet", 2400, "USV Pvt Ltd", "strip of 15 tablets", "Metformin (1000mg)", 5],
+  ["Glimepiride 1mg Tablet", 5300, "Sanofi India Ltd", "strip of 15 tablets", "Glimepiride (1mg)", 5],
+  ["Glimepiride 2mg Tablet", 9800, "Sanofi India Ltd", "strip of 15 tablets", "Glimepiride (2mg)", 5],
+  ["Gliclazide 80 Tablet", 7000, "Sun Pharmaceutical Industries Ltd", "strip of 10 tablets", "Gliclazide (80mg)", 5],
+  ["Voglibose 0.3mg Tablet", 10800, "Micro Labs Ltd", "strip of 10 tablets", "Voglibose (0.3mg)", 5],
+  ["Teneligliptin 20mg Tablet", 10500, "Glenmark Pharmaceuticals Ltd", "strip of 15 tablets", "Teneligliptin (20mg)", 5],
+
+  // Thyroid
+  ["Thyronorm 25mcg Tablet", 11200, "Abbott", "strip of 120 tablets", "Levothyroxine Sodium (25mcg)", 5],
+  ["Thyronorm 50mcg Tablet", 14700, "Abbott", "strip of 120 tablets", "Levothyroxine Sodium (50mcg)", 5],
+  ["Thyronorm 75mcg Tablet", 17100, "Abbott", "strip of 120 tablets", "Levothyroxine Sodium (75mcg)", 5],
+  ["Thyronorm 100mcg Tablet", 19200, "Abbott", "strip of 120 tablets", "Levothyroxine Sodium (100mcg)", 5],
+  ["Eltroxin 100mcg Tablet", 18700, "GlaxoSmithKline Pharmaceuticals Ltd", "strip of 100 tablets", "Levothyroxine Sodium (100mcg)", 5],
+
+  // Respiratory / Allergy / Cold
+  ["Cetirizine 10mg Tablet", 900, "Cipla Ltd", "strip of 10 tablets", "Cetirizine (10mg)", 5],
+  ["Levocetirizine 5mg Tablet", 5700, "Cipla Ltd", "strip of 15 tablets", "Levocetirizine (5mg)", 5],
+  ["Fexofenadine 120mg Tablet", 10800, "Sanofi India Ltd", "strip of 10 tablets", "Fexofenadine (120mg)", 5],
+  ["Montelukast 10mg Tablet", 10500, "Sun Pharmaceutical Industries Ltd", "strip of 15 tablets", "Montelukast (10mg)", 5],
+  ["Sinarest Tablet", 3200, "Centaur Pharmaceuticals", "strip of 10 tablets", "Paracetamol (500mg), Phenylephrine (10mg), Chlorpheniramine Maleate (2mg)", 5],
+  ["Asthalin Inhaler", 14200, "Cipla Ltd", "box of 1 inhaler", "Salbutamol (100mcg/dose)", 5],
+  ["Budecort 200 Inhaler", 19800, "Sun Pharmaceutical Industries Ltd", "box of 1 inhaler", "Budesonide (200mcg/dose)", 5],
+  ["Foracort 200 Inhaler", 37300, "Cipla Ltd", "box of 1 inhaler", "Budesonide (200mcg), Formoterol (6mcg)", 5],
+  ["Alex Syrup", 7800, "Glenmark Pharmaceuticals Ltd", "bottle of 100 ml", "Phenylephrine (5mg), Chlorpheniramine (2mg), Dextromethorphan (10mg)", 5],
+  ["Benadryl Cough Syrup", 8500, "Johnson & Johnson", "bottle of 100 ml", "Diphenhydramine (14.08mg), Ammonium Chloride (138mg)", 5],
+  ["Ascoril LS Syrup", 9500, "Glenmark Pharmaceuticals Ltd", "bottle of 100 ml", "Ambroxol (30mg), Levosalbutamol (1mg), Guaifenesin (50mg)", 5],
+
+  // Gastro / Acidity
+  ["Pan D Capsule", 10300, "Alkem Laboratories Ltd", "strip of 15 capsules", "Pantoprazole (40mg), Domperidone (30mg)", 5],
+  ["Domperidone 10 Tablet", 3800, "Sun Pharmaceutical Industries Ltd", "strip of 10 tablets", "Domperidone (10mg)", 5],
+  ["Ondansetron 4mg Tablet", 4500, "Sun Pharmaceutical Industries Ltd", "strip of 10 tablets", "Ondansetron (4mg)", 5],
+  ["Emeset 4 Tablet", 7000, "Cipla Ltd", "strip of 10 tablets", "Ondansetron (4mg)", 5],
+  ["Gelusil MPS Syrup", 9700, "Pfizer Ltd", "bottle of 170 ml", "Aluminium Hydroxide, Magnesium Hydroxide, Simethicone", 5],
+  ["Digene Tablet", 3000, "Abbott", "strip of 15 tablets", "Aluminium Hydroxide, Magnesium Hydroxide", 5],
+  ["Racecadotril 100mg Capsule", 9000, "Torrent Pharmaceuticals Ltd", "strip of 10 capsules", "Racecadotril (100mg)", 5],
+  ["Econorm 250 Capsule", 15500, "Dr. Reddy's Laboratories Ltd", "strip of 10 capsules", "Saccharomyces Boulardii (250mg)", 5],
+  ["Dulcolax 5mg Tablet", 2800, "Sanofi India Ltd", "strip of 10 tablets", "Bisacodyl (5mg)", 5],
+  ["Cremaffin Syrup", 13200, "Abbott", "bottle of 225 ml", "Liquid Paraffin, Milk of Magnesia, Sodium Picosulfate", 5],
+  ["Electral Powder", 1825, "FDC Ltd", "box of 30 sachets", "Oral Rehydration Salt (ORS)", 5],
+
+  // Dermatology
+  ["Betnovate C Cream", 6270, "GlaxoSmithKline Pharmaceuticals Ltd", "tube of 20 gm", "Betamethasone (0.1%), Clioquinol (3%)", 5],
+  ["Betnovate N Cream", 6000, "GlaxoSmithKline Pharmaceuticals Ltd", "tube of 20 gm", "Betamethasone (0.1%), Neomycin (0.5%)", 5],
+  ["Candid Cream", 7500, "Glenmark Pharmaceuticals Ltd", "tube of 15 gm", "Clotrimazole (1%)", 5],
+  ["Candid B Cream", 9200, "Glenmark Pharmaceuticals Ltd", "tube of 15 gm", "Clotrimazole (1%), Beclometasone (0.025%)", 5],
+  ["Soframycin Cream", 6500, "Sanofi India Ltd", "tube of 30 gm", "Framycetin (1%)", 5],
+  ["T-Bact Ointment", 18900, "GlaxoSmithKline Pharmaceuticals Ltd", "tube of 5 gm", "Mupirocin (2%)", 5],
+  ["Clobetasol Cream", 8000, "Glenmark Pharmaceuticals Ltd", "tube of 15 gm", "Clobetasol (0.05%)", 5],
+  ["Betadine Solution", 9700, "Win Medicare Pvt Ltd", "bottle of 100 ml", "Povidone-Iodine (5%)", 5],
+  ["Burnol Cream", 4500, "Dr. Morepen Ltd", "tube of 20 gm", "Aminacrine HCl (0.1%), Cetrimide (0.5%)", 5],
+
+  // Neuro
+  ["Pregabalin 75mg Capsule", 17200, "Torrent Pharmaceuticals Ltd", "strip of 14 capsules", "Pregabalin (75mg)", 5],
+  ["Gabapentin 300mg Capsule", 9900, "Sun Pharmaceutical Industries Ltd", "strip of 10 capsules", "Gabapentin (300mg)", 5],
+  ["Amitriptyline 25mg Tablet", 1100, "Intas Pharmaceuticals Ltd", "strip of 10 tablets", "Amitriptyline (25mg)", 5],
+  ["Escitalopram 10mg Tablet", 7800, "Sun Pharmaceutical Industries Ltd", "strip of 10 tablets", "Escitalopram (10mg)", 5],
+
+  // Antibiotics commonly searched by brand
+  ["Augmentin 625 Duo Tablet", 22342, "GlaxoSmithKline Pharmaceuticals Ltd", "strip of 10 tablets", "Amoxycillin (500mg), Clavulanic Acid (125mg)", 5],
+  ["Amoxicillin 500mg Capsule", 5200, "Cipla Ltd", "strip of 15 capsules", "Amoxicillin (500mg)", 5],
+  ["Azithral 500 Tablet", 10429, "Alembic Pharmaceuticals Ltd", "strip of 5 tablets", "Azithromycin (500mg)", 5],
+  ["Ciplox 500 Tablet", 7800, "Cipla Ltd", "strip of 10 tablets", "Ciprofloxacin (500mg)", 5],
+  ["Norflox 400 Tablet", 3500, "Cipla Ltd", "strip of 10 tablets", "Norfloxacin (400mg)", 5],
+  ["Zifi 200 Tablet", 14500, "FDC Ltd", "strip of 10 tablets", "Cefixime (200mg)", 5],
+  ["Monocef 500 Injection", 4700, "Aristo Pharmaceuticals Pvt Ltd", "box of 1 vial", "Ceftriaxone (500mg)", 5],
+
+  // Eye/Ear
+  ["Moxifloxacin Eye Drops", 8600, "Cipla Ltd", "bottle of 5 ml", "Moxifloxacin (0.5%)", 5],
+  ["Tobramycin Eye Drops", 6500, "Sun Pharmaceutical Industries Ltd", "bottle of 5 ml", "Tobramycin (0.3%)", 5],
+  ["Refresh Tears Eye Drops", 12500, "Allergan India Pvt Ltd", "bottle of 10 ml", "Carboxymethylcellulose (0.5%)", 5],
+
+  // OTC
+  ["Strepsils Lozenges", 3200, "Reckitt Benckiser", "strip of 8 lozenges", "Amylmetacresol (0.6mg), Dichlorobenzyl Alcohol (1.2mg)", 5],
+  ["Vicks VapoRub", 5900, "Procter & Gamble", "jar of 50 ml", "Menthol, Camphor, Eucalyptus Oil", 5],
+  ["Volini Gel", 10500, "Sun Pharmaceutical Industries Ltd", "tube of 30 gm", "Diclofenac Diethylamine (1.16%)", 5],
+  ["Iodex Pain Balm", 4500, "GlaxoSmithKline Consumer Healthcare", "tube of 40 gm", "Methyl Salicylate, Menthol", 5],
+  ["Moov Spray", 15500, "Reckitt Benckiser", "bottle of 80 gm", "Diclofenac Diethylamine (1.16%)", 5],
+];
+
+// ─── Extract search prefixes for a medicine ──────────────────
+function extractPrefixes(name, composition) {
+  const prefixes = new Set();
+
+  // 1. Brand name prefix (first 2 chars of brand name)
+  const nameClean = name.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
+  const nameWords = nameClean.split(" ");
+  if (nameWords.length > 0 && nameWords[0].length >= 2) {
+    prefixes.add(nameWords[0].substring(0, 2));
+  } else if (nameWords.length > 0 && nameWords[0].length === 1) {
+    prefixes.add(nameWords[0] + "_");
+  }
+
+  // 2. Composition word prefixes (first 2 chars of each ingredient word)
+  if (composition) {
+    // Split composition by commas or pluses to separate different active ingredients
+    const ingredients = composition.toLowerCase().split(/[,+]/);
+    for (const ing of ingredients) {
+      // Find the first alphabetical word of the ingredient
+      const ingWords = ing.trim().split(/[^a-z0-9]+/);
+      for (const word of ingWords) {
+        if (word.length >= 2 && !INDEX_STOP_WORDS.has(word) && !/^\d/.test(word)) {
+          prefixes.add(word.substring(0, 2));
+          break; // Only index by the first word of each ingredient (e.g. "paracetamol" from "paracetamol (650mg)")
+        }
+      }
+    }
+  }
+
+  return Array.from(prefixes);
+}
+
+// ─── Main ────────────────────────────────────────────────────
+function main() {
+  console.log("[build-medicine-index] Starting index partition...");
+
+  // 1. Delete old single index file if exists
+  if (fs.existsSync(OLD_INDEX_PATH)) {
+    fs.unlinkSync(OLD_INDEX_PATH);
+    console.log(`[build-medicine-index] Deleted legacy index at ${OLD_INDEX_PATH}`);
+  }
+
+  // 2. Re-create output folder
+  if (fs.existsSync(INDEX_DIR)) {
+    fs.rmSync(INDEX_DIR, { recursive: true, force: true });
+    console.log(`[build-medicine-index] Cleared index directory at ${INDEX_DIR}`);
+  }
+  fs.mkdirSync(INDEX_DIR, { recursive: true });
+
+  if (!fs.existsSync(CSV_PATH)) {
+    console.error(`[build-medicine-index] CSV not found at ${CSV_PATH}`);
+    process.exit(1);
+  }
+
+  const raw = fs.readFileSync(CSV_PATH, "utf-8");
+  const lines = raw.split(/\r?\n/);
+  console.log(`[build-medicine-index] CSV has ${lines.length} lines`);
+
+  // Deduplicate by name
+  const seen = new Set();
+  const rawEntries = [];
+
+  // Process CSV lines
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const fields = parseCsvLine(line);
+    if (fields.length < 7) continue;
+
+    const name = (fields[1] || "").trim();
+    if (!name) continue;
+
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const mrp = parseFloat(fields[2] || "0");
+    const mrpPaisa = isNaN(mrp) ? 0 : Math.round(mrp * 100);
+    const manufacturer = (fields[3] || "").trim();
+    const packSize = (fields[5] || "").trim();
+    const composition = (fields[6] || "").trim();
+    const gstRate = parseGst(fields[7]);
+
+    rawEntries.push([name, mrpPaisa, manufacturer, packSize, composition, gstRate]);
+  }
+
+  console.log(`[build-medicine-index] CSV entries after deduplication: ${rawEntries.length}`);
+
+  // Add extra common medicines (only if not already present)
+  let extraAdded = 0;
+  for (const extra of EXTRA_MEDICINES) {
+    const key = extra[0].toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      rawEntries.push(extra);
+      extraAdded++;
+    }
+  }
+  console.log(`[build-medicine-index] Added ${extraAdded} missing common/regular medicines`);
+  console.log(`[build-medicine-index] Total unified entries to partition: ${rawEntries.length}`);
+
+  // 3. Partition by prefix
+  const partitions = new Map();
+
+  for (const entry of rawEntries) {
+    const [name, , , , composition] = entry;
+    const prefixes = extractPrefixes(name, composition);
+
+    for (const prefix of prefixes) {
+      if (!prefix) continue;
+      let list = partitions.get(prefix);
+      if (!list) {
+        list = [];
+        partitions.set(prefix, list);
+      }
+      list.push(entry);
+    }
+  }
+
+  console.log(`[build-medicine-index] Partitioned into ${partitions.size} unique 2-character prefixes`);
+
+  // 4. Write each partition to its own JSON file
+  let totalFiles = 0;
+  let totalBytes = 0;
+
+  for (const [prefix, list] of partitions.entries()) {
+    // Sort alphabetically by medicine name for predictability
+    list.sort((a, b) => a[0].localeCompare(b[0]));
+
+    const filePath = path.join(INDEX_DIR, `${prefix}.json`);
+    const content = JSON.stringify(list);
+    fs.writeFileSync(filePath, content);
+
+    totalFiles++;
+    totalBytes += content.length;
+  }
+
+  const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
+  console.log(`[build-medicine-index] Successfully wrote ${totalFiles} prefix files (${totalMB} MB total uncompressed)`);
+  console.log("[build-medicine-index] Done!");
+}
+
+main();

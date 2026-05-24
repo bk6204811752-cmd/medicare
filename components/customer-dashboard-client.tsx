@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   ChevronDown,
   ChevronUp,
-  User,
   Phone,
   Mail,
   MapPin,

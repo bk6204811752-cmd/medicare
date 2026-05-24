@@ -21,8 +21,10 @@ export function GlobalSearch() {
 
   useEffect(() => {
     if (query.trim().length < 2) {
-      setResults([]);
-      return;
+      const timer = setTimeout(() => {
+        setResults([]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
 
     setLoading(true);

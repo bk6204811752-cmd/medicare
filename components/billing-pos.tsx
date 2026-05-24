@@ -595,21 +595,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
     }
   }
 
-  const shareTarget = lastInvoice
-    ? {
-        invoiceNo: lastInvoice.invoiceNo,
-        totalPaisa: lastInvoice.totalPaisa,
-        phone: lastInvoice.phone
-      }
-    : {
-        invoiceNo: "",
-        totalPaisa: totals.totalPaisa,
-        phone: customerPhone
-      };
-  const whatsappText = encodeURIComponent(
-    `Medicare invoice${shareTarget.invoiceNo ? ` ${shareTarget.invoiceNo}` : ""}. Total: ${formatCurrency(shareTarget.totalPaisa)}. Thank you.`
-  );
-  const whatsappHref = shareTarget.phone ? `https://wa.me/91${shareTarget.phone.replace(/\D/g, "").slice(-10)}?text=${whatsappText}` : `https://wa.me/?text=${whatsappText}`;
+
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_320px]">

@@ -4,14 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ChevronLeft,
-  Building2,
   Phone,
   Mail,
   MapPin,
   FileText,
-  CreditCard,
   Calendar,
-  Clock,
   Search,
   ArrowUpDown,
   TrendingUp,

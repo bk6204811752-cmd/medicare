@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Database, Edit3, Loader2, Sparkles, X, AlertTriangle, Pill } from "lucide-react";
+import { CheckCircle2, Database, Edit3, Loader2, X, AlertTriangle, Pill } from "lucide-react";
 import { toast } from "sonner";
 
 export type DrugMasterSuggestion = {
@@ -32,7 +32,7 @@ const GST_OPTIONS = [0, 5, 12, 18] as const;
 const SCHEDULE_OPTIONS = ["OTC", "G", "H", "H1", "X"] as const;
 const DOSAGE_FORMS = ["Tablet", "Capsule", "Syrup", "Injection", "Cream", "Ointment", "Drops", "Powder", "Inhaler", "Gel", "Spray", "Suspension", "Solution", "Sachet", "Other"];
 
-export function DrugMasterConfirmModal({ suggestion, onConfirm, onCancel, mode = "medicine" }: ConfirmModalProps) {
+export function DrugMasterConfirmModal({ suggestion, onConfirm, onCancel }: ConfirmModalProps) {
   const [editMode, setEditMode] = useState(false);
   const [data, setData] = useState<DrugMasterSuggestion>({ ...suggestion });
   const [confirming, setConfirming] = useState(false);

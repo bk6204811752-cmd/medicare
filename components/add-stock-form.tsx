@@ -294,6 +294,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredMedicines = localMedicines.filter((m) => {
     if (!medicineSearch.trim()) return true;
@@ -484,6 +485,41 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     setOcrProgress(0);
     setLoadingStep("");
     
+    // Secure Context / API support check
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      toast.error(
+        <div className="flex flex-col gap-1.5 text-xs text-slate-800 p-1">
+          <p className="font-bold text-red-600 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4 text-red-500 animate-pulse" />
+            <span>Secure Connection Required</span>
+          </p>
+          <p className="text-slate-650 font-medium leading-relaxed">
+            Your browser disables live stream cameras on insecure HTTP connections.
+          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <button 
+              onClick={() => {
+                toast.dismiss();
+                fileInputRef.current?.click();
+              }}
+              className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] shadow-sm transition-all"
+            >
+              📸 Open Mobile Camera (Native)
+            </button>
+            <button 
+              onClick={() => toast.dismiss()}
+              className="px-2 py-1 rounded border border-slate-300 text-slate-650 hover:bg-slate-50 font-bold text-[10px] transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        { duration: 10000 }
+      );
+      setShowScanner(false);
+      return;
+    }
+
     try {
       let stream: MediaStream;
       try {
@@ -611,6 +647,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       console.error("OCR Exception", err);
       toast.error(`OCR Failed: ${err instanceof Error ? err.message : String(err)}. Please try uploading again or paste text.`);
       setOcrLoading(false);
+      setShowScanner(false); // Gracefully close the scanning modal so it doesn't get stuck!
     }
   };
 
@@ -985,11 +1022,12 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         </div>
         
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Mobile direct native camera capture (bypasses browser constraints and secure context requirements) */}
-          <label className="flex sm:hidden items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-sm hover:shadow transition-all min-h-11">
+          {/* Mobile/Native direct camera capture (bypasses browser constraints and secure context requirements) */}
+          <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-sm hover:shadow transition-all min-h-11 hover:scale-[1.02] active:scale-[0.98]">
             <Camera className="h-4 w-4" />
-            <span>Mobile Camera</span>
+            <span>Mobile Camera (Native)</span>
             <input 
+              ref={fileInputRef}
               type="file" 
               accept="image/*" 
               capture="environment"
@@ -1001,7 +1039,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           <button
             type="button"
             onClick={() => setShowBarcodeScanner(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Zap className="h-4 w-4" />
             <span>Scan Barcode</span>
@@ -1013,13 +1051,13 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
               setShowScanner(true);
               startCamera();
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11 hover:scale-[1.02] active:scale-[0.98]"
           >
             <Camera className="h-4 w-4" />
-            <span>Scan Camera</span>
+            <span>Scan Camera (Live Feed)</span>
           </button>
           
-          <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer shadow-sm min-h-11">
+          <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer shadow-sm min-h-11 transition-all hover:scale-[1.02] active:scale-[0.98]">
             <Upload className="h-4 w-4 text-slate-550" />
             <span>Upload Image</span>
             <input 
@@ -1033,11 +1071,42 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           <button
             type="button"
             onClick={() => setShowPasteModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-350 bg-slate-100/80 hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-sm min-h-11"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-350 bg-slate-100/80 hover:bg-slate-200 text-slate-700 font-bold text-xs shadow-sm min-h-11 transition-all hover:scale-[1.02] active:scale-[0.98]"
           >
             <Clipboard className="h-4 w-4 text-slate-550" />
             <span>Paste Text (Fail-safe)</span>
           </button>
+        </div>
+      </div>
+
+      {/* Sleek, interactive Camera Help & Capabilities Guide */}
+      <div className="rounded-xl border border-slate-200 bg-slate-50/55 p-3.5 text-xs text-slate-600 shadow-sm transition-all space-y-2.5">
+        <div className="flex items-center justify-between">
+          <span className="font-bold text-slate-700 flex items-center gap-1.5">
+            <Info className="h-4 w-4 text-emerald-600" />
+            <span>Which camera option should I choose?</span>
+          </span>
+          <span className="text-[10px] text-slate-400 font-bold bg-slate-200/50 px-2 py-0.5 rounded">Guide</span>
+        </div>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          <div className="p-2.5 rounded-lg bg-white border border-slate-100 flex items-start gap-2 shadow-sm">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-100 text-emerald-700 text-xs font-bold font-mono mt-0.5">📸</div>
+            <div className="space-y-0.5">
+              <p className="font-bold text-slate-800 text-[11px]">Mobile Camera (Native Snapshot)</p>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                **Highly recommended for mobile devices.** Bypasses strict browser security locks, working perfectly over standard local Wi-Fi (HTTP) connections and offline. Opens your phone's native, high-resolution camera app.
+              </p>
+            </div>
+          </div>
+          <div className="p-2.5 rounded-lg bg-white border border-slate-100 flex items-start gap-2 shadow-sm">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-emerald-100 text-emerald-700 text-xs font-bold font-mono mt-0.5">🎥</div>
+            <div className="space-y-0.5">
+              <p className="font-bold text-slate-800 text-[11px]">Scan Camera (Live Feed viewfinder)</p>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                **Real-time streaming feed inside the page.** Perfect for desktop webcams or secure setups. Note that modern browsers block access to this live camera stream when accessed over insecure local network IPs (HTTP links).
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

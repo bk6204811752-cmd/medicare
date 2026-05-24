@@ -44,9 +44,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    const cleanEnv = (val: string | undefined): string => {
+      if (!val) return "";
+      let res = val.trim();
+      if (res.startsWith('"') && res.endsWith('"')) {
+        res = res.substring(1, res.length - 1);
+      }
+      if (res.startsWith("'") && res.endsWith("'")) {
+        res = res.substring(1, res.length - 1);
+      }
+      return res.trim();
+    };
+
+    const cloudName = cleanEnv(process.env.CLOUDINARY_CLOUD_NAME);
+    const apiKey = cleanEnv(process.env.CLOUDINARY_API_KEY);
+    const apiSecret = cleanEnv(process.env.CLOUDINARY_API_SECRET);
 
     if (!cloudName || !apiKey || !apiSecret) {
       console.error("Missing Cloudinary environment variables");
@@ -83,8 +95,15 @@ export async function POST(request: NextRequest) {
     if (!uploadRes.ok) {
       const errBody = await uploadRes.text();
       console.error("Cloudinary upload failed:", uploadRes.status, errBody);
+      let errMsg = "Prescription image upload failed.";
+      try {
+        const parsed = JSON.parse(errBody);
+        if (parsed.error && parsed.error.message) {
+          errMsg = `Cloudinary: ${parsed.error.message}`;
+        }
+      } catch (e) {}
       return NextResponse.json(
-        { error: "Prescription image upload failed." },
+        { error: errMsg },
         { status: 502 }
       );
     }

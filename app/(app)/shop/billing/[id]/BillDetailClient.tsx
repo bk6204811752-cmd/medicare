@@ -10,10 +10,18 @@ type BillDetailClientProps = {
   sale: Record<string, any>;
   items: Record<string, any>[];
   tenant: Record<string, any>;
+  initialFormat?: "a4" | "thermal";
 };
 
-export function BillDetailClient({ sale, items, tenant }: BillDetailClientProps) {
-  const [printFormat, setPrintFormat] = useState<"a4" | "thermal">("a4");
+export function BillDetailClient({ sale, items, tenant, initialFormat }: BillDetailClientProps) {
+  const [printFormat, setPrintFormat] = useState<"a4" | "thermal">(initialFormat || "a4");
+  const [lastInitial, setLastInitial] = useState(initialFormat);
+  
+  if (initialFormat !== lastInitial) {
+    setPrintFormat(initialFormat || "a4");
+    setLastInitial(initialFormat);
+  }
+
   const whatsappText = encodeURIComponent(
     `Medicare invoice ${String(sale.invoice_no)} from ${tenant.name}. Total: ${formatCurrency(Number(sale.total_paisa))}. Thank you.`
   );

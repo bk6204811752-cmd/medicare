@@ -73,6 +73,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
   const [lines, setLines] = useState<BillingLine[]>([]);
   const [lastInvoice, setLastInvoice] = useState<{ id: string; invoiceNo: string; totalPaisa: number; phone: string } | null>(null);
   const [savedSaleDetails, setSavedSaleDetails] = useState<{ sale: any; items: any[] } | null>(null);
+  const [modalPrintFormat, setModalPrintFormat] = useState<"a4" | "thermal">("a4");
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState("");
@@ -119,7 +120,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
       if (e.key === "F2") { e.preventDefault(); searchInputRef.current?.focus(); }
       if (e.key === "F3") { e.preventDefault(); startScanning(); }
       if (e.key === "F4") { e.preventDefault(); setShowManualBarcode(p => !p); }
-      if (e.key === "F8") { e.preventDefault(); saveBill(); }
+      if (e.key === "F8") { e.preventDefault(); saveBill("print-a4"); }
+      if (e.key === "F9") { e.preventDefault(); saveBill("print-thermal"); }
 
       // External USB barcode scanner detection:
       // USB scanners type characters rapidly (<50ms between keys) and end with Enter
@@ -144,7 +146,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, saving]);
+  }, [lines, saving, customerName, customerPhone, doctorName, prescriptionNo, paymentMode, totals]);
 
   // Fetch recent customers
   useEffect(() => {
@@ -512,7 +514,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
     setAddMedicinePrefill({});
   }
 
-  async function saveBill() {
+  async function saveBill(actionAfterSave: "none" | "print-a4" | "print-thermal" | "share" = "none") {
     const controlled = lines.filter((line) => line.schedule === "H" || line.schedule === "H1" || line.schedule === "X");
     if (!lines.length) {
       toast.error("Add at least one medicine before saving.");
@@ -557,10 +559,27 @@ export function BillingPos({ tenant }: { tenant: any }) {
         totalPaisa: savedTotalPaisa,
         phone: savedPhone
       });
+      
+      const format = actionAfterSave === "print-thermal" ? "thermal" : "a4";
+      setModalPrintFormat(format);
+      
       setSavedSaleDetails({
         sale: result.data?.sale,
         items: result.data?.items
       });
+
+      if (actionAfterSave === "print-a4" || actionAfterSave === "print-thermal") {
+        setTimeout(() => {
+          window.print();
+        }, 500);
+      } else if (actionAfterSave === "share") {
+        const whatsappText = encodeURIComponent(
+          `Medicare invoice ${String(result.data?.sale?.invoice_no ?? "invoice created")} from ${tenant.name}. Total: ${formatCurrency(savedTotalPaisa)}. Thank you.`
+        );
+        const whatsappHref = savedPhone ? `https://wa.me/91${savedPhone.replace(/\D/g, "").slice(-10)}?text=${whatsappText}` : `https://wa.me/?text=${whatsappText}`;
+        window.open(whatsappHref, "_blank");
+      }
+
       setLines([]);
       setQuery("");
       setCustomerName("");
@@ -593,7 +612,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
 
   return (
     <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm no-print">
         {/* ─── Search + Scanner Controls ─── */}
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_160px]">
           <label className="relative">
@@ -956,7 +975,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
       </section>
 
       {/* ─── Mobile Floating Action Bar ─── */}
-      <div className="mobile-fab gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur-sm">
+      <div className="mobile-fab gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur-sm no-print">
         <button onClick={() => searchInputRef.current?.focus()} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-slate-600 active:bg-slate-100" aria-label="Search medicine">
           <Search className="h-5 w-5" />
           <span className="mt-0.5 text-[9px]">Search</span>
@@ -969,13 +988,13 @@ export function BillingPos({ tenant }: { tenant: any }) {
           <Keyboard className="h-5 w-5" />
           <span className="mt-0.5 text-[9px]">Barcode</span>
         </button>
-        <button onClick={saveBill} disabled={saving || !lines.length} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-med-green disabled:opacity-40 active:bg-med-greenSoft" aria-label="Save bill">
+        <button onClick={() => saveBill("none")} disabled={saving || !lines.length} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-med-green disabled:opacity-40 active:bg-med-greenSoft" aria-label="Save bill">
           {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
           <span className="mt-0.5 text-[9px]">{saving ? "..." : "Save"}</span>
         </button>
       </div>
 
-      <aside className="space-y-4">
+      <aside className="space-y-4 no-print">
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-display text-lg font-semibold text-med-navy">Customer</h2>
           {/* Quick-select chips */}
@@ -1060,23 +1079,26 @@ export function BillingPos({ tenant }: { tenant: any }) {
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <button onClick={saveBill} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-med-green font-semibold text-white hover:bg-med-greenDark disabled:opacity-60">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} {saving ? "Saving..." : "Save"}
+            <button onClick={() => saveBill("none")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-50 font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 transition-all">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
             </button>
-            <button onClick={() => window.print()} disabled={!lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 font-semibold disabled:opacity-40">
-              <Printer className="h-4 w-4" /> Print
+            <button onClick={() => saveBill("print-a4")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-med-green font-semibold text-white hover:bg-med-greenDark disabled:opacity-60 transition-all">
+              <Printer className="h-4 w-4" /> Print A4 <span className="text-[10px] opacity-70">(F8)</span>
+            </button>
+            <button onClick={() => saveBill("print-thermal")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sky-600 font-semibold text-white hover:bg-sky-700 disabled:opacity-60 transition-all">
+              <Printer className="h-4 w-4" /> Print Thermal Roll <span className="text-[10px] opacity-70">(F9)</span>
+            </button>
+            <button onClick={() => saveBill("share")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 font-semibold text-emerald-700 hover:bg-emerald-100/70 disabled:opacity-60 transition-all">
+              <Send className="h-4 w-4" /> Save & Share on WhatsApp
             </button>
             {lines.length > 0 && (
               <button
                 onClick={() => { if (window.confirm(`Clear all ${lines.length} items from this bill?`)) { setLines([]); toast.info("Bill cleared."); } }}
-                className="col-span-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50"
+                className="col-span-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-all"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Clear Bill
               </button>
             )}
-            <a href={whatsappHref} target="_blank" className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 font-semibold text-emerald-700">
-              <Send className="h-4 w-4" /> Share on WhatsApp
-            </a>
           </div>
           {lastInvoice ? (
             <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm">
@@ -1118,6 +1140,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
                 sale={savedSaleDetails.sale}
                 items={savedSaleDetails.items}
                 tenant={tenant}
+                initialFormat={modalPrintFormat}
               />
             </div>
 
@@ -1127,8 +1150,11 @@ export function BillingPos({ tenant }: { tenant: any }) {
                 onClick={() => {
                   setSavedSaleDetails(null);
                   setLastInvoice(null);
+                  setTimeout(() => {
+                    searchInputRef.current?.focus();
+                  }, 50);
                 }}
-                className="rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 transition-all"
+                className="rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 transition-all active:scale-95 animate-fade-in"
               >
                 Close & Start Next Bill
               </button>

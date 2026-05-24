@@ -9,6 +9,7 @@ import type { SaleLine } from "@/lib/types";
 import { daysUntil, formatCurrency } from "@/lib/utils";
 import { AddMedicineForm } from "@/components/add-medicine-form";
 import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
+import { BillDetailClient } from "@/app/(app)/shop/billing/[id]/BillDetailClient";
 
 // ─── Lazy-loaded barcode reader singleton ───
 let _readerPromise: Promise<any> | null = null;
@@ -58,7 +59,7 @@ type BillingLine = SaleLine & {
   maxQuantity: number;
 };
 
-export function BillingPos() {
+export function BillingPos({ tenant }: { tenant: any }) {
   const [rows, setRows] = useState<InventorySearchRow[]>([]);
   const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -71,6 +72,7 @@ export function BillingPos() {
   const [paymentMode, setPaymentMode] = useState("cash");
   const [lines, setLines] = useState<BillingLine[]>([]);
   const [lastInvoice, setLastInvoice] = useState<{ id: string; invoiceNo: string; totalPaisa: number; phone: string } | null>(null);
+  const [savedSaleDetails, setSavedSaleDetails] = useState<{ sale: any; items: any[] } | null>(null);
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState("");
@@ -554,6 +556,10 @@ export function BillingPos() {
         invoiceNo: String(result.data?.sale?.invoice_no ?? "invoice created"),
         totalPaisa: savedTotalPaisa,
         phone: savedPhone
+      });
+      setSavedSaleDetails({
+        sale: result.data?.sale,
+        items: result.data?.items
       });
       setLines([]);
       setQuery("");
@@ -1087,6 +1093,49 @@ export function BillingPos() {
           ) : null}
         </section>
       </aside>
+
+      {/* Render the Exact Bill Detail Client Component Overlay Modal */}
+      {savedSaleDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto print:static print:bg-white print:p-0 print:block print:overflow-visible print:z-0">
+          <div className="relative w-full max-w-5xl rounded-2xl bg-slate-100 p-6 shadow-2xl overflow-y-auto max-h-[92vh] print:bg-white print:p-0 print:border-0 print:shadow-none print:max-h-none print:overflow-visible">
+            {/* Modal Header */}
+            <div className="mb-4 flex items-center justify-between no-print">
+              <h3 className="text-lg font-bold text-slate-800">Print / Share Saved Invoice</h3>
+              <button
+                onClick={() => {
+                  setSavedSaleDetails(null);
+                  setLastInvoice(null);
+                }}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {/* Render the Exact Bill Detail Client Component */}
+            <div className="bg-white rounded-xl shadow-inner border border-slate-200 p-4 overflow-y-auto max-h-[70vh] print:p-0 print:shadow-none print:border-0 print:max-h-none print:overflow-visible">
+              <BillDetailClient
+                sale={savedSaleDetails.sale}
+                items={savedSaleDetails.items}
+                tenant={tenant}
+              />
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="mt-4 flex justify-end gap-3 no-print">
+              <button
+                onClick={() => {
+                  setSavedSaleDetails(null);
+                  setLastInvoice(null);
+                }}
+                className="rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 transition-all"
+              >
+                Close & Start Next Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

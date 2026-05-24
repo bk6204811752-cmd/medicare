@@ -2,8 +2,13 @@ import Link from "next/link";
 import { History } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { BillingPos } from "@/components/billing-pos";
+import { getCurrentUser } from "@/lib/auth";
+import { getTenant } from "@/lib/local-db";
 
-export default function BillingPage() {
+export default async function BillingPage() {
+  const user = await getCurrentUser();
+  const tenant = await getTenant(user?.tenantId ?? "");
+
   return (
     <>
       <PageHeader
@@ -16,7 +21,7 @@ export default function BillingPage() {
           </Link>
         }
       />
-      <BillingPos />
+      <BillingPos tenant={tenant as any} />
     </>
   );
 }

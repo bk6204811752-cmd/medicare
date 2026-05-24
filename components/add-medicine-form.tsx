@@ -14,7 +14,7 @@ type AddMedicineFormProps = {
   showInventoryFields?: boolean;
 };
 
-const GST_OPTIONS = [0, 5, 12, 18] as const;
+const GST_OPTIONS = [0, 5, 12, 18, 28] as const;
 const SCHEDULE_OPTIONS = ["OTC", "G", "H", "H1", "X"] as const;
 const DOSAGE_FORMS = ["Tablet", "Capsule", "Syrup", "Injection", "Cream", "Ointment", "Drops", "Powder", "Inhaler", "Gel", "Spray", "Suspension", "Solution", "Sachet", "Other"];
 const CATEGORIES = ["Pain relief", "Antibiotic", "Antifungal", "Antiviral", "Diabetes", "Cardiac", "Vitamin", "Hydration", "Respiratory", "Dermatology", "Gastro", "Neuro", "Ophthalmic", "Hormonal", "Other"];

@@ -113,13 +113,14 @@ model Medicine {
   gstRate              Int      @default(12)
   mrpPaisa             Int
   schedule             String   @default("OTC")
-  barcode              String?  @unique
+  barcode              String?
   requiresPrescription Boolean  @default(false)
   createdAt            DateTime        @default(now())
   inventory            InventoryItem[]
 
   @@index([name])
   @@index([genericName])
+  @@index([barcode])
 }
 
 model InventoryItem {

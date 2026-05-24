@@ -1663,7 +1663,7 @@ export async function createMedicine(input: unknown) {
   await ensureDefaultData();
 
   if (data.barcode) {
-    const existing = await prisma.medicine.findUnique({ where: { barcode: data.barcode } });
+    const existing = await prisma.medicine.findFirst({ where: { barcode: data.barcode } });
     if (existing) throw new Error(`A medicine with barcode ${data.barcode} already exists: ${existing.name}`);
   }
 
@@ -1695,7 +1695,7 @@ export async function quickAddMedicineWithStock(tenantId: string, input: unknown
   await ensureDefaultData();
 
   if (data.barcode) {
-    const existing = await prisma.medicine.findUnique({ where: { barcode: data.barcode } });
+    const existing = await prisma.medicine.findFirst({ where: { barcode: data.barcode } });
     if (existing) throw new Error(`A medicine with barcode ${data.barcode} already exists: ${existing.name}`);
   }
 

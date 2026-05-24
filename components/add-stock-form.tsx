@@ -619,7 +619,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       try {
         const mrpValue = Math.round(sanitizePrice(scannedData.mrp) * 100);
         let gstRateValue = sanitizeInt(scannedData.gstRate, 12);
-        const validGstRates = [0, 5, 12, 18];
+        const validGstRates = [0, 5, 12, 18, 28];
         if (!validGstRates.includes(gstRateValue)) {
           gstRateValue = 12; // Fallback
         }
@@ -681,7 +681,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
     // Validate and sanitize GST rate strictly to match Zod literals [0, 5, 12, 18]
     let parsedGst = sanitizeInt(scannedData.gstRate, 12);
-    const validGstRates = [0, 5, 12, 18];
+    const validGstRates = [0, 5, 12, 18, 28];
     if (!validGstRates.includes(parsedGst)) {
       parsedGst = 12; // Fallback
     }
@@ -775,7 +775,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       try {
         const mrpValue = Math.round(sanitizePrice(mrp) * 100);
         let gstRateValue = sanitizeInt(gstRate, 12);
-        const validGstRates = [0, 5, 12, 18];
+        const validGstRates = [0, 5, 12, 18, 28];
         if (!validGstRates.includes(gstRateValue)) {
           gstRateValue = 12; // Fallback
         }
@@ -829,11 +829,28 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       }
     }
 
-    // Validate and sanitize GST rate strictly to match Zod literals [0, 5, 12, 18]
+    // Validate and sanitize GST rate strictly to match Zod literals [0, 5, 12, 18, 28]
     let parsedGst = sanitizeInt(gstRate, 12);
-    const validGstRates = [0, 5, 12, 18];
+    const validGstRates = [0, 5, 12, 18, 28];
     if (!validGstRates.includes(parsedGst)) {
       parsedGst = 12; // Fallback
+    }
+
+    // Validate required fields on client side
+    if (!String(batchNo).trim()) {
+      toast.error("Batch number is required");
+      setSaving(false);
+      return;
+    }
+    if (!expiryDate) {
+      toast.error("Expiry date is required");
+      setSaving(false);
+      return;
+    }
+    if (sanitizeInt(quantity, 0) <= 0) {
+      toast.error("Quantity must be greater than zero");
+      setSaving(false);
+      return;
     }
 
     const payload = {

@@ -166,7 +166,8 @@ export function searchMedicineDatabase(query: string): MedicineDatabaseResult[] 
     const nameLower = name.toLowerCase();
     const searchStr = `${nameLower} ${(composition || "").toLowerCase()} ${(manufacturer || "").toLowerCase()}`;
 
-    if (!matchesAllTokens(searchStr, allTokens)) continue;
+    const searchStrClean = searchStr.replace(/[^a-z0-9]/g, "");
+    if (!matchesAllTokens(searchStr, allTokens) && !matchesAllTokens(searchStrClean, allTokens)) continue;
 
     const score = scoreMatch(nameLower, normalized);
     matches.push({ entry, score });

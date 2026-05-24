@@ -173,7 +173,7 @@ const EXTRA_MEDICINES = [
   ["Tobramycin Eye Drops", 6500, "Sun Pharmaceutical Industries Ltd", "bottle of 5 ml", "Tobramycin (0.3%)", 5],
   ["Refresh Tears Eye Drops", 12500, "Allergan India Pvt Ltd", "bottle of 10 ml", "Carboxymethylcellulose (0.5%)", 5],
 
-  // OTC & Digestion
+  // OTC, Digestion & Antacid
   ["Strepsils Lozenges", 3200, "Reckitt Benckiser", "strip of 8 lozenges", "Amylmetacresol (0.6mg), Dichlorobenzyl Alcohol (1.2mg)", 5],
   ["Vicks VapoRub", 5900, "Procter & Gamble", "jar of 50 ml", "Menthol, Camphor, Eucalyptus Oil", 5],
   ["Volini Gel", 10500, "Sun Pharmaceutical Industries Ltd", "tube of 30 gm", "Diclofenac Diethylamine (1.16%)", 5],
@@ -181,18 +181,26 @@ const EXTRA_MEDICINES = [
   ["Moov Spray", 15500, "Reckitt Benckiser", "bottle of 80 gm", "Diclofenac Diethylamine (1.16%)", 5],
   ["Unienzyme Tablet", 7500, "Unichem Laboratories Ltd", "strip of 15 tablets", "Fungal Diastase (100mg), Papain (60mg), Activated Charcoal (75mg)", 5],
   ["Eno Powder Regular", 1000, "GlaxoSmithKline Consumer Healthcare", "sachet of 5 gm", "Svarjiksara (2.91g), Nimbukamlam (2.09g)", 5],
+  ["Eno Fruit Salt Orange Sachet", 1000, "GlaxoSmithKline Consumer Healthcare", "sachet of 5 gm", "Svarjiksara (2.91g), Nimbukamlam (2.09g)", 5],
+  ["Eno Fruit Salt Lemon Sachet", 1000, "GlaxoSmithKline Consumer Healthcare", "sachet of 5 gm", "Svarjiksara (2.91g), Nimbukamlam (2.09g)", 5],
   ["Pudin Hara Pearls Capsule", 3000, "Dabur India Ltd", "strip of 10 capsules", "Pudina Satva (Mentha Piperita, 0.180ml)", 5],
+  ["Pudin Hara Active Liquid", 4500, "Dabur India Ltd", "bottle of 30 ml", "Pudina Satva, Pudina Oil", 5],
+  ["Gasex Tablet", 14500, "Himalaya Wellness Company", "bottle of 100 tablets", "Cowrie Bhasma (64mg), Shankha Bhasma (64mg), Vidanga (22mg)", 5],
 
   // Common Allergy & Anti-Cold
   ["Allegra 120mg Tablet", 21000, "Sanofi India Ltd", "strip of 10 tablets", "Fexofenadine Hydrochloride (120mg)", 5],
   ["Allegra 180mg Tablet", 29500, "Sanofi India Ltd", "strip of 10 tablets", "Fexofenadine Hydrochloride (180mg)", 5],
   ["Avil 25 Tablet", 1050, "Sanofi India Ltd", "strip of 15 tablets", "Pheniramine Maleate (25mg)", 5],
+  ["Avil 50 Tablet", 1800, "Sanofi India Ltd", "strip of 15 tablets", "Pheniramine Maleate (50mg)", 5],
   ["Grilinctus Syrup", 13000, "Franco-Indian Pharmaceuticals Pvt Ltd", "bottle of 100 ml", "Dextromethorphan Hydrobromide (5mg), Ammonium Chloride (60mg), Chlorpheniramine Maleate (2.5mg)", 5],
+  ["Dabur Honitus Syrup", 11500, "Dabur India Ltd", "bottle of 100 ml", "Tulasi (50mg), Mulethi (50mg), Banapsha (50mg), Kantkari (50mg), Honey (1.25g)", 5],
 
   // Common Pain & Muscle Relaxants
   ["Combiflam Tablet", 4350, "Sanofi India Ltd", "strip of 20 tablets", "Ibuprofen (400mg), Paracetamol (325mg)", 5],
   ["Zerodol SP Tablet", 11500, "Ipca Laboratories Ltd", "strip of 10 tablets", "Aceclofenac (100mg), Paracetamol (325mg), Serratiopeptidase (15mg)", 5],
   ["Zerodol P Tablet", 6200, "Ipca Laboratories Ltd", "strip of 10 tablets", "Aceclofenac (100mg), Paracetamol (325mg)", 5],
+  ["Zandu Balm", 4500, "Emami Ltd", "jar of 25 ml", "Menthol, Gaultheria Oil, Cajuput Oil", 5],
+  ["Amrutanjan Strong Pain Balm", 5500, "Amrutanjan Healthcare Ltd", "jar of 30 ml", "Karpoor Powder, Mint Pudina Flowers, Gandhapura Tel", 5],
 
   // Common Antibiotics & De-worming
   ["Clavam 625 Tablet", 22350, "Alkem Laboratories Ltd", "strip of 10 tablets", "Amoxicillin (500mg), Clavulanic Acid (125mg)", 5],
@@ -201,22 +209,40 @@ const EXTRA_MEDICINES = [
   ["Bandy-Plus Tablet", 4500, "Mankind Pharma Ltd", "strip of 1 tablet", "Ivermectin (6mg), Albendazole (400mg)", 5],
   ["Zentel 400mg Tablet", 1000, "GlaxoSmithKline Pharmaceuticals Ltd", "strip of 1 tablet", "Albendazole (400mg)", 5],
 
-  // Other supplements
+  // Ayurvedic, Liver & Kidney Support (Highly demanded in India)
+  ["Liv.52 DS Tablet", 17000, "Himalaya Wellness Company", "bottle of 60 tablets", "Himsra (130mg), Kasani (130mg), Mandur Bhasma (66mg), Kakamachi (64mg)", 5],
+  ["Liv.52 Tablet", 14500, "Himalaya Wellness Company", "bottle of 100 tablets", "Himsra (65mg), Kasani (65mg), Mandur Bhasma (33mg), Kakamachi (32mg)", 5],
+  ["Liv.52 Syrup", 15000, "Himalaya Wellness Company", "bottle of 200 ml", "Himsra (68mg), Kasani (68mg), Mandur Bhasma (33mg)", 5],
+  ["Cystone Tablet", 17000, "Himalaya Wellness Company", "bottle of 60 tablets", "Shilapushpa (130mg), Pasanabheda (98mg), Apamarga (32mg)", 5],
+  ["Septilin Tablet", 16500, "Himalaya Wellness Company", "bottle of 60 tablets", "Guggulu (324mg), Maharasnadi Quath (130mg), Manjishtha (64mg)", 5],
+  ["Speman Tablet", 18000, "Himalaya Wellness Company", "bottle of 60 tablets", "Kokilaksha, Kapikachchhu, Suvarnavang", 5],
+  ["Dabur Chyawanprash", 41000, "Dabur India Ltd", "jar of 1 kg", "Amla, Ashtavarga, Pippali, Kesar, Cardamom", 5],
+  ["Safi Syrup", 22000, "Hamdard Laboratories", "bottle of 500 ml", "Sana, Sheesham, Sandal, Gilo, Neem", 5],
+  ["Rooh Afza Syrup", 18000, "Hamdard Laboratories", "bottle of 750 ml", "Rose, Keora, Fruits, Herbs", 5],
+  ["Patanjali Aloe Vera Gel", 10000, "Patanjali Ayurved Ltd", "tube of 150 ml", "Pure Aloe Vera, Vitamin E", 5],
+  ["Patanjali Dant Kanti Toothpaste", 11000, "Patanjali Ayurved Ltd", "tube of 200 gm", "Babool, Neem, Pudina, Tomar", 5],
+
+  // Other vital supplements & injectables
   ["Shelcal XT Tablet", 38000, "Torrent Pharmaceuticals Ltd", "strip of 15 tablets", "Calcium (500mg), Vitamin D3 (2000IU), Methylcobalamin (1500mcg), L-Methylfolate (1mg)", 5],
   ["Becadexamin Capsule", 4800, "GlaxoSmithKline Pharmaceuticals Ltd", "bottle of 30 capsules", "Multivitamins and Multiminerals", 5],
+  ["Caldikind Plus Capsule", 14500, "Mankind Pharma Ltd", "strip of 10 capsules", "Calcitriol (0.25mcg), Calcium Carbonate (500mg), Methylcobalamin (1500mcg), Zinc (7.5mg)", 5],
+  ["Clexane 40mg Injection", 62000, "Sanofi India Ltd", "box of 1 syringe", "Enoxaparin (40mg)", 5],
+  ["Clexane 60mg Injection", 89000, "Sanofi India Ltd", "box of 1 syringe", "Enoxaparin (60mg)", 5],
 ];
 
 // ─── Extract search prefixes for a medicine ──────────────────
 function extractPrefixes(name, composition) {
   const prefixes = new Set();
 
-  // 1. Brand name prefix (first 2 chars of brand name)
+  // 1. Brand name prefixes (first 2 chars of all significant words in brand name)
   const nameClean = name.trim().toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ");
   const nameWords = nameClean.split(" ");
-  if (nameWords.length > 0 && nameWords[0].length >= 2) {
-    prefixes.add(nameWords[0].substring(0, 2));
-  } else if (nameWords.length > 0 && nameWords[0].length === 1) {
-    prefixes.add(nameWords[0] + "_");
+  for (const word of nameWords) {
+    if (word.length >= 2 && !INDEX_STOP_WORDS.has(word) && !/^\d/.test(word)) {
+      prefixes.add(word.substring(0, 2));
+    } else if (word.length === 1 && !INDEX_STOP_WORDS.has(word)) {
+      prefixes.add(word + "_");
+    }
   }
 
   // 2. Composition word prefixes (first 2 chars of each ingredient word)

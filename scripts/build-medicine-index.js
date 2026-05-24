@@ -325,6 +325,18 @@ const EXTRA_MEDICINES = [
   ["Otorex Ear Drops", 7000, "Solvay Pharma", "bottle of 5 ml", "Benzocaine (2.7%), Chlorobutol (5%)", 5],
   ["Unienzyme Liquid", 14000, "Unichem Laboratories Ltd", "bottle of 200 ml", "Fungal Diastase (50mg), Papain (50mg)", 12],
   ["Digene Gel Orange", 15000, "Abbott", "bottle of 200 ml", "Aluminium Hydroxide, Magnesium Hydroxide, Simethicone Antacid Gel", 12],
+
+  // Common Indian Pediatric, Cough & Gastric medicines
+  ["Signoflam Tablet", 14000, "Lupin Ltd", "strip of 10 tablets", "Aceclofenac (100mg), Paracetamol (325mg), Serratiopeptidase (15mg)", 12],
+  ["Hifenac-P Tablet", 9000, "Intas Pharmaceuticals Ltd", "strip of 10 tablets", "Aceclofenac (100mg), Paracetamol (325mg)", 12],
+  ["Nexpro RD 40 Capsule", 16000, "Torrent Pharmaceuticals Ltd", "strip of 15 capsules", "Esomeprazole (40mg), Domperidone (30mg)", 12],
+  ["Cyclopam Syrup", 9000, "Indoco Remedies Ltd", "bottle of 60 ml", "Dicyclomine Hydrochloride (10mg), Simethicone (40mg)", 12],
+  ["Enterogermina Respules", 60000, "Sanofi India Ltd", "box of 10 respules x 5 ml", "Bacillus clausii (2 Billion Spores)", 5],
+  ["Maxtra Syrup", 9500, "Zuventus Healthcare Ltd", "bottle of 60 ml", "Phenylephrine Hydrochloride (5mg), Chlorpheniramine Maleate (2mg)", 12],
+  ["Cozy-L Syrup", 8500, "Sun Pharmaceutical Industries Ltd", "bottle of 60 ml", "Levocetirizine (2.5mg), Phenylephrine Hydrochloride (5mg)", 12],
+  ["Sualin Cough Tablet", 3000, "Hamdard Laboratories", "strip of 10 tablets", "Herbal cough remedy", 5],
+  ["Himalaya Herbolax Tablet", 16000, "Himalaya Wellness Company", "bottle of 100 tablets", "Natural laxative", 5],
+  ["Baidyanath Shankhpushpi Syrup", 14000, "Baidyanath", "bottle of 200 ml", "Memory booster brain tonic", 5],
 ];
 
 // ─── Extract search prefixes for a medicine ──────────────────

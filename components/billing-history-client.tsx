@@ -18,7 +18,11 @@ import {
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
-  Tag
+  Tag,
+  Eye,
+  X,
+  FileText,
+  FileImage
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -61,6 +65,11 @@ type SaleWithItems = {
   status: string;
   created_at: string;
   items: SaleItem[];
+  prescriptionImages?: {
+    id: string;
+    imageUrl: string;
+    uploadedAt: string;
+  }[];
 };
 
 export function BillingHistoryClient({
@@ -87,6 +96,9 @@ export function BillingHistoryClient({
   // Medicine Wise Sorting
   const [medSortKey, setMedSortKey] = useState<"qty" | "revenue" | "name">("qty");
   const [medSortOrder, setMedSortOrder] = useState<"asc" | "desc">("desc");
+
+  // Prescription lightbox zoom state
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedSaleIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -569,13 +581,26 @@ export function BillingHistoryClient({
 
                       {/* Customer Details */}
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-semibold text-med-navy">
                             {isWalkIn ? "Walk-in Customer" : sale.customer_name}
                           </span>
                           {!isWalkIn && (
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
                               {sale.customer_phone}
+                            </span>
+                          )}
+                          {sale.prescriptionImages && sale.prescriptionImages.length > 0 && (
+                            <span 
+                              className="inline-flex items-center gap-1 rounded-full bg-orange-50 border border-orange-200 px-2 py-0.5 text-[10px] font-bold text-orange-700 hover:bg-orange-100 transition-colors cursor-pointer select-none"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewImage(sale.prescriptionImages![0].imageUrl);
+                              }}
+                              title="Click to view doctor prescription"
+                            >
+                              <FileText className="h-3 w-3 shrink-0 text-orange-600" />
+                              <span>Rx Attached</span>
                             </span>
                           )}
                         </div>
@@ -646,7 +671,15 @@ export function BillingHistoryClient({
                         <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Items List</h5>
                         
                         {/* Action buttons */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          {sale.prescriptionImages && sale.prescriptionImages.length > 0 && (
+                            <button
+                              onClick={() => setPreviewImage(sale.prescriptionImages![0].imageUrl)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-semibold text-orange-755 hover:bg-orange-100 shadow-sm transition-all active:scale-95"
+                            >
+                              <Eye className="h-3.5 w-3.5 text-orange-600" /> View Rx ({sale.prescriptionImages.length})
+                            </button>
+                          )}
                           <Link
                             href={`/shop/billing/${encodeURIComponent(sale.id)}`}
                             target="_blank"
@@ -722,35 +755,64 @@ export function BillingHistoryClient({
                         ))}
                       </div>
 
-                      {/* Invoice Summary Box */}
-                      <div className="mt-3.5 ml-auto max-w-sm rounded-lg border border-slate-200 bg-white p-3.5 text-xs space-y-1.5 shadow-sm">
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">Subtotal</span>
-                          <span className="font-medium text-slate-700">{formatCurrency(sale.subtotal_paisa)}</span>
-                        </div>
-                        {sale.discount_paisa > 0 && (
-                          <div className="flex justify-between text-rose-600">
-                            <span>Discount</span>
-                            <span>-{formatCurrency(sale.discount_paisa)}</span>
+                      {/* Flex Container for Prescription gallery & Invoice Summary */}
+                      <div className="mt-4 flex flex-col md:flex-row justify-between items-start gap-4">
+                        {/* Attached Prescription Gallery */}
+                        {sale.prescriptionImages && sale.prescriptionImages.length > 0 ? (
+                          <div className="rounded-xl border border-slate-200 bg-white p-3.5 text-xs shadow-sm flex-1 w-full md:w-auto">
+                            <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-2">
+                              <FileImage className="h-4 w-4 text-orange-500 shrink-0" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Attached Doctor Prescription</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2.5">
+                              {sale.prescriptionImages.map((img: any) => (
+                                <div
+                                  key={img.id}
+                                  className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50 h-20 w-20 cursor-pointer shadow-sm hover:shadow transition-all"
+                                  onClick={() => setPreviewImage(img.imageUrl)}
+                                >
+                                  <img src={img.imageUrl} alt="Prescription" className="h-full w-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <Eye className="h-5 w-5 text-white" />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
+                        ) : (
+                          <div className="flex-1 hidden md:block" />
                         )}
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">CGST</span>
-                          <span className="font-medium text-slate-700">{formatCurrency(sale.cgst_paisa)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-400">SGST</span>
-                          <span className="font-medium text-slate-700">{formatCurrency(sale.sgst_paisa)}</span>
-                        </div>
-                        {sale.round_off_paisa !== 0 && (
-                          <div className="flex justify-between text-slate-400">
-                            <span>Round off</span>
-                            <span>{sale.round_off_paisa > 0 ? "+" : ""}{formatCurrency(sale.round_off_paisa)}</span>
+
+                        {/* Invoice Summary Box */}
+                        <div className="w-full md:w-80 shrink-0 rounded-lg border border-slate-200 bg-white p-3.5 text-xs space-y-1.5 shadow-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Subtotal</span>
+                            <span className="font-medium text-slate-700">{formatCurrency(sale.subtotal_paisa)}</span>
                           </div>
-                        )}
-                        <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-bold text-med-navy">
-                          <span>Grand Total</span>
-                          <span>{formatCurrency(sale.total_paisa)}</span>
+                          {sale.discount_paisa > 0 && (
+                            <div className="flex justify-between text-rose-600">
+                              <span>Discount</span>
+                              <span>-{formatCurrency(sale.discount_paisa)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">CGST</span>
+                            <span className="font-medium text-slate-700">{formatCurrency(sale.cgst_paisa)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">SGST</span>
+                            <span className="font-medium text-slate-700">{formatCurrency(sale.sgst_paisa)}</span>
+                          </div>
+                          {sale.round_off_paisa !== 0 && (
+                            <div className="flex justify-between text-slate-400">
+                              <span>Round off</span>
+                              <span>{sale.round_off_paisa > 0 ? "+" : ""}{formatCurrency(sale.round_off_paisa)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between border-t border-slate-200 pt-2 text-sm font-bold text-med-navy">
+                            <span>Grand Total</span>
+                            <span>{formatCurrency(sale.total_paisa)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -824,6 +886,30 @@ export function BillingHistoryClient({
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Lightbox Zoom Portal Overlay Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4 animate-fade-in" 
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative max-w-3xl w-full animate-scale-in" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-3 -right-3 z-10 rounded-full bg-white p-2.5 shadow-xl hover:bg-slate-100 transition-colors border border-slate-200 active:scale-95"
+              aria-label="Close prescription preview"
+            >
+              <X className="h-5 w-5 text-slate-800 font-bold" />
+            </button>
+            <div className="overflow-hidden rounded-2xl border-4 border-white bg-slate-100 shadow-2xl">
+              <img src={previewImage} alt="Doctor Prescription" className="w-full max-h-[85vh] object-contain mx-auto" />
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1867,13 +1867,18 @@ export async function getSalesWithItems(tenantId: string) {
   await ensureDefaultData();
   const sales = await prisma.sale.findMany({
     where: { tenantId },
-    include: { items: true },
+    include: { items: true, prescriptionImages: true },
     orderBy: { createdAt: "desc" },
     take: 150
   });
   return sales.map(sale => ({
     ...mapSaleRow(sale),
-    items: sale.items.map(mapSaleItemRow)
+    items: sale.items.map(mapSaleItemRow),
+    prescriptionImages: sale.prescriptionImages.map(img => ({
+      id: img.id,
+      imageUrl: img.imageUrl,
+      uploadedAt: img.uploadedAt.toISOString()
+    }))
   }));
 }
 

@@ -217,10 +217,13 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           margin: 0;
         }
         html, body {
-          width: 210mm !important;
+          width: 1024px !important;
+          min-width: 1024px !important;
           margin: 0 !important;
           padding: 0 !important;
           background: #ffffff !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         .flex.h-screen {
           height: auto !important;
@@ -239,6 +242,24 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           padding: 0 !important;
           margin: 0 !important;
         }
+        
+        /* Reset modal layout wrapper styles so it displays in full width for printing */
+        .fixed.inset-0,
+        .relative.w-full {
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 1024px !important;
+          max-width: 1024px !important;
+          height: auto !important;
+          max-height: none !important;
+          overflow: visible !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        
         .no-print,
         aside,
         header,
@@ -254,10 +275,11 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         }
         .a4-print-container {
           display: block !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          margin: 0 !important;
-          padding: 8mm !important;
+          width: 1024px !important;
+          min-width: 1024px !important;
+          max-width: 1024px !important;
+          margin: 0 auto !important;
+          padding: 40px !important;
           border: none !important;
           box-shadow: none !important;
           background: #ffffff !important;
@@ -278,18 +300,18 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           table-layout: auto !important;
         }
         .a4-print-container table th {
-          padding-top: 4px !important;
-          padding-bottom: 4px !important;
-          padding-left: 2px !important;
-          padding-right: 2px !important;
-          font-size: 10px !important;
+          padding-top: 8px !important;
+          padding-bottom: 8px !important;
+          padding-left: 6px !important;
+          padding-right: 6px !important;
+          font-size: 12px !important;
         }
         .a4-print-container table td {
-          padding-top: 4px !important;
-          padding-bottom: 4px !important;
-          padding-left: 2px !important;
-          padding-right: 2px !important;
-          font-size: 10px !important;
+          padding-top: 8px !important;
+          padding-bottom: 8px !important;
+          padding-left: 6px !important;
+          padding-right: 6px !important;
+          font-size: 12px !important;
         }
         tr {
           page-break-inside: avoid !important;
@@ -297,26 +319,26 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         }
         /* Reduce margins between layout elements */
         .a4-print-container .mt-6 {
-          margin-top: 8px !important;
+          margin-top: 16px !important;
         }
         .a4-print-container .mt-8 {
-          margin-top: 10px !important;
+          margin-top: 24px !important;
         }
         .a4-print-container .mt-10 {
-          margin-top: 10px !important;
+          margin-top: 24px !important;
         }
         .a4-print-container .p-4 {
-          padding: 6px !important;
+          padding: 16px !important;
         }
         .a4-print-container .p-6 {
-          padding: 8px !important;
+          padding: 24px !important;
         }
         /* Force banner contents to align in a single row without wrapping/stacking in print */
         .a4-print-container .bg-slate-900 {
-          margin-left: -8mm !important;
-          margin-right: -8mm !important;
-          margin-top: -8mm !important;
-          padding: 10px !important;
+          margin-left: -40px !important;
+          margin-right: -40px !important;
+          margin-top: -40px !important;
+          padding: 24px !important;
           border-radius: 0 !important;
           display: flex !important;
           flex-direction: row !important;
@@ -327,11 +349,11 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         .a4-print-container .grid {
           display: grid !important;
           grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          gap: 12px !important;
+          gap: 24px !important;
         }
         /* Reduce signature blank height */
         .a4-print-container .h-10 {
-          height: 12px !important;
+          height: 32px !important;
         }
       }
     `;

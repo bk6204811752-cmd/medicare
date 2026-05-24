@@ -90,6 +90,51 @@ export function BillingPos({ tenant }: { tenant: any }) {
         .catch((err) => console.error("Failed to load alternative batches for:", medId, err));
     });
   }, [lines, availableBatches]);
+
+  const [recoveredCart, setRecoveredCart] = useState<any | null>(null);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+
+  // ─── Auto-Saving Cart Cache Effect ───
+  useEffect(() => {
+    if (!tenant?.id) return;
+    const cacheKey = `medicare_cart_cache_${tenant.id}`;
+    if (lines.length > 0) {
+      const cacheData = {
+        lines,
+        customerName,
+        customerPhone,
+        doctorName,
+        prescriptionNo,
+        paymentMode,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } else {
+      localStorage.removeItem(cacheKey);
+    }
+  }, [lines, customerName, customerPhone, doctorName, prescriptionNo, paymentMode, tenant?.id]);
+
+  // ─── Mount-Time Cache Recovery Detector ───
+  useEffect(() => {
+    if (!tenant?.id) return;
+    const cacheKey = `medicare_cart_cache_${tenant.id}`;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const isFresh = Date.now() - parsed.timestamp < 24 * 60 * 60 * 1000; // 24-hour expiration
+        if (isFresh && parsed.lines && parsed.lines.length > 0) {
+          setRecoveredCart(parsed);
+          setShowRecoveryModal(true);
+        } else {
+          localStorage.removeItem(cacheKey);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to parse cached cart:", err);
+    }
+  }, [tenant?.id]);
+
   const [showManualBarcode, setShowManualBarcode] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
   const [addMedicinePrefill, setAddMedicinePrefill] = useState<{ barcode?: string; name?: string }>({});
@@ -266,6 +311,28 @@ export function BillingPos({ tenant }: { tenant: any }) {
     if (!item) return;
     addItemToBill(item);
   }
+
+  const handleRestoreCart = () => {
+    if (!recoveredCart) return;
+    setLines(recoveredCart.lines);
+    setCustomerName(recoveredCart.customerName || "");
+    setCustomerPhone(recoveredCart.customerPhone || "");
+    setDoctorName(recoveredCart.doctorName || "");
+    setPrescriptionNo(recoveredCart.prescriptionNo || "");
+    setPaymentMode(recoveredCart.paymentMode || "cash");
+    setShowRecoveryModal(false);
+    setRecoveredCart(null);
+    toast.success("🛒 Unsaved cart successfully restored!");
+  };
+
+  const handleDiscardCart = () => {
+    if (tenant?.id) {
+      localStorage.removeItem(`medicare_cart_cache_${tenant.id}`);
+    }
+    setShowRecoveryModal(false);
+    setRecoveredCart(null);
+    toast.info("🗑️ Unsaved cart has been discarded.");
+  };
 
   function updateLine(inventoryId: string, patch: Partial<BillingLine>) {
     setLines((current) =>
@@ -1236,6 +1303,75 @@ export function BillingPos({ tenant }: { tenant: any }) {
                   Skip for now
                 </button>
                 <span className="text-[10px] text-slate-400">You can upload later from Prescriptions page</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Cart Recovery Modal overlay ─── */}
+      {showRecoveryModal && recoveredCart && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in no-print" onClick={handleDiscardCart}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200 animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 px-5 py-4">
+              <h3 className="font-display text-base font-bold text-emerald-900 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-500 animate-pulse" />
+                Restore Unsaved Billing Cart?
+              </h3>
+              <p className="mt-1 text-xs text-emerald-700">
+                It looks like you had an active unsaved billing session from earlier today. Would you like to restore it?
+              </p>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              {/* Unsaved Cart Details Summary Card */}
+              <div className="rounded-xl border border-slate-150 bg-slate-50/50 p-4 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Customer:</span>
+                  <span className="font-bold text-med-navy">
+                    {recoveredCart.customerName || "Walk-in Customer"}{" "}
+                    {recoveredCart.customerPhone ? `(${recoveredCart.customerPhone})` : ""}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Payment Mode:</span>
+                  <span className="font-semibold text-slate-700 capitalize">{recoveredCart.paymentMode}</span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-200/60 pt-2.5">
+                  <span className="text-slate-400 font-medium">Restoring Items ({recoveredCart.lines.length}):</span>
+                  <span className="font-bold text-slate-800 font-mono truncate max-w-[200px]">
+                    {recoveredCart.lines.map((l: any) => l.medicineName).slice(0, 3).join(", ")}
+                    {recoveredCart.lines.length > 3 ? "..." : ""}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-slate-200/60 pt-2.5 text-sm">
+                  <span className="text-slate-500 font-bold">Estimated Total:</span>
+                  <span className="font-black text-emerald-800">
+                    {formatCurrency(
+                      recoveredCart.lines.reduce(
+                        (sum: number, l: any) =>
+                          sum + l.quantity * l.saleRatePaisa * (1 - (l.discountPercent || 0) / 100),
+                        0
+                      )
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+                <button
+                  onClick={handleDiscardCart}
+                  className="flex-1 rounded-xl border border-red-200 bg-red-50 py-2.5 text-center text-sm font-bold text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors active:scale-95 duration-100"
+                >
+                  Discard Cart
+                </button>
+                <button
+                  onClick={handleRestoreCart}
+                  className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-bold text-white shadow-md shadow-emerald-600/10 hover:bg-emerald-700 active:scale-95 transition-all duration-100"
+                >
+                  ⚡ Restore & Continue
+                </button>
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ export default function InvoiceSettingsPage() {
       title="Invoice Settings"
       description="Invoice prefix, numbering, terms, footer, and print layout controls."
       icon={ReceiptText}
+      hideHeader={true}
       items={[
         { label: "Prefix", value: "MED", hint: "MED-[YEAR]-[6DIGIT]" },
         { label: "Print modes", value: "A4 / Thermal", hint: "A4 detail page is active" },

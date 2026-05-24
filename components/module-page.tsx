@@ -6,17 +6,19 @@ export function ModulePage({
   description,
   icon: Icon,
   actions,
-  items
+  items,
+  hideHeader
 }: {
   title: string;
   description: string;
   icon: LucideIcon;
   actions?: React.ReactNode;
   items: { label: string; value: string; hint?: string }[];
+  hideHeader?: boolean;
 }) {
   return (
     <>
-      <PageHeader title={title} description={description} action={actions} />
+      {!hideHeader && <PageHeader title={title} description={description} action={actions} />}
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <article key={item.label} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">

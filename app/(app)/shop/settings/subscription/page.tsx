@@ -12,6 +12,7 @@ export default async function SubscriptionSettingsPage() {
       title="Subscription"
       description="Free-first subscription controls for the beta build."
       icon={BadgeIndianRupee}
+      hideHeader={true}
       items={[
         { label: "Current plan", value: tenant.plan.toUpperCase(), hint: "No payment gateway required" },
         { label: "Bills/month", value: "500", hint: "Free plan soft limit" },

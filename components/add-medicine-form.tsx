@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Plus, RotateCcw, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertCircle, CheckCircle2, Database, Loader2, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
+import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
 
 type AddMedicineFormProps = {
   onSuccess?: (result: { medicine: any; inventory: any }) => void;
@@ -170,13 +171,39 @@ const _searchIndex = COMMON_MEDICINES.map(m => ({
   _search: `${m.name} ${m.generic} ${m.category} ${m.form}`.toLowerCase(),
 }));
 
+// ─── Drug Master API suggestion type ─────────────────────────
+type DrugMasterHit = DrugMasterSuggestion;
+
 export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", prefillName = "", mode = "standalone", showInventoryFields = true }: AddMedicineFormProps) {
   const [saving, setSaving] = useState(false);
   const [showInventory, setShowInventory] = useState(mode === "inline" && showInventoryFields);
   const [nameValue, setNameValue] = useState(prefillName);
   const [nameSuggestions, setNameSuggestions] = useState<typeof COMMON_MEDICINES>([]);
+  const [drugMasterResults, setDrugMasterResults] = useState<DrugMasterHit[]>([]);
+  const [drugMasterLoading, setDrugMasterLoading] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Debounced Drug Master API search
+  useEffect(() => {
+    if (nameValue.length < 2) {
+      setDrugMasterResults([]);
+      setDrugMasterLoading(false);
+      return;
+    }
+    setDrugMasterLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/drug-master/search?q=${encodeURIComponent(nameValue)}`, { signal: controller.signal })
+        .then(r => r.json())
+        .then(result => {
+          setDrugMasterResults(result.data ?? []);
+          setDrugMasterLoading(false);
+        })
+        .catch(() => setDrugMasterLoading(false));
+    }, 200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [nameValue]);
 
   // Ultra-fast auto-suggest using pre-built lowercase index
   function handleNameChange(value: string) {
@@ -185,29 +212,55 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
     if (value.length >= 2) {
       const lower = value.toLowerCase();
       const tokens = lower.split(/\s+/).filter(t => t.length >= 2);
-      // Multi-token matching: every token must appear somewhere in the search string
       const matched = _searchIndex.filter(m =>
         tokens.every(token => m._search.includes(token))
-      ).slice(0, 8);
+      ).slice(0, 5);
       setNameSuggestions(matched);
     } else {
       setNameSuggestions([]);
     }
   }
 
+  // Fill from local hardcoded suggestion
   function fillFromSuggestion(med: typeof COMMON_MEDICINES[0]) {
     setNameValue(med.name);
     setNameSuggestions([]);
+    setDrugMasterResults([]);
     if (!formRef.current) return;
     const form = formRef.current;
     const setValue = (name: string, val: string) => {
       const el = form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
-      if (el && !el.value) el.value = val;
+      if (el) el.value = val;
     };
     setValue("genericName", med.generic);
     setValue("strength", med.strength);
     setValue("dosageForm", med.form);
     setValue("category", med.category);
+  }
+
+  // Fill from Drug Master API suggestion — auto-fills ALL fields
+  function fillFromDrugMaster(hit: DrugMasterHit) {
+    setNameValue(hit.name);
+    setNameSuggestions([]);
+    setDrugMasterResults([]);
+    if (!formRef.current) return;
+    const form = formRef.current;
+    const setValue = (name: string, val: string) => {
+      const el = form.elements.namedItem(name) as HTMLInputElement | HTMLSelectElement | null;
+      if (el) el.value = val;
+    };
+    setValue("genericName", hit.genericName || "");
+    setValue("manufacturer", hit.manufacturer || "");
+    setValue("composition", hit.composition || "");
+    setValue("strength", hit.strength || "");
+    setValue("packSize", hit.packSize || "");
+    setValue("dosageForm", hit.dosageForm || "");
+    setValue("category", ""); // category may not map directly
+    setValue("hsnCode", hit.hsnCode || "");
+    setValue("schedule", hit.schedule || "OTC");
+    setValue("gstRate", String(hit.gstRate ?? 12));
+    if (hit.mrpPaisa > 0) setValue("mrp", String(hit.mrpPaisa / 100));
+    toast.success(`✅ Auto-filled from Drug Master: ${hit.name}`, { duration: 2500 });
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -335,19 +388,64 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
             className="h-9 w-full rounded-md border border-slate-300 px-2 text-sm outline-none focus:border-med-green focus:ring-1 focus:ring-med-green/20"
             autoComplete="off"
           />
-          {nameSuggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-full z-10 mt-1 overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg">
-              {nameSuggestions.map((med) => (
-                <button
-                  key={med.name}
-                  type="button"
-                  onClick={() => fillFromSuggestion(med)}
-                  className="block w-full border-b border-slate-50 px-3 py-2 text-left hover:bg-med-greenSoft"
-                >
-                  <span className="block text-sm font-medium text-med-navy">{med.name}</span>
-                  <span className="text-xs text-slate-500">{med.generic} • {med.strength} • {med.form}</span>
-                </button>
-              ))}
+          {(nameSuggestions.length > 0 || drugMasterResults.length > 0 || drugMasterLoading) && (
+            <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-xl">
+              {/* Drug Master API Results */}
+              {(drugMasterResults.length > 0 || drugMasterLoading) && (
+                <div>
+                  <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-1.5">
+                    {drugMasterLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
+                    ) : (
+                      <Database className="h-3 w-3 text-purple-500" />
+                    )}
+                    <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">
+                      Drug Master Database {drugMasterLoading ? "— Searching..." : `— ${drugMasterResults.length} found`}
+                    </span>
+                    <Sparkles className="h-3 w-3 text-purple-400 ml-auto" />
+                  </div>
+                  {drugMasterResults.slice(0, 8).map((hit, i) => (
+                    <button
+                      key={`dm-${hit.name}-${i}`}
+                      type="button"
+                      onClick={() => fillFromDrugMaster(hit)}
+                      className="block w-full border-b border-slate-50 px-3 py-2 text-left hover:bg-purple-50/60 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="block text-sm font-semibold text-slate-800">{hit.name}</span>
+                        <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-600">Drug Master ⚡</span>
+                      </div>
+                      <span className="text-xs text-slate-500">
+                        {hit.genericName}{hit.strength ? ` • ${hit.strength}` : ""}{hit.manufacturer ? ` • ${hit.manufacturer}` : ""}
+                      </span>
+                      {hit.mrpPaisa > 0 && (
+                        <span className="ml-1 text-xs font-medium text-emerald-600">₹{(hit.mrpPaisa / 100).toFixed(2)}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Local Hardcoded Suggestions */}
+              {nameSuggestions.length > 0 && (
+                <div>
+                  {drugMasterResults.length > 0 && (
+                    <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-emerald-100 bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-1.5">
+                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Quick Suggestions</span>
+                    </div>
+                  )}
+                  {nameSuggestions.map((med) => (
+                    <button
+                      key={med.name}
+                      type="button"
+                      onClick={() => fillFromSuggestion(med)}
+                      className="block w-full border-b border-slate-50 px-3 py-2 text-left hover:bg-med-greenSoft transition-colors"
+                    >
+                      <span className="block text-sm font-medium text-med-navy">{med.name}</span>
+                      <span className="text-xs text-slate-500">{med.generic} • {med.strength} • {med.form}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

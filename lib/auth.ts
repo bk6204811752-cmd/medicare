@@ -31,10 +31,23 @@ export async function clearAuthSession() {
 // Request-scoped dedup: layout + admin layout + page can all call this,
 // but only 1 DB query happens per server request.
 export const getCurrentUser = cache(async () => {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!sessionId) return null;
-  return await getUserBySession(sessionId);
+  try {
+    const cookieStore = await cookies();
+    const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
+    if (!sessionId) return null;
+    return await getUserBySession(sessionId);
+  } catch (error) {
+    // Rethrow Next.js internal dynamic rendering and redirect errors so that Next.js compiles them dynamically
+    if (error instanceof Error && (
+      error.message.includes("Dynamic server usage") || 
+      error.message.includes("NEXT_REDIRECT") ||
+      (error as any).digest === "DYNAMIC_SERVER_USAGE"
+    )) {
+      throw error;
+    }
+    console.error("Failed to get current user session:", error);
+    return null;
+  }
 });
 
 export async function requireUser() {

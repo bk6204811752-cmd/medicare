@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { 
-  ChevronDown, Plus, Search, Sparkles, X, 
+  ChevronDown, Database, Plus, Search, Sparkles, X, 
   Camera, Upload, RefreshCw, CheckCircle2, 
-  AlertCircle, FileText, Info, HelpCircle, Clipboard
+  AlertCircle, FileText, Info, HelpCircle, Clipboard,
+  Loader2
 } from "lucide-react";
 import { AddMedicineForm } from "@/components/add-medicine-form";
+import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
 
 type SelectItem = {
   id: string;
@@ -233,6 +235,8 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const [medicineSearch, setMedicineSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
+  const [drugMasterHits, setDrugMasterHits] = useState<DrugMasterSuggestion[]>([]);
+  const [drugMasterLoading, setDrugMasterLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -273,15 +277,15 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     return m.name.toLowerCase().includes(q) || m.genericName?.toLowerCase().includes(q);
   });
 
-  // Sync pricing, GST, HSN on select change
+  // Safely bind MediaStream to <video> element once mounted (solves black screen preview bug)
   useEffect(() => {
-    if (selected) {
-      setMrp(selected.mrpPaisa ? String(selected.mrpPaisa / 100) : "");
-      setSaleRate(selected.mrpPaisa ? String(selected.mrpPaisa / 100) : "");
-      setGstRate(String(selected.gstRate ?? 12));
-      setHsnCode(selected.hsnCode ?? "");
+    if (cameraActive && cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch((err) => {
+        console.warn("video.play() failed:", err);
+      });
     }
-  }, [medicineId, selected]);
+  }, [cameraActive, cameraStream]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -294,10 +298,54 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Debounced Drug Master API search for stock form
+  useEffect(() => {
+    if (medicineSearch.length < 2) {
+      setDrugMasterHits([]);
+      setDrugMasterLoading(false);
+      return;
+    }
+    // Only fetch if no exact local match
+    const hasLocal = localMedicines.some(m => m.name.toLowerCase() === medicineSearch.toLowerCase());
+    if (hasLocal) { setDrugMasterHits([]); return; }
+    
+    setDrugMasterLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/drug-master/search?q=${encodeURIComponent(medicineSearch)}`, { signal: controller.signal })
+        .then(r => r.json())
+        .then(result => {
+          setDrugMasterHits(result.data ?? []);
+          setDrugMasterLoading(false);
+        })
+        .catch(() => setDrugMasterLoading(false));
+    }, 250);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [medicineSearch, localMedicines]);
+
+  // Select a Drug Master suggestion — auto-fills all fields
+  function selectDrugMasterHit(hit: DrugMasterSuggestion) {
+    setMedicineId("new");
+    setMedicineSearch(hit.name);
+    setShowDropdown(false);
+    setDrugMasterHits([]);
+    setMrp(hit.mrpPaisa > 0 ? String(hit.mrpPaisa / 100) : "");
+    setSaleRate(hit.mrpPaisa > 0 ? String(hit.mrpPaisa / 100) : "");
+    setGstRate(String(hit.gstRate ?? 12));
+    setHsnCode(hit.hsnCode ?? "");
+    toast.success(`⚡ Auto-filled from Drug Master: ${hit.name}`, { duration: 2500 });
+  }
+
   function selectMedicine(m: SelectItem) {
     setMedicineId(m.id);
     setMedicineSearch(m.name);
     setShowDropdown(false);
+    
+    // Auto-fill defaults on manual dropdown selection
+    setMrp(m.mrpPaisa ? String(m.mrpPaisa / 100) : "");
+    setSaleRate(m.mrpPaisa ? String(m.mrpPaisa / 100) : "");
+    setGstRate(String(m.gstRate ?? 12));
+    setHsnCode(m.hsnCode ?? "");
   }
 
   function clearSelection() {
@@ -348,9 +396,6 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       
       setCameraStream(stream);
       setCameraActive(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
     } catch (err) {
       console.error("Camera access failed completely", err);
       toast.error("Could not access camera. Please allow permissions or upload an image file.");
@@ -422,6 +467,9 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         imageSrc,
         "eng",
         {
+          workerPath: "https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/worker.min.js",
+          corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.4/tesseract-core-wasm.js",
+          langPath: "https://tessdata.projectnaptha.com/4.0.0",
           logger: (m) => {
             if (m.status === "recognizing text") {
               setLoadingStep(`🔍 Reading text from invoice: ${Math.round(m.progress * 100)}%`);
@@ -454,7 +502,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       setShowConfirmModal(true);
     } catch (err) {
       console.error("OCR Exception", err);
-      toast.error("Local OCR failed. Please check image clarity and try again.");
+      toast.error(`OCR Failed: ${err instanceof Error ? err.message : String(err)}. Please try uploading again or paste text.`);
       setOcrLoading(false);
     }
   };
@@ -476,7 +524,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
   const handleConfirmScanned = () => {
     if (scannedData) {
-      if (scannedData.medicineId) {
+      if (scannedData.medicineId === "new") {
+        setMedicineId("new");
+        setMedicineSearch(scannedData.name || "");
+      } else if (scannedData.medicineId) {
         setMedicineId(scannedData.medicineId);
         const med = localMedicines.find(m => m.id === scannedData.medicineId);
         if (med) setMedicineSearch(med.name);
@@ -499,6 +550,146 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     }
   };
 
+  async function saveScannedStockDirectly() {
+    if (!scannedData) return;
+    setSaving(true);
+    let actualMedicineId = scannedData.medicineId;
+
+    // Auto-create medicine record if it's a new on-the-fly entry
+    if (scannedData.medicineId === "new") {
+      const name = scannedData.name.trim();
+      if (!name) {
+        toast.error("Please enter a valid medicine name for the new record");
+        setSaving(false);
+        return;
+      }
+
+      try {
+        const mrpValue = Math.round(sanitizePrice(scannedData.mrp) * 100);
+        let gstRateValue = sanitizeInt(scannedData.gstRate, 12);
+        const validGstRates = [0, 5, 12, 18];
+        if (!validGstRates.includes(gstRateValue)) {
+          gstRateValue = 12; // Fallback
+        }
+        const hsnCodeValue = String(scannedData.hsnCode || "").trim();
+
+        const response = await fetch("/api/medicines/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            genericName: "", 
+            manufacturer: "",
+            category: "Other",
+            composition: "",
+            dosageForm: "Tablet",
+            strength: "",
+            packSize: "",
+            hsnCode: hsnCodeValue,
+            gstRate: gstRateValue,
+            mrpPaisa: mrpValue,
+            schedule: "OTC",
+            requiresPrescription: false
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          toast.error(result.error ?? "Failed to create new medicine record");
+          setSaving(false);
+          return;
+        }
+
+        actualMedicineId = result.data.id;
+        
+        // Immediately sync local list to bind with newly created medicine
+        const newItem: SelectItem = {
+          id: result.data.id,
+          name: name,
+          genericName: "",
+          gstRate: gstRateValue,
+          hsnCode: hsnCodeValue,
+          mrpPaisa: mrpValue,
+        };
+        setLocalMedicines((prev) => [newItem, ...prev]);
+        setMedicineId(result.data.id);
+        setMedicineSearch(name);
+      } catch (err) {
+        toast.error("Error creating new medicine record");
+        setSaving(false);
+        return;
+      }
+    }
+
+    if (!actualMedicineId) {
+      toast.error("Please select or match a medicine first");
+      setSaving(false);
+      return;
+    }
+
+    // Validate and sanitize GST rate strictly to match Zod literals [0, 5, 12, 18]
+    let parsedGst = sanitizeInt(scannedData.gstRate, 12);
+    const validGstRates = [0, 5, 12, 18];
+    if (!validGstRates.includes(parsedGst)) {
+      parsedGst = 12; // Fallback
+    }
+
+    const payload = {
+      medicineId: actualMedicineId,
+      supplierId: String(supplierId),
+      batchNo: String(scannedData.batchNo).trim(),
+      mfgDate: "",
+      expiryDate: String(scannedData.expiryDate || ""),
+      purchaseRatePaisa: Math.round(sanitizePrice(scannedData.purchaseRate) * 100),
+      mrpPaisa: Math.round(sanitizePrice(scannedData.mrp) * 100),
+      saleRatePaisa: Math.round(sanitizePrice(scannedData.saleRate) * 100),
+      gstRate: parsedGst,
+      hsnCode: String(scannedData.hsnCode || "").trim(),
+      quantity: sanitizeInt(scannedData.quantity, 0),
+      reorderLevel: 10,
+      rackLocation: ""
+    };
+
+    if (!payload.batchNo) {
+      toast.error("Batch number is required");
+      setSaving(false);
+      return;
+    }
+    if (!payload.expiryDate) {
+      toast.error("Expiry date is required");
+      setSaving(false);
+      return;
+    }
+    if (payload.quantity <= 0) {
+      toast.error("Quantity must be greater than zero");
+      setSaving(false);
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/inventory", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error(result.error ?? "Unable to save stock");
+        return;
+      }
+
+      toast.success("Stock saved and inventory updated successfully!");
+      setShowConfirmModal(false);
+      router.push("/shop/inventory");
+      router.refresh();
+    } catch {
+      toast.error("Network error — please check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // Helper to sanitize price inputs (strips currency symbols, spaces, suffixes)
   function sanitizePrice(value: string | number) {
     const clean = String(value || "").replace(/[^0-9.]/g, "");
@@ -506,14 +697,13 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     return isNaN(num) ? 0 : num;
   }
 
-  // Helper to sanitize integer inputs (strips non-digits)
   function sanitizeInt(value: string | number, defaultValue = 0) {
     const clean = String(value || "").replace(/\D/g, "");
     const num = Number(clean);
     return isNaN(num) || clean === "" ? defaultValue : num;
   }
 
-  async function submit(formData: FormData) {
+  async function submit() {
     if (!medicineId) {
       toast.error("Please select or enter a medicine first");
       return;
@@ -567,6 +757,19 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         }
 
         actualMedicineId = result.data.id;
+        
+        // Immediately sync local state to bind with newly created medicine to prevent duplicate creation errors if stock saving fails
+        const newItem: SelectItem = {
+          id: result.data.id,
+          name: name,
+          genericName: "",
+          gstRate: gstRateValue,
+          hsnCode: hsnCodeValue,
+          mrpPaisa: mrpValue,
+        };
+        setLocalMedicines((prev) => [newItem, ...prev]);
+        setMedicineId(result.data.id);
+        setMedicineSearch(name);
       } catch (err) {
         toast.error("Error creating new medicine record");
         setSaving(false);
@@ -620,6 +823,12 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     }
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (saving) return;
+    await submit();
+  }
+
   return (
     <div className="space-y-4">
       {/* Dynamic scan-trigger banner */}
@@ -635,6 +844,19 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         </div>
         
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Mobile direct native camera capture (bypasses browser constraints and secure context requirements) */}
+          <label className="flex sm:hidden items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer shadow-sm hover:shadow transition-all min-h-11">
+            <Camera className="h-4 w-4" />
+            <span>Mobile Camera</span>
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment"
+              className="hidden" 
+              onChange={handleFileUpload} 
+            />
+          </label>
+
           <button
             type="button"
             onClick={() => {
@@ -648,7 +870,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           </button>
           
           <label className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer shadow-sm min-h-11">
-            <Upload className="h-4 w-4 text-slate-500" />
+            <Upload className="h-4 w-4 text-slate-550" />
             <span>Upload Image</span>
             <input 
               type="file" 
@@ -669,7 +891,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         </div>
       </div>
 
-      <form action={submit} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2">
+      <form onSubmit={handleSubmit} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2">
         {/* Searchable Medicine Combobox OR Detailed Master Entry Form */}
         <div className="space-y-2 md:col-span-2">
           <span className="text-sm font-medium text-slate-600 font-semibold">Medicine *</span>
@@ -726,6 +948,43 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                     ))
                   )}
                   
+                  {/* Drug Master Database Results */}
+                  {(drugMasterHits.length > 0 || drugMasterLoading) && (
+                    <div>
+                      <div className="sticky top-0 z-10 flex items-center gap-1.5 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-indigo-50 px-3 py-1.5">
+                        {drugMasterLoading ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-purple-500" />
+                        ) : (
+                          <Database className="h-3 w-3 text-purple-500" />
+                        )}
+                        <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">
+                          Drug Master Database {drugMasterLoading ? "— Searching..." : `— ${drugMasterHits.length} found`}
+                        </span>
+                        <Sparkles className="h-3 w-3 text-purple-400 ml-auto" />
+                      </div>
+                      {drugMasterHits.slice(0, 8).map((hit, i) => (
+                        <button
+                          key={`dm-stock-${hit.name}-${i}`}
+                          type="button"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            selectDrugMasterHit(hit);
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-purple-50/60"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <p className="truncate text-sm font-semibold text-slate-800">{hit.name}</p>
+                              <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-600">Drug Master ⚡</span>
+                            </div>
+                            {hit.genericName && <p className="truncate text-xs text-slate-500">{hit.genericName}{hit.manufacturer ? ` • ${hit.manufacturer}` : ""}</p>}
+                          </div>
+                          {hit.mrpPaisa > 0 && <span className="shrink-0 text-xs text-emerald-600 font-medium">₹{(hit.mrpPaisa / 100).toFixed(2)}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* On-the-fly Medicine Creation Trigger */}
                   {medicineSearch.trim() && !localMedicines.some(m => m.name.toLowerCase() === medicineSearch.trim().toLowerCase()) && (
                     <button
@@ -1190,11 +1449,9 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                       className="h-10 w-full rounded-lg border border-slate-350 bg-white px-3 text-xs outline-none focus:ring-1 focus:ring-med-green font-semibold"
                     >
                       <option value="">-- Click to bind to existing medicine --</option>
-                      {scannedData.name && (
-                        <option value="new" className="text-amber-600 font-bold">
-                          ✨ Add &quot;{scannedData.name}&quot; as New Medicine
-                        </option>
-                      )}
+                      <option value="new" className="text-amber-600 font-bold">
+                        ✨ Add as New Medicine
+                      </option>
                       {localMedicines.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.name} {m.genericName ? `(${m.genericName})` : ""}
@@ -1202,6 +1459,21 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                       ))}
                     </select>
                   </div>
+
+                  {/* Editable New Medicine Name Field */}
+                  {scannedData.medicineId === "new" && (
+                    <div className="sm:col-span-2 space-y-1">
+                      <label className="text-xs font-bold text-slate-600">New Medicine Name *</label>
+                      <input
+                        type="text"
+                        value={scannedData.name || ""}
+                        onChange={(e) => setScannedData(prev => prev ? { ...prev, name: e.target.value } : null)}
+                        placeholder="Enter new medicine name..."
+                        className="h-9 w-full rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                        required
+                      />
+                    </div>
+                  )}
 
                   {/* Scanned Batch */}
                   <div className="space-y-1">
@@ -1322,7 +1594,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 flex items-center justify-end gap-3">
+            <div className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 flex flex-wrap items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowConfirmModal(false)}
@@ -1334,9 +1606,28 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
               <button
                 type="button"
                 onClick={handleConfirmScanned}
-                className="flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs min-h-10 shadow-sm transition-all"
+                className="px-4 py-2.5 rounded-lg border border-slate-350 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs min-h-10 transition-colors"
               >
-                <span>Confirm & Fill Form</span>
+                Confirm & Edit in Form
+              </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={saveScannedStockDirectly}
+                className="flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs min-h-10 shadow-sm transition-all disabled:opacity-60"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Saving Stock...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Confirm & Save to Stock (Direct)</span>
+                  </>
+                )}
               </button>
             </div>
 

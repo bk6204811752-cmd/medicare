@@ -7,6 +7,7 @@ export default function StaffSettingsPage() {
       title="Staff Management"
       description="Role-based access model for shop admin, staff, and pharmacist users."
       icon={Users}
+      hideHeader={true}
       items={[
         { label: "Shop admin", value: "1", hint: "Full permissions" },
         { label: "Staff role", value: "Ready", hint: "Billing-only permission model" },

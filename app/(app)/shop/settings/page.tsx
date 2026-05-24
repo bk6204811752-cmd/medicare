@@ -1,4 +1,3 @@
-import { PageHeader } from "@/components/page-header";
 import { getCurrentUser } from "@/lib/auth";
 import { getTenant } from "@/lib/local-db";
 
@@ -8,7 +7,6 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Shop profile, GST behavior, invoice numbering, staff permissions, and free-plan limits." />
       <section className="grid gap-4 lg:grid-cols-2">
         <form className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-display text-lg font-semibold text-med-navy">Shop profile</h2>

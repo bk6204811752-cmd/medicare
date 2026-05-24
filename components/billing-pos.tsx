@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CameraOff, ChevronDown, ChevronUp, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Trash2, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X } from "lucide-react";
+import { Camera, CameraOff, ChevronDown, ChevronUp, Database, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Sparkles, Trash2, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
 import type { SaleLine } from "@/lib/types";
 import { daysUntil, formatCurrency } from "@/lib/utils";
 import { AddMedicineForm } from "@/components/add-medicine-form";
+import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
 
 // ─── Lazy-loaded barcode reader singleton ───
 let _readerPromise: Promise<any> | null = null;
@@ -89,6 +90,8 @@ export function BillingPos() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const customerDropdownRef = useRef<HTMLDivElement | null>(null);
   const [searching, setSearching] = useState(false);
+  const [drugMasterHits, setDrugMasterHits] = useState<DrugMasterSuggestion[]>([]);
+  const [drugMasterLoading, setDrugMasterLoading] = useState(false);
   const [scanCountdown, setScanCountdown] = useState(0);
   const scanCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // External USB barcode scanner detection: rapid keypresses ending with Enter
@@ -188,6 +191,27 @@ export function BillingPos() {
         .catch(() => setSearching(false));
     }, isNumeric ? 50 : 100); // Barcode = 50ms, text search = 100ms
 
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [query]);
+
+  // Debounced Drug Master API search — runs in parallel with inventory search
+  useEffect(() => {
+    if (query.length < 2 || /^\d+$/.test(query)) {
+      setDrugMasterHits([]);
+      setDrugMasterLoading(false);
+      return;
+    }
+    setDrugMasterLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/drug-master/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+        .then(r => r.json())
+        .then(result => {
+          setDrugMasterHits(result.data ?? []);
+          setDrugMasterLoading(false);
+        })
+        .catch(() => setDrugMasterLoading(false));
+    }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query]);
 
@@ -742,19 +766,58 @@ export function BillingPos() {
           </div>
         )}
 
-        {/* ─── "Not Found" — Add Medicine Manually ─── */}
+        {/* ─── "Not Found" — Drug Master Suggestions + Manual Add ─── */}
         {query.length >= 2 && matches.length === 0 && suggestions.length === 0 && !showAddMedicine && (
-          <div className="mt-3 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
-            <p className="text-sm text-slate-600">No medicine found for &quot;{query}&quot;</p>
-            <button
-              onClick={() => {
-                setAddMedicinePrefill({ name: query, ...addMedicinePrefill });
-                setShowAddMedicine(true);
-              }}
-              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              <Plus className="h-4 w-4" /> Add New Medicine Manually
-            </button>
+          <div className="mt-3 space-y-3">
+            {/* Drug Master API suggestions */}
+            {(drugMasterHits.length > 0 || drugMasterLoading) && (
+              <div className="rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50/50 to-indigo-50/30 p-3">
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-bold text-purple-800">
+                  {drugMasterLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-500" />
+                  ) : (
+                    <Database className="h-3.5 w-3.5 text-purple-500" />
+                  )}
+                  {drugMasterLoading ? "Searching Drug Master Database..." : `Found ${drugMasterHits.length} in Drug Master Database`}
+                  <Sparkles className="h-3 w-3 text-purple-400 ml-auto" />
+                </p>
+                {drugMasterHits.slice(0, 5).map((hit, i) => (
+                  <div key={`dm-${hit.name}-${i}`} className="flex items-center justify-between border-b border-purple-100/50 py-2 last:border-b-0">
+                    <div>
+                      <span className="text-sm font-semibold text-purple-900">{hit.name}</span>
+                      {hit.genericName && <span className="ml-1.5 text-xs text-purple-700">({hit.genericName})</span>}
+                      {hit.mrpPaisa > 0 && <span className="ml-1.5 text-xs font-medium text-emerald-600">₹{(hit.mrpPaisa / 100).toFixed(2)}</span>}
+                      <span className="ml-1.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[9px] font-bold text-purple-600">Drug Master ⚡</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAddMedicinePrefill({ name: hit.name });
+                        setShowAddMedicine(true);
+                        toast.info(`Quick-add form opened with Drug Master data for "${hit.name}"`);
+                      }}
+                      className="rounded-md bg-purple-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-purple-700 transition-colors"
+                    >
+                      <Plus className="inline h-3 w-3 mr-0.5" /> Quick Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Manual add fallback */}
+            {!drugMasterLoading && drugMasterHits.length === 0 && (
+              <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+                <p className="text-sm text-slate-600">No medicine found for &quot;{query}&quot;</p>
+                <button
+                  onClick={() => {
+                    setAddMedicinePrefill({ name: query, ...addMedicinePrefill });
+                    setShowAddMedicine(true);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4" /> Add New Medicine Manually
+                </button>
+              </div>
+            )}
           </div>
         )}
 

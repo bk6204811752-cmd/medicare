@@ -526,10 +526,11 @@ export function BillingHistoryClient({
               
               // WhatsApp text share link helper
               const itemsShortList = sale.items.map(i => `${i.medicine_name} (${i.quantity})`).join(", ");
+              const invoiceUrl = `${window.location.origin}/shop/billing/${sale.id}`;
               const shareMessage = encodeURIComponent(
                 whatsappBaseMessage 
-                  ? `${whatsappBaseMessage} Invoice: ${sale.invoice_no}. Total: ${formatCurrency(sale.total_paisa)}. Items: ${itemsShortList}. Thanks!`
-                  : `Medicare Invoice: ${sale.invoice_no} from ${tenantName}.\nTotal Amount: ${formatCurrency(sale.total_paisa)}.\nMedicines: ${itemsShortList}.\nThank you!`
+                  ? `${whatsappBaseMessage} Invoice: ${sale.invoice_no}. Total: ${formatCurrency(sale.total_paisa)}. View/Download professional Invoice PDF here: ${invoiceUrl}. Thanks!`
+                  : `Medicare Invoice: ${sale.invoice_no} from ${tenantName}.\nTotal Amount: ${formatCurrency(sale.total_paisa)}.\nMedicines: ${itemsShortList}.\nView/Download professional Invoice PDF here: ${invoiceUrl}\nThank you!`
               );
               const whatsappUrl = `https://wa.me/${sale.customer_phone ? sale.customer_phone.replace(/\D/g, "") : ""}?text=${shareMessage}`;
 

@@ -107,75 +107,77 @@ export default function ShopDashboard() {
             </div>
 
             {trend && trend.length > 0 ? (
-              <div className="relative h-48 w-full">
-                <svg className="w-full h-full" viewBox="0 0 600 160" preserveAspectRatio="none">
-                  {/* Grid lines & Y-axis labels */}
-                  {(() => {
-                    const maxSales = Math.max(...trend.map((d) => d.sales), 100);
-                    const yAxisMax = Math.ceil(maxSales / 500) * 500;
-                    const steps = [yAxisMax, (yAxisMax * 2) / 3, yAxisMax / 3, 0];
-                    return (
-                      <>
-                        {steps.map((val, idx) => {
-                          const y = 15 + idx * 35;
-                          return (
-                            <g key={idx} className="opacity-40">
-                              <line x1="60" y1={y} x2="580" y2={y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
-                              <text x="50" y={y + 4} textAnchor="end" className="text-[10px] font-semibold fill-slate-400 font-sans">
-                                ₹{Math.round(val)}
-                              </text>
-                            </g>
-                          );
-                        })}
-
-                        {/* Bars */}
-                        {trend.map((item, idx) => {
-                          const x = 85 + idx * 70;
-                          const barHeight = yAxisMax > 0 ? (item.sales / yAxisMax) * 105 : 0;
-                          const y = 120 - barHeight;
-                          const isMax = item.sales === maxSales && maxSales > 0;
-
-                          return (
-                            <g key={idx} className="group cursor-pointer">
-                              {/* Tooltip on hover */}
-                              <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <rect x={x - 20} y={y - 25} width="70" height="20" rx="4" fill="#0f172a" />
-                                <text x={x + 15} y={y - 12} textAnchor="middle" className="text-[9px] font-bold fill-white">
-                                  ₹{item.sales}
+              <div className="overflow-x-auto pb-2 scrollbar-none">
+                <div className="relative h-48 min-w-[500px]">
+                  <svg className="w-full h-full" viewBox="0 0 600 160" preserveAspectRatio="none">
+                    {/* Grid lines & Y-axis labels */}
+                    {(() => {
+                      const maxSales = Math.max(...trend.map((d) => d.sales), 100);
+                      const yAxisMax = Math.ceil(maxSales / 500) * 500;
+                      const steps = [yAxisMax, (yAxisMax * 2) / 3, yAxisMax / 3, 0];
+                      return (
+                        <>
+                          {steps.map((val, idx) => {
+                            const y = 15 + idx * 35;
+                            return (
+                              <g key={idx} className="opacity-40">
+                                <line x1="60" y1={y} x2="580" y2={y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
+                                <text x="50" y={y + 4} textAnchor="end" className="text-[10px] font-semibold fill-slate-400 font-sans">
+                                  ₹{Math.round(val)}
                                 </text>
-                                <path d={`M ${x + 15} ${y - 5} L ${x + 11} ${y} L ${x + 19} ${y} Z`} fill="#0f172a" />
                               </g>
+                            );
+                          })}
 
-                              {/* Bar */}
-                              <rect
-                                x={x}
-                                y={y}
-                                width="30"
-                                height={Math.max(barHeight, 4)}
-                                rx="4"
-                                className={`transition-all duration-300 ${
-                                  isMax 
-                                    ? "fill-med-green hover:fill-med-greenDark" 
-                                    : "fill-slate-300 hover:fill-med-greenSoft text-slate-500"
-                                }`}
-                              />
+                          {/* Bars */}
+                          {trend.map((item, idx) => {
+                            const x = 85 + idx * 70;
+                            const barHeight = yAxisMax > 0 ? (item.sales / yAxisMax) * 105 : 0;
+                            const y = 120 - barHeight;
+                            const isMax = item.sales === maxSales && maxSales > 0;
 
-                              {/* Day Label */}
-                              <text x={x + 15} y="140" textAnchor="middle" className="text-[11px] font-semibold fill-slate-500 font-sans">
-                                {item.day}
-                              </text>
+                            return (
+                              <g key={idx} className="group cursor-pointer">
+                                {/* Tooltip on hover */}
+                                <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                  <rect x={x - 20} y={y - 25} width="70" height="20" rx="4" fill="#0f172a" />
+                                  <text x={x + 15} y={y - 12} textAnchor="middle" className="text-[9px] font-bold fill-white">
+                                    ₹{item.sales}
+                                  </text>
+                                  <path d={`M ${x + 15} ${y - 5} L ${x + 11} ${y} L ${x + 19} ${y} Z`} fill="#0f172a" />
+                                </g>
 
-                              {/* Bills count */}
-                              <text x={x + 15} y="152" textAnchor="middle" className="text-[9px] fill-slate-400 font-sans">
-                                {item.bills} bills
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
-                </svg>
+                                {/* Bar */}
+                                <rect
+                                  x={x}
+                                  y={y}
+                                  width="30"
+                                  height={Math.max(barHeight, 4)}
+                                  rx="4"
+                                  className={`transition-all duration-300 ${
+                                    isMax 
+                                      ? "fill-med-green hover:fill-med-greenDark" 
+                                      : "fill-slate-300 hover:fill-med-greenSoft text-slate-500"
+                                  }`}
+                                />
+
+                                {/* Day Label */}
+                                <text x={x + 15} y="140" textAnchor="middle" className="text-[11px] font-semibold fill-slate-500 font-sans">
+                                  {item.day}
+                                </text>
+
+                                {/* Bills count */}
+                                <text x={x + 15} y="152" textAnchor="middle" className="text-[9px] fill-slate-400 font-sans">
+                                  {item.bills} bills
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </svg>
+                </div>
               </div>
             ) : (
               <div className="flex h-36 items-center justify-center text-sm text-slate-400">

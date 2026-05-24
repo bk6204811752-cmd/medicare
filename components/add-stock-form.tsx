@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { 
-  ChevronDown, Database, Plus, Search, Sparkles, X, 
+  ChevronDown, Database, Plus, Search, Sparkles, X, Zap, 
   Camera, Upload, RefreshCw, CheckCircle2, 
   AlertCircle, FileText, Info, HelpCircle, Clipboard,
   Loader2
 } from "lucide-react";
 import { AddMedicineForm } from "@/components/add-medicine-form";
+import { BarcodeScanner } from "@/components/barcode-scanner";
 import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
 import { parseUnitsPerPack } from "@/lib/utils";
 
@@ -256,6 +257,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const [medicineSearch, setMedicineSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
+  const [prefillBarcode, setPrefillBarcode] = useState("");
   const [drugMasterHits, setDrugMasterHits] = useState<DrugMasterSuggestion[]>([]);
   const [drugMasterLoading, setDrugMasterLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -263,6 +265,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
   // Scanner States
   const [showScanner, setShowScanner] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -403,6 +406,75 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     selectMedicine(newItem);
     setShowAddMedicine(false);
     toast.success(`Medicine "${med.name}" created and selected`);
+  }
+
+  // ─── Camera Barcode/QR Scanner Handler ───
+  async function handleBarcodeScan(barcodeText: string) {
+    setShowBarcodeScanner(false);
+    const loadingToastId = toast.loading("Searching barcode...");
+
+    try {
+      const response = await fetch(`/api/medicines/search?q=${encodeURIComponent(barcodeText)}`);
+      const result = await response.json();
+      
+      // 1. Try to find in inventory/local first
+      if (result.data && result.data.length > 0) {
+        const invItem = result.data[0];
+        const med: SelectItem = {
+          id: invItem.medicineId || invItem.medicine.id,
+          name: invItem.medicine.name,
+          genericName: invItem.medicine.genericName,
+          gstRate: invItem.gstRate || invItem.medicine.gstRate,
+          hsnCode: invItem.hsnCode || invItem.medicine.hsnCode,
+          mrpPaisa: invItem.mrpPaisa || invItem.medicine.mrpPaisa,
+          packSize: invItem.medicine.packSize,
+        };
+        
+        if (!localMedicines.some((m) => m.id === med.id)) {
+          setLocalMedicines((prev) => [med, ...prev]);
+        }
+        
+        selectMedicine(med);
+        toast.dismiss(loadingToastId);
+        toast.success(`✅ Found & selected medicine: ${med.name}`);
+        return;
+      }
+
+      // 2. Try suggestions (master list)
+      if (result.suggestions && result.suggestions.length > 0) {
+        const med = result.suggestions[0] as SelectItem;
+        
+        if (!localMedicines.some((m) => m.id === med.id)) {
+          setLocalMedicines((prev) => [med, ...prev]);
+        }
+        
+        selectMedicine(med);
+        toast.dismiss(loadingToastId);
+        toast.success(`✅ Found in master database & selected: ${med.name}`);
+        return;
+      }
+
+      // 3. Fallback: check drug master suggestions API directly
+      const dmResponse = await fetch(`/api/drug-master/search?q=${encodeURIComponent(barcodeText)}`);
+      const dmResult = await dmResponse.json();
+      if (dmResult.data && dmResult.data.length > 0) {
+        const hit = dmResult.data[0] as DrugMasterSuggestion;
+        selectDrugMasterHit(hit);
+        toast.dismiss(loadingToastId);
+        toast.success(`✅ Found in central database & auto-filled: ${hit.name}`);
+        return;
+      }
+
+      // 4. Not found: Open quick add form and pre-fill barcode
+      setPrefillBarcode(barcodeText);
+      setShowAddMedicine(true);
+      toast.dismiss(loadingToastId);
+      toast.warning("Barcode not found — opening quick-add medicine form.", { duration: 5000 });
+    } catch (err) {
+      console.error("Barcode lookup failed:", err);
+      toast.dismiss(loadingToastId);
+      toast.error("Failed to look up barcode. Try manual search.");
+    }
   }
 
   // Camera Capture Trigger Functions with Bulletproof Constraint Fallbacks
@@ -928,6 +1000,15 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
           <button
             type="button"
+            onClick={() => setShowBarcodeScanner(true)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm hover:shadow transition-all min-h-11"
+          >
+            <Zap className="h-4 w-4" />
+            <span>Scan Barcode</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setShowScanner(true);
               startCamera();
@@ -1112,8 +1193,9 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
               <AddMedicineForm
                 mode="inline"
                 showInventoryFields={false}
+                prefillBarcode={prefillBarcode}
                 onSuccess={handleAddMedicineSuccess}
-                onCancel={() => setShowAddMedicine(false)}
+                onCancel={() => { setShowAddMedicine(false); setPrefillBarcode(""); }}
               />
             </div>
           )}
@@ -1340,6 +1422,36 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
       {/* Hidden processing canvas */}
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* ─── MODAL 0: Barcode Camera Scanner ─── */}
+      {showBarcodeScanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/85 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-700 bg-slate-950 p-5 text-white shadow-2xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Zap className="h-5 w-5 text-blue-500 animate-pulse" />
+                <h3 className="text-base font-bold tracking-tight">Camera Barcode Scanner</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowBarcodeScanner(false)}
+                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="overflow-hidden rounded-xl border border-slate-850 bg-slate-900 shadow-inner">
+              <BarcodeScanner
+                onScan={(result) => handleBarcodeScan(result.text)}
+                continuousMode={false}
+                onClose={() => setShowBarcodeScanner(false)}
+                fullscreenMobile={false}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MODAL 1: Invoice Camera Scanner ─── */}
       {showScanner && (

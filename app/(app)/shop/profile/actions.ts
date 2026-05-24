@@ -103,6 +103,7 @@ export async function updateShopProfile(formData: FormData) {
   const gstin = String(formData.get("gstin") || "").trim();
   const drugLicenseNo = String(formData.get("drugLicenseNo") || "").trim();
   const upiId = String(formData.get("upiId") || "").trim();
+  const address = String(formData.get("address") || "").trim();
 
   if (!shopName) {
     return { error: "Shop Name is required." };
@@ -121,6 +122,7 @@ export async function updateShopProfile(formData: FormData) {
         gstin: gstin || null,
         drugLicenseNo: drugLicenseNo || null,
         upiId: upiId || null,
+        address: address || null,
       },
     });
 

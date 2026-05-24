@@ -21,29 +21,31 @@ export default async function SuppliersPage() {
         }
       />
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <table className="w-full min-w-[760px] text-sm">
-          <thead className="bg-slate-50 text-left text-slate-500">
-            <tr>
-              {["Supplier", "Phone", "GSTIN", "Credit days", "Payable"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {suppliers.map((supplier) => (
-              <tr key={supplier.id} className="border-t border-slate-100">
-                <td className="px-4 py-3">
-                  <Link href={`/shop/suppliers/${encodeURIComponent(supplier.id)}`} className="font-semibold text-med-navy hover:text-med-greenDark hover:underline">
-                    {String(supplier.name)}
-                  </Link>
-                  {supplier.email ? <p className="text-xs text-slate-500">{supplier.email}</p> : null}
-                </td>
-                <td className="px-4 py-3">{String(supplier.phone ?? "")}</td>
-                <td className="px-4 py-3 font-mono text-xs">{String(supplier.gstin ?? "")}</td>
-                <td className="px-4 py-3">{Number(supplier.creditDays)}</td>
-                <td className="px-4 py-3">{formatCurrency(Number(supplier.balancePaisa))}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead className="bg-slate-50 text-left text-slate-500">
+              <tr>
+                {["Supplier", "Phone", "GSTIN", "Credit days", "Payable"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {suppliers.map((supplier) => (
+                <tr key={supplier.id} className="border-t border-slate-100">
+                  <td className="px-4 py-3">
+                    <Link href={`/shop/suppliers/${encodeURIComponent(supplier.id)}`} className="font-semibold text-med-navy hover:text-med-greenDark hover:underline">
+                      {String(supplier.name)}
+                    </Link>
+                    {supplier.email ? <p className="text-xs text-slate-500">{supplier.email}</p> : null}
+                  </td>
+                  <td className="px-4 py-3">{String(supplier.phone ?? "")}</td>
+                  <td className="px-4 py-3 font-mono text-xs">{String(supplier.gstin ?? "")}</td>
+                  <td className="px-4 py-3">{Number(supplier.creditDays)}</td>
+                  <td className="px-4 py-3">{formatCurrency(Number(supplier.balancePaisa))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
     </>
   );

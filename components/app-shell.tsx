@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BarChart3, Bell, Box, ChevronLeft, ClipboardList, CreditCard,
+  BarChart3, Bell, Box, ChevronLeft, ClipboardList, CreditCard, FileImage,
   Home, LogOut, Menu, Package, PackageCheck, PackageMinus, PackageX,
   Search, Settings, ShoppingCart, Store, Truck, Users, X
 } from "lucide-react";
@@ -24,6 +24,7 @@ const shopNav: NavItem[] = [
   { label: "Suppliers", href: "/shop/suppliers", icon: <Box className="h-5 w-5" /> },
   { label: "Reports", href: "/shop/reports", icon: <BarChart3 className="h-5 w-5" /> },
   { label: "Schedule H", href: "/shop/schedule-h", icon: <ClipboardList className="h-5 w-5" /> },
+  { label: "Prescriptions", href: "/shop/prescriptions", icon: <FileImage className="h-5 w-5" /> },
   { label: "Notifications", href: "/shop/notifications", icon: <Bell className="h-5 w-5" /> },
   { label: "Settings", href: "/shop/settings", icon: <Settings className="h-5 w-5" /> },
 ];
@@ -120,7 +121,7 @@ function SearchModal() {
   );
 }
 
-export function AppShell({ user, children }: { user: LocalUser; children: React.ReactNode }) {
+export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; profilePicUrl?: string | null; children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = user.role === "super_admin";
   const nav = isAdmin ? adminNav : shopNav;
@@ -162,7 +163,7 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
         <div className="flex h-16 items-center justify-between border-b border-slate-100 px-4">
           {!collapsed && (
             <Link href={isAdmin ? "/admin/dashboard" : "/shop/dashboard"} className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-med-green text-white font-bold text-sm">M</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-med-green text-white font-extrabold text-xl leading-none">+</div>
               <span className="font-display text-lg font-bold text-med-navy">Medicare</span>
             </Link>
           )}
@@ -192,9 +193,16 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
         {/* User */}
         <div className="border-t border-slate-100 p-3">
           {!collapsed && (
-            <Link href="/shop/profile" className="mb-2 block px-2 group">
-              <p className="text-sm font-semibold text-med-navy truncate group-hover:text-med-green transition-colors">{user.name}</p>
-              <p className="text-xs text-slate-500 truncate group-hover:text-slate-700 transition-colors">{user.tenantName || user.email}</p>
+            <Link href="/shop/profile" className="mb-2 flex items-center gap-2.5 px-2 group">
+              {profilePicUrl ? (
+                <img src={profilePicUrl} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 shrink-0" />
+              ) : (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-med-greenSoft text-med-green text-sm font-bold border border-med-green/15">{user.name.charAt(0)}</div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-med-navy truncate group-hover:text-med-green transition-colors">{user.name}</p>
+                <p className="text-xs text-slate-500 truncate group-hover:text-slate-700 transition-colors">{user.tenantName || user.email}</p>
+              </div>
             </Link>
           )}
           <form action={logoutAction}>
@@ -214,6 +222,10 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
             <button onClick={openMobile} className="flex lg:hidden h-9 w-9 items-center justify-center rounded-md hover:bg-slate-100">
               <Menu className="h-5 w-5" />
             </button>
+            <Link href={isAdmin ? "/admin/dashboard" : "/shop/dashboard"} className="flex lg:hidden items-center gap-2 mr-2 hover:opacity-90 active:scale-95 transition-all">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-med-green text-white font-extrabold text-lg leading-none">+</div>
+              <span className="font-display text-sm font-bold text-med-navy">Medicare</span>
+            </Link>
             <SearchModal />
           </div>
           <div className="flex items-center gap-2">
@@ -223,7 +235,13 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
                 {notifCount > 0 && <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center px-1">{notifCount}</span>}
               </Link>
             )}
-            <Link href="/shop/profile" className="flex h-9 w-9 items-center justify-center rounded-full bg-med-green text-white text-sm font-bold hover:bg-med-greenDark transition-colors shadow-sm" title="View Profile">{user.name.charAt(0)}</Link>
+            <Link href="/shop/profile" className="flex h-9 w-9 items-center justify-center rounded-full overflow-hidden shadow-sm" title="View Profile">
+              {profilePicUrl ? (
+                <img src={profilePicUrl} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 hover:border-med-green transition-colors" />
+              ) : (
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-med-green text-white text-sm font-bold hover:bg-med-greenDark transition-colors">{user.name.charAt(0)}</span>
+              )}
+            </Link>
           </div>
         </header>
 
@@ -245,9 +263,9 @@ export function AppShell({ user, children }: { user: LocalUser; children: React.
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-1 flex-col items-center justify-center h-full ${
+              className={`flex flex-1 flex-col items-center justify-center h-full transition-transform ${
                 pathname.startsWith(item.href)
-                  ? "text-med-green border-t-2 border-med-green"
+                  ? "text-med-green border-t-2 border-med-green font-semibold scale-105"
                   : "text-slate-400 border-t-2 border-transparent"
               }`}
             >

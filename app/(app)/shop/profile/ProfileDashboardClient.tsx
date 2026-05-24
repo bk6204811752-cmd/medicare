@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { User as UserIcon, Lock, ShieldCheck, Mail, Phone, Calendar, Store, CheckCircle, AlertTriangle, UserCheck, Key, ShieldAlert } from "lucide-react";
+import { useState, useTransition, useRef } from "react";
+import { User as UserIcon, Lock, ShieldCheck, Mail, Phone, Calendar, Store, CheckCircle, AlertTriangle, UserCheck, Key, ShieldAlert, Camera, Loader2, MapPin } from "lucide-react";
 import { updateProfile, updatePassword, updateShopProfile } from "./actions";
 import type { LocalUser } from "@/lib/local-db";
 
@@ -20,6 +20,11 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone || "");
 
+  // Profile Picture States
+  const [profilePicUrl, setProfilePicUrl] = useState<string | null>(tenant.profilePicUrl || null);
+  const [isUploadingPic, setIsUploadingPic] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Shop Profile States
   const [shopName, setShopName] = useState(tenant.name || "");
   const [ownerName, setOwnerName] = useState(tenant.ownerName || "");
@@ -27,11 +32,52 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
   const [gstin, setGstin] = useState(tenant.gstin || "");
   const [drugLicenseNo, setDrugLicenseNo] = useState(tenant.drugLicenseNo || "");
   const [upiId, setUpiId] = useState(tenant.upiId || "");
+  const [address, setAddress] = useState(tenant.address || "");
 
   // Password Form States
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const handleProfilePicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type and size
+    if (!file.type.startsWith("image/")) {
+      setMessage({ type: "error", text: "Please select a valid image file." });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: "error", text: "Image must be under 5MB." });
+      return;
+    }
+
+    setIsUploadingPic(true);
+    setMessage({ type: null, text: "" });
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        setProfilePicUrl(data.url);
+        tenant.profilePicUrl = data.url;
+        setMessage({ type: "success", text: "Profile picture updated!" });
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to upload image." });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Upload failed. Please try again." });
+    } finally {
+      setIsUploadingPic(false);
+      // Reset file input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +122,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
     formData.append("gstin", gstin);
     formData.append("drugLicenseNo", drugLicenseNo);
     formData.append("upiId", upiId);
+    formData.append("address", address);
 
     startTransition(async () => {
       const res = await updateShopProfile(formData);
@@ -89,6 +136,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
         tenant.gstin = gstin;
         tenant.drugLicenseNo = drugLicenseNo;
         tenant.upiId = upiId;
+        tenant.address = address;
       }
     });
   };
@@ -152,12 +200,41 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
       {/* LEFT COLUMN: Profile Summary & Stats Card */}
       <div className="lg:col-span-1 space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col items-center text-center">
-          {/* Avatar circle */}
+          {/* Avatar circle with profile picture */}
           <div className="relative">
-            <div className="h-24 w-24 rounded-full bg-med-greenSoft text-med-green border-2 border-med-green/20 flex items-center justify-center text-3xl font-black shadow-inner">
-              {name.charAt(0).toUpperCase()}
-            </div>
+            {profilePicUrl ? (
+              <img
+                src={profilePicUrl}
+                alt={name}
+                className="h-24 w-24 rounded-full object-cover border-2 border-med-green/20 shadow-inner"
+              />
+            ) : (
+              <div className="h-24 w-24 rounded-full bg-med-greenSoft text-med-green border-2 border-med-green/20 flex items-center justify-center text-3xl font-black shadow-inner">
+                {name.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="absolute bottom-0.5 right-0.5 h-4 w-4 bg-emerald-500 rounded-full border-2 border-white animate-pulse" title="Account Active" />
+            {/* Camera edit overlay */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingPic}
+              className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-med-green text-white shadow-md hover:bg-med-greenDark transition-colors border-2 border-white disabled:opacity-50"
+              title="Change profile picture"
+            >
+              {isUploadingPic ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="h-4 w-4" />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePicUpload}
+              className="hidden"
+            />
           </div>
 
           <h2 className="mt-4 font-display text-xl font-bold text-med-navy tracking-tight">{name}</h2>
@@ -314,7 +391,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Enter your name"
-                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none"
                     disabled={isPending}
                     required
                   />
@@ -330,7 +407,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                     placeholder="10-digit mobile number"
-                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono"
+                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none font-mono"
                     disabled={isPending}
                   />
                   <Phone className="absolute right-3.5 top-3.5 h-4 w-4 text-slate-400" />
@@ -359,7 +436,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
               <button
                 type="submit"
                 disabled={isPending}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-med-green px-5 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-colors shadow-sm disabled:opacity-50"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-med-green px-5 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-colors shadow-sm disabled:opacity-50 active:scale-[0.97]"
               >
                 Save Profile Changes
               </button>
@@ -383,7 +460,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
                   placeholder="Enter pharmacy name"
-                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none"
                   disabled={isPending}
                   required
                 />
@@ -396,7 +473,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
                   placeholder="Owner's full name"
-                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none"
                   disabled={isPending}
                 />
               </div>
@@ -410,7 +487,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                   value={shopPhone}
                   onChange={(e) => setShopPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
                   placeholder="10-digit mobile number"
-                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none font-mono"
                   disabled={isPending}
                   required
                 />
@@ -423,13 +500,29 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value.trim().toLowerCase())}
                   placeholder="example@okaxis, shop@upi"
-                  className="w-full h-11 px-3 rounded-lg border border-slate-305 text-sm font-bold text-med-navy bg-slate-50/50 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono placeholder-slate-400"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-305 text-sm font-bold text-med-navy bg-slate-50/50 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none font-mono placeholder-slate-400"
                   disabled={isPending}
                 />
                 <p className="text-[10px] text-slate-400">
                   Customers scan the A4 or Thermal bill QR code to pay this UPI ID directly.
                 </p>
               </div>
+            </div>
+
+            {/* Full Shop Address */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" />
+                Full Shop Address
+              </label>
+              <textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Enter complete shop address with landmark, pin code..."
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none resize-none"
+                disabled={isPending}
+              />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -440,7 +533,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                   value={gstin}
                   onChange={(e) => setGstin(e.target.value.toUpperCase())}
                   placeholder="15-digit GSTIN"
-                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none font-mono"
                   disabled={isPending}
                 />
               </div>
@@ -452,7 +545,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                   value={drugLicenseNo}
                   onChange={(e) => setDrugLicenseNo(e.target.value.toUpperCase())}
                   placeholder="DL No."
-                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none font-mono"
+                  className="w-full h-11 px-3 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none font-mono"
                   disabled={isPending}
                 />
               </div>
@@ -462,7 +555,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
               <button
                 type="submit"
                 disabled={isPending}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-med-green px-5 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-colors shadow-sm disabled:opacity-50"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-med-green px-5 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-colors shadow-sm disabled:opacity-50 active:scale-[0.97]"
               >
                 Save Pharmacy Settings
               </button>
@@ -486,7 +579,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
-                  className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                  className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none"
                   disabled={isPending}
                   required
                 />
@@ -503,7 +596,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="At least 6 characters"
-                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none"
                     disabled={isPending}
                     required
                   />
@@ -519,7 +612,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat new password"
-                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none"
+                    className="w-full h-11 pl-3 pr-10 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green focus:shadow-[0_0_0_3px_rgba(0,168,120,0.15)] outline-none"
                     disabled={isPending}
                     required
                   />
@@ -532,7 +625,7 @@ export function ProfileDashboardClient({ user, tenant }: ProfileDashboardClientP
               <button
                 type="submit"
                 disabled={isPending}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-med-green px-5 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-colors shadow-sm disabled:opacity-50"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-med-green px-5 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-colors shadow-sm disabled:opacity-50 active:scale-[0.97]"
               >
                 Update Password
               </button>

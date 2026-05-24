@@ -494,7 +494,7 @@ function getProgrammaticMedicines() {
       ]
     },
     {
-      brands: ["Dettol", "Detol"],
+      brands: ["Dettol"],
       composition: "Chloroxylenol Antiseptic Liquid",
       manufacturer: "Reckitt Benckiser",
       category: "Antiseptic",
@@ -517,7 +517,7 @@ function getProgrammaticMedicines() {
       ]
     },
     {
-      brands: ["Savlon", "Sevlon"],
+      brands: ["Savlon"],
       composition: "Chlorhexidine Gluconate, Cetrimide Solution",
       manufacturer: "ITC Ltd",
       category: "Antiseptic",
@@ -534,7 +534,7 @@ function getProgrammaticMedicines() {
       ]
     },
     {
-      brands: ["Betadine", "Betadin"],
+      brands: ["Betadine"],
       composition: "Povidone-Iodine Antiseptic",
       manufacturer: "Win-Medicare Pvt Ltd",
       category: "Antiseptic",
@@ -629,13 +629,13 @@ function getProgrammaticMedicines() {
       category: "Surgical",
       gst: 12,
       variations: [
-        { suffix: "5cm x 5cm (12 Ply)", comp: "Sterile Gauze Swabs 5cm x 5cm", pack: "pack of 10 swabs", price: 3000 },
-        { suffix: "7.5cm x 7.5cm (12 Ply)", comp: "Sterile Gauze Swabs 7.5cm x 7.5cm", pack: "pack of 10 swabs", price: 4500 },
-        { suffix: "10cm x 10cm (12 Ply)", comp: "Sterile Gauze Swabs 10cm x 10cm", pack: "pack of 10 swabs", price: 6000 }
+        { suffix: "5cm x 5cm (12 Ply)", comp: "Sterile Gau swabs 5cm x 5cm", pack: "pack of 10 swabs", price: 3000 },
+        { suffix: "7.5cm x 7.5cm (12 Ply)", comp: "Sterile Gau swabs 7.5cm x 7.5cm", pack: "pack of 10 swabs", price: 4500 },
+        { suffix: "10cm x 10cm (12 Ply)", comp: "Sterile Gau swabs 10cm x 10cm", pack: "pack of 10 swabs", price: 6000 }
       ]
     },
     {
-      brands: ["Lumbosacral Waist Support Belt", "LS Contour Belt", "Lumbosacral West Support Belt", "LS West Belt", "LS Waist Belt", "Lumbosacral Belt"],
+      brands: ["Lumbosacral Waist Support Belt", "LS Contour Belt", "Lumbosacral Belt", "LS Waist Belt"],
       composition: "Lumbar Lumbosacral Lower Back Support Belt",
       manufacturer: "Ortho Supports Ltd",
       category: "Surgical",
@@ -649,7 +649,7 @@ function getProgrammaticMedicines() {
       ]
     },
     {
-      brands: ["Abdominal Binder Belt", "Waist Belt Support", "Abdominal Binder", "Waist Belt", "West Belt", "West Belt Support"],
+      brands: ["Abdominal Binder Belt", "Waist Belt Support", "Abdominal Binder", "Waist Belt"],
       composition: "Post Surgery Abdominal Support Binder",
       manufacturer: "Ortho Supports Ltd",
       category: "Surgical",
@@ -701,7 +701,7 @@ function getProgrammaticMedicines() {
       ]
     },
     {
-      brands: ["Wrist Support with Splint", "Ortho Wrist Support", "Wrist Support Splint", "Wrist Belt", "Wrist Splint"],
+      brands: ["Wrist Support with Splint", "Ortho Wrist Support", "Wrist Support Splint", "Wrist Splint"],
       composition: "Wrist Joint Support Splint and Band",
       manufacturer: "Ortho Supports Ltd",
       category: "Surgical",
@@ -773,6 +773,15 @@ function extractPrefixes(name, composition) {
       }
     }
   }
+
+  // 3. Inject common misspelled/phonetic prefixes so the correct entry gets indexed in those files
+  const lowerName = name.toLowerCase();
+  if (lowerName.includes("dettol")) prefixes.add("de");
+  if (lowerName.includes("savlon")) prefixes.add("se");
+  if (lowerName.includes("betadine")) prefixes.add("be");
+  if (lowerName.includes("waist belt") || lowerName.includes("waist support") || lowerName.includes("back support") || lowerName.includes("abdominal")) prefixes.add("we");
+  if (lowerName.includes("hansaplast")) prefixes.add("ha");
+  if (lowerName.includes("handiplast")) prefixes.add("ha");
 
   return Array.from(prefixes);
 }

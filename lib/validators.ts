@@ -33,6 +33,7 @@ export const createInventorySchema = z.object({
 });
 
 export const createCustomerSchema = z.object({
+  id: z.string().optional(),
   name: z.string().trim().min(2, "Customer name is required"),
   phone: z.string().trim().optional(),
   email: z.string().trim().email("Valid email is required").optional().or(z.literal("")),
@@ -43,6 +44,7 @@ export const createCustomerSchema = z.object({
 });
 
 export const createSupplierSchema = z.object({
+  id: z.string().optional(),
   name: z.string().trim().min(2, "Supplier name is required"),
   phone: z.string().trim().optional(),
   email: z.string().trim().email("Valid email is required").optional().or(z.literal("")),

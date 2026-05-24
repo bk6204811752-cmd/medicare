@@ -1,17 +1,19 @@
-import { FileImage } from "lucide-react";
-import { ModulePage } from "@/components/module-page";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/page-header";
+import { PrescriptionArchiveClient } from "./PrescriptionArchiveClient";
 
-export default function PrescriptionsPage() {
+export default async function PrescriptionsPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
   return (
-    <ModulePage
-      title="Prescription Archive"
-      description="Prescription metadata is already enforced in billing for Schedule H/H1. Image upload can be added through free local storage or Supabase Storage later."
-      icon={FileImage}
-      items={[
-        { label: "POS enforcement", value: "Active", hint: "Doctor and Rx number required for controlled medicines" },
-        { label: "Image storage", value: "Next", hint: "Local upload first, Supabase Storage later" },
-        { label: "Register link", value: "Ready", hint: "Schedule H rows retain prescription numbers" }
-      ]}
-    />
+    <div className="space-y-6">
+      <PageHeader
+        title="Prescription Archive"
+        description="Upload and manage doctor prescriptions for Schedule H/H1 medicines. Maintain legal records for compliance."
+      />
+      <PrescriptionArchiveClient />
+    </div>
   );
 }

@@ -43,7 +43,7 @@ function schemaSql() {
   try {
     const exists = await pool.request().query("SELECT OBJECT_ID(N'dbo.Tenant', N'U') AS tableId");
     if (exists.recordset[0]?.tableId) {
-      console.log("Azure SQL schema already exists. Checking for missing columns...");
+      console.log("Azure SQL schema already exists. Checking for missing columns/tables...");
       const upiIdExists = await pool.request().query(
         "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tenant' AND COLUMN_NAME = 'upiId'"
       );
@@ -53,6 +53,49 @@ function schemaSql() {
         console.log("upiId column added successfully.");
       } else {
         console.log("upiId column already exists.");
+      }
+
+      // Check and add address
+      const addressExists = await pool.request().query(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tenant' AND COLUMN_NAME = 'address'"
+      );
+      if (addressExists.recordset.length === 0) {
+        console.log("Adding address column to Tenant table...");
+        await pool.request().query("ALTER TABLE dbo.Tenant ADD address NVARCHAR(1000) NULL");
+        console.log("address column added successfully.");
+      }
+
+      // Check and add profilePicUrl
+      const profilePicUrlExists = await pool.request().query(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Tenant' AND COLUMN_NAME = 'profilePicUrl'"
+      );
+      if (profilePicUrlExists.recordset.length === 0) {
+        console.log("Adding profilePicUrl column to Tenant table...");
+        await pool.request().query("ALTER TABLE dbo.Tenant ADD profilePicUrl NVARCHAR(1000) NULL");
+        console.log("profilePicUrl column added successfully.");
+      }
+
+      // Check and create PrescriptionImage table if missing
+      const prescTableExists = await pool.request().query(
+        "SELECT OBJECT_ID(N'dbo.PrescriptionImage', N'U') AS tableId"
+      );
+      if (!prescTableExists.recordset[0]?.tableId) {
+        console.log("Creating PrescriptionImage table...");
+        await pool.request().query(`
+          CREATE TABLE dbo.PrescriptionImage (
+            id NVARCHAR(64) NOT NULL CONSTRAINT PK_PrescriptionImage PRIMARY KEY (id),
+            tenantId NVARCHAR(64) NOT NULL,
+            saleId NVARCHAR(64) NULL,
+            imageUrl NVARCHAR(1000) NOT NULL,
+            doctorName NVARCHAR(255) NULL,
+            patientName NVARCHAR(255) NULL,
+            notes NVARCHAR(1000) NULL,
+            uploadedAt DATETIME2 NOT NULL CONSTRAINT DF_PrescriptionImage_uploadedAt DEFAULT GETDATE(),
+            CONSTRAINT FK_PrescriptionImage_Tenant FOREIGN KEY (tenantId) REFERENCES dbo.Tenant(id),
+            CONSTRAINT FK_PrescriptionImage_Sale FOREIGN KEY (saleId) REFERENCES dbo.Sale(id)
+          )
+        `);
+        console.log("PrescriptionImage table created successfully.");
       }
       return;
     }

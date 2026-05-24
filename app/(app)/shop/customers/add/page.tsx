@@ -1,11 +1,15 @@
 import { CustomerForm } from "@/components/customer-form";
-import { PageHeader } from "@/components/page-header";
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function AddCustomerPage() {
   return (
-    <>
-      <PageHeader title="Add Customer" description="Create a reusable customer profile for POS lookup, credit tracking, doctors, and loyalty." />
+    <Suspense fallback={
+      <div className="flex h-64 items-center justify-center rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <Loader2 className="h-8 w-8 animate-spin text-med-green" />
+      </div>
+    }>
       <CustomerForm />
-    </>
+    </Suspense>
   );
 }

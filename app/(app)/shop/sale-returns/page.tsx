@@ -144,9 +144,9 @@ export default function SaleReturnsPage() {
       )}
 
       {/* Returns Table */}
-      <div className="glass-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px] text-sm">
+      <div className="glass-card overflow-hidden -mx-4 md:mx-0">
+        <div className="overflow-x-auto scrollbar-none">
+          <table className="w-full min-w-[650px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
                 {["Return#", "Invoice#", "Customer", "Reason", "Refund", "Date", "Items"].map((h) => (

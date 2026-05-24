@@ -16,9 +16,11 @@ model Tenant {
   email           String?
   city            String?
   state           String?
+  address         String?
   gstin           String?
   drugLicenseNo   String?
   upiId           String?
+  profilePicUrl   String?
   plan            String              @default("free")
   isActive        Boolean             @default(true)
   approvalStatus  String              @default("approved")
@@ -35,6 +37,7 @@ model Tenant {
   purchaseOrders  PurchaseOrder[]
   saleReturns     SaleReturn[]
   purchaseReturns PurchaseReturn[]
+  prescriptionImages PrescriptionImage[]
 }
 
 model User {
@@ -224,6 +227,7 @@ model Sale {
   items           SaleItem[]
   tenant          Tenant     @relation(fields: [tenantId], references: [id])
   saleReturns     SaleReturn[]
+  prescriptionImages PrescriptionImage[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -402,4 +406,22 @@ model PurchaseReturnItem {
   inventory        InventoryItem  @relation(fields: [inventoryId], references: [id])
 
   @@index([purchaseReturnId])
+}
+
+// ─── Prescription Images ────────────────────────────────────
+
+model PrescriptionImage {
+  id           String   @id @default(cuid())
+  tenantId     String
+  saleId       String?
+  imageUrl     String
+  doctorName   String?
+  patientName  String?
+  notes        String?
+  uploadedAt   DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  sale         Sale?    @relation(fields: [saleId], references: [id])
+
+  @@index([tenantId])
+  @@index([saleId])
 }

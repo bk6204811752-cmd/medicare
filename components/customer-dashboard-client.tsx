@@ -598,8 +598,8 @@ export function CustomerDashboardClient({
               <p className="mt-3 text-sm font-medium">No medicines purchased by this customer yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none">
+              <table className="w-full text-left text-sm min-w-[550px]">
                 <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                   <tr>
                     <th

@@ -126,13 +126,28 @@ export default function PurchasesPage() {
               <input value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 focus:border-med-green focus:ring-2 focus:ring-med-green/20 outline-none" placeholder="Optional notes" />
             </div>
             <h3 className="mt-5 text-sm font-semibold text-med-navy">Items</h3>
-            <div className="mt-2 space-y-2">
+            <div className="mt-2 space-y-3 sm:space-y-2">
               {items.map((item, i) => (
-                <div key={i} className="grid grid-cols-[1fr_80px_100px_32px] gap-2 items-end">
-                  <input value={item.medicineName} onChange={(e) => updateItem(i, "medicineName", e.target.value)} placeholder="Medicine name" className="h-10 rounded-md border border-slate-300 px-3 text-sm focus:border-med-green outline-none" />
-                  <input type="number" value={item.quantity} onChange={(e) => updateItem(i, "quantity", e.target.value === "" ? "" : Number(e.target.value))} min={1} placeholder="Qty" className="h-10 rounded-md border border-slate-300 px-2 text-sm text-center focus:border-med-green outline-none" />
-                  <input type="number" value={item.ratePaisa} onChange={(e) => updateItem(i, "ratePaisa", e.target.value === "" ? "" : Number(e.target.value))} placeholder="Rate ₹" step="0.01" className="h-10 rounded-md border border-slate-300 px-2 text-sm focus:border-med-green outline-none" />
-                  {items.length > 1 && <button onClick={() => removeItem(i)} className="h-10 rounded-md text-red-400 hover:bg-red-50 hover:text-red-600"><X className="h-4 w-4 mx-auto" /></button>}
+                <div key={i} className="flex flex-col gap-2 p-3.5 rounded-xl border border-slate-200 bg-slate-50/40 sm:grid sm:grid-cols-[1fr_80px_100px_32px] sm:gap-2 sm:items-end sm:p-0 sm:border-0 sm:bg-transparent animate-slide-up">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide sm:hidden mb-1 block">Medicine Name</label>
+                    <input value={item.medicineName} onChange={(e) => updateItem(i, "medicineName", e.target.value)} placeholder="Medicine name" className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-med-green outline-none bg-white" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:contents">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide sm:hidden mb-1 block">Quantity</label>
+                      <input type="number" value={item.quantity} onChange={(e) => updateItem(i, "quantity", e.target.value === "" ? "" : Number(e.target.value))} min={1} placeholder="Qty" className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm text-center focus:border-med-green outline-none bg-white" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide sm:hidden mb-1 block">Rate ₹</label>
+                      <input type="number" value={item.ratePaisa} onChange={(e) => updateItem(i, "ratePaisa", e.target.value === "" ? "" : Number(e.target.value))} placeholder="Rate ₹" step="0.01" className="h-10 w-full rounded-md border border-slate-300 px-2 text-sm focus:border-med-green outline-none bg-white" />
+                    </div>
+                  </div>
+                  {items.length > 1 && (
+                    <button onClick={() => removeItem(i)} className="h-10 w-full sm:w-auto rounded-md text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 flex items-center justify-center gap-1 sm:bg-transparent sm:hover:bg-red-50 sm:text-red-400" title="Remove item">
+                      <X className="h-4 w-4" /> <span className="sm:hidden text-xs font-semibold">Remove</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

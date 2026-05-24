@@ -24,6 +24,8 @@
     "class-variance-authority": "latest",
     "clsx": "latest",
     "date-fns": "latest",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "latest",
     "next": "^16.2.6",
     "nodemailer": "^8.0.7",

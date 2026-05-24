@@ -19,6 +19,8 @@ model Tenant {
   gstin           String?             @db.NVarChar(32)
   drugLicenseNo   String?             @db.NVarChar(64)
   upiId           String?             @db.NVarChar(120)
+  address         String?             @db.NVarChar(1000)
+  profilePicUrl   String?             @db.NVarChar(1000)
   plan            String              @default("free") @db.NVarChar(32)
   isActive        Boolean             @default(true)
   approvalStatus  String              @default("approved") @db.NVarChar(32)
@@ -35,6 +37,7 @@ model Tenant {
   purchaseOrders  PurchaseOrder[]
   saleReturns     SaleReturn[]
   purchaseReturns PurchaseReturn[]
+  prescriptionImages PrescriptionImage[]
 }
 
 model User {
@@ -224,6 +227,7 @@ model Sale {
   items           SaleItem[]
   tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   saleReturns     SaleReturn[]
+  prescriptionImages PrescriptionImage[]
 
   @@index([tenantId])
   @@index([customerId])
@@ -403,3 +407,22 @@ model PurchaseReturnItem {
 
   @@index([purchaseReturnId])
 }
+
+// ─── Prescription Images ────────────────────────────────────
+
+model PrescriptionImage {
+  id           String   @id @default(cuid()) @db.NVarChar(64)
+  tenantId     String   @db.NVarChar(64)
+  saleId       String?  @db.NVarChar(64)
+  imageUrl     String   @db.NVarChar(1000)
+  doctorName   String?  @db.NVarChar(255)
+  patientName  String?  @db.NVarChar(255)
+  notes        String?  @db.NVarChar(1000)
+  uploadedAt   DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sale         Sale?    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId])
+  @@index([saleId])
+}
+

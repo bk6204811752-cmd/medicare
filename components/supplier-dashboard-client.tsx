@@ -215,9 +215,15 @@ export function SupplierDashboardClient({
 
           <div className="border-t border-slate-100 mt-6 pt-4 flex justify-between items-center text-xs text-slate-400">
             <span>Supplier ID: <code className="font-mono text-slate-500">{supplier.id}</code></span>
-            <span className="text-[10px] uppercase font-bold text-slate-400">
-              {supplier.creditDays} Credit Days Limit
-            </span>
+            <div className="flex gap-4 items-center">
+              <span className="text-[10px] uppercase font-bold text-slate-400">
+                {supplier.creditDays} Credit Days Limit
+              </span>
+              <span className="text-slate-300">|</span>
+              <Link href={`/shop/suppliers/add?id=${supplier.id}`} className="font-bold text-sky-650 hover:underline">
+                Edit Profile details
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -356,9 +362,9 @@ export function SupplierDashboardClient({
               <p className="mt-3 text-sm font-medium">No supplies matched the search criteria.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm -mx-4 md:mx-0">
+              <div className="overflow-x-auto scrollbar-none">
+                <table className="w-full text-left text-xs min-w-[800px]">
                   <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                     <tr>
                       <th className="px-4 py-3">Medicine Name</th>
@@ -420,15 +426,15 @@ export function SupplierDashboardClient({
 
       {/* ─── TAB CONTENT: MEDICINES AGGREGATE ─── */}
       {activeTab === "medicines" && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden -mx-4 md:mx-0">
           {medicineAggregates.length === 0 ? (
             <div className="p-12 text-center text-slate-400">
               <Calendar className="mx-auto h-8 w-8 text-slate-300" />
               <p className="mt-3 text-sm font-medium">No medicines recorded from this supplier yet.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto scrollbar-none">
+              <table className="w-full text-left text-sm min-w-[650px]">
                 <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                   <tr>
                     <th

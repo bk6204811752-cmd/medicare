@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Send, Printer, ArrowLeft, ShieldCheck, Heart, FileText } from "lucide-react";
+import { Send, Printer, ArrowLeft, ShieldCheck, Heart, FileText, Share2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -11,20 +12,126 @@ type BillDetailClientProps = {
   items: Record<string, any>[];
   tenant: Record<string, any>;
   initialFormat?: "a4" | "thermal";
+  autoSharePDF?: boolean;
 };
 
-export function BillDetailClient({ sale, items, tenant, initialFormat }: BillDetailClientProps) {
+export function BillDetailClient({ sale, items, tenant, initialFormat, autoSharePDF }: BillDetailClientProps) {
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">(initialFormat || "a4");
   const [lastInitial, setLastInitial] = useState(initialFormat);
+  const [sharingPdf, setSharingPdf] = useState(false);
   
   if (initialFormat !== lastInitial) {
     setPrintFormat(initialFormat || "a4");
     setLastInitial(initialFormat);
   }
 
+  useEffect(() => {
+    if (autoSharePDF) {
+      const timer = setTimeout(() => {
+        handleSharePDF();
+      }, 950); // 950ms delay for stable container rendering in transitions
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSharePDF]);
+
+  const invoiceUrl = typeof window !== "undefined" ? `${window.location.origin}/shop/billing/${sale.id}` : "";
   const whatsappText = encodeURIComponent(
-    `Medicare invoice ${String(sale.invoice_no)} from ${tenant.name}. Total: ${formatCurrency(Number(sale.total_paisa))}. Thank you.`
+    `Medicare Invoice ${String(sale.invoice_no)} from ${tenant.name}.\nTotal Amount: ${formatCurrency(Number(sale.total_paisa))}.\nView/Download professional Invoice PDF here: ${invoiceUrl}\nThank you.`
   );
+  
+  const customerPhone = sale.customer_phone ? String(sale.customer_phone).replace(/\D/g, "").slice(-10) : "";
+  const whatsappHref = customerPhone ? `https://wa.me/91${customerPhone}?text=${whatsappText}` : `https://wa.me/?text=${whatsappText}`;
+
+  const handleSharePDF = async () => {
+    try {
+      setSharingPdf(true);
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const element = document.querySelector(
+        printFormat === "a4" ? ".a4-print-container" : ".thermal-print-container"
+      );
+      if (!element) {
+        toast.error("Invoice layout container not found.");
+        return;
+      }
+
+      // Render the invoice to high-resolution canvas
+      const canvas = await html2canvas(element as HTMLElement, {
+        scale: 2, // Ultra-clear text scaling
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      let pdf;
+
+      if (printFormat === "a4") {
+        pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: "a4"
+        });
+        const imgWidth = 210;
+        const pageHeight = 297;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+      } else {
+        const rollWidth = 80;
+        const rollHeight = (canvas.height * rollWidth) / canvas.width;
+        pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "mm",
+          format: [rollWidth, rollHeight]
+        });
+        pdf.addImage(imgData, "JPEG", 0, 0, rollWidth, rollHeight);
+      }
+
+      const pdfBlob = pdf.output("blob");
+      const pdfFile = new File([pdfBlob], `Invoice_${sale.invoice_no}.pdf`, {
+        type: "application/pdf"
+      });
+
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `Invoice ${sale.invoice_no}`,
+          text: `Please find attached the PDF invoice for Bill No ${sale.invoice_no} from ${tenant.name}.`
+        });
+        toast.success("Share sheet opened successfully!");
+      } else {
+        // Fallback: Download file directly
+        const downloadUrl = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = `Invoice_${sale.invoice_no}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+        toast.success("PDF downloaded successfully! You can attach it manually on WhatsApp.");
+      }
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+      toast.error("Failed to generate PDF. Try native Print instead.");
+    } finally {
+      setSharingPdf(false);
+    }
+  };
   
   const upiId = tenant.upiId || "";
   const upiUrl = upiId ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(tenant.name)}&am=${(Number(sale.total_paisa) / 100).toFixed(2)}&cu=INR&tn=Invoice_${sale.invoice_no}` : "";
@@ -268,21 +375,50 @@ export function BillDetailClient({ sale, items, tenant, initialFormat }: BillDet
                 onClick={() => window.print()}
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
               >
-                <Printer className="h-4 w-4" /> Print
+                <Printer className="h-4 w-4 text-slate-500" /> Print
               </button>
 
-              {/* WhatsApp Share */}
+              {/* Dynamic Real PDF Sharing (WhatsApp-friendly) */}
+              <button
+                onClick={handleSharePDF}
+                disabled={sharingPdf}
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-med-green px-4 py-2 text-sm font-bold text-white hover:bg-med-greenDark transition-all shadow-sm disabled:opacity-75"
+              >
+                {sharingPdf ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="h-4 w-4" />
+                )}
+                {sharingPdf ? "Generating PDF..." : "Share PDF"}
+              </button>
+
+              {/* WhatsApp Share Link */}
               <a
-                href={`https://wa.me/?text=${whatsappText}`}
+                href={whatsappHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-med-green px-4 py-2 text-sm font-semibold text-white hover:bg-med-greenDark transition-all shadow-sm"
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
               >
-                <Send className="h-4 w-4" /> WhatsApp
+                <Send className="h-4 w-4 text-emerald-600 font-bold" /> Share Link
               </a>
             </div>
           }
         />
+
+        {/* Info Tip Banner for Mobile PDF Saving & WhatsApp Sharing */}
+        <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-slate-700 text-xs shadow-sm flex items-start gap-3">
+          <span className="text-base">💡</span>
+          <div className="space-y-1">
+            <p className="font-bold text-slate-900">How to share this Invoice as a PDF file on WhatsApp:</p>
+            <p>1. Click the <strong className="text-slate-950">Print</strong> button above.</p>
+            <p>2. In the print options, select <strong className="text-slate-950">"Save as PDF"</strong> as the destination.</p>
+            <p>3. Save the PDF to your device, and you can share that PDF directly on WhatsApp! Alternatively, your customer can click the link in their WhatsApp chat to view and print their official invoice.</p>
+            <div className="mt-2.5 p-2.5 bg-white rounded border border-blue-100 font-mono text-[10px] select-all flex items-center justify-between text-blue-800">
+              <span className="truncate">{invoiceUrl}</span>
+              <span className="text-[9px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-sans font-bold select-none shrink-0">Direct Link</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Render active template */}

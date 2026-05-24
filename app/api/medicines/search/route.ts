@@ -12,13 +12,18 @@ export async function GET(request: Request) {
     const isNumeric = /^\d+$/.test(q);
     if (q.length < 1 || (!isNumeric && q.length < 2)) return NextResponse.json({ data: [], suggestions: [] });
 
-    // Barcode fast-path: if query is 8-13 digits, try exact barcode match first
-    const isBarcode = /^\d{8,13}$/.test(q);
+    // Barcode fast-path: if query is a pure numeric string of 6+ digits, try barcode matching first
+    const isBarcode = q.length >= 6 && /^\d+$/.test(q);
     let inventoryRows;
     if (isBarcode) {
       inventoryRows = await searchByBarcode(auth.ctx.tenantId, q);
       if (inventoryRows.length > 0) {
-        return NextResponse.json({ data: inventoryRows, suggestions: [], matchType: "barcode" });
+        const hasExact = inventoryRows.some((r: any) => r.medicine?.barcode === q);
+        return NextResponse.json({
+          data: inventoryRows,
+          suggestions: [],
+          matchType: hasExact ? "barcode" : "barcode-partial",
+        });
       }
     }
 

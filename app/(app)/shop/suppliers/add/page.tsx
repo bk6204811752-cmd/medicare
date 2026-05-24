@@ -1,11 +1,15 @@
-import { PageHeader } from "@/components/page-header";
 import { SupplierForm } from "@/components/supplier-form";
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function AddSupplierPage() {
   return (
-    <>
-      <PageHeader title="Add Supplier" description="Create distributor profiles for purchase entries, GSTIN records, credit days, and payables." />
+    <Suspense fallback={
+      <div className="flex h-64 items-center justify-center rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <Loader2 className="h-8 w-8 animate-spin text-med-green" />
+      </div>
+    }>
       <SupplierForm />
-    </>
+    </Suspense>
   );
 }

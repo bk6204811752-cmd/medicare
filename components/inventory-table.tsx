@@ -112,15 +112,15 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
         </a>
       </div>
 
-      <div className="grid gap-3 border-b border-slate-200 bg-slate-50 p-4 text-sm md:grid-cols-4">
+      <div className="grid gap-3 border-b border-slate-200 bg-slate-50 p-4 text-sm grid-cols-2 md:grid-cols-4">
         <Metric label="Visible batches" value={String(filteredRows.length)} />
         <Metric label="Low stock" value={String(lowCount)} tone={lowCount ? "text-orange-700" : "text-emerald-700"} />
         <Metric label="Expiry risk" value={String(expiryCount)} tone={expiryCount ? "text-red-700" : "text-emerald-700"} />
         <Metric label="Stock value" value={formatCurrency(stockValue)} />
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 scrollbar-none">
+        <table className="w-full text-sm min-w-[800px]">
           <thead className="bg-slate-50 text-left text-slate-500">
             <tr>
               {["Medicine", "Batch", "Expiry", "Packs", "Stock", "Rate", "MRP", "GST", "Supplier", "Rack", "Status"].map((head) => (

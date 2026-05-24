@@ -783,15 +783,28 @@ export async function getSuppliers(tenantId: string): Promise<LocalSupplier[]> {
 export async function addSupplier(tenantId: string, input: unknown) {
   const data = createSupplierSchema.parse(input);
   await ensureDefaultData();
-  const supplierId = uid("sup");
-  await prisma.supplier.create({
-    data: {
-      id: supplierId, tenantId, name: data.name,
-      phone: data.phone || null, email: data.email || null,
-      address: data.address || null, gstin: data.gstin || null,
-      creditDays: data.creditDays, balancePaisa: data.balancePaisa
-    }
-  });
+  const existing = data.id ? await prisma.supplier.findFirst({ where: { tenantId, id: data.id } }) : null;
+  const supplierId = data.id ?? existing?.id ?? uid("sup");
+
+  if (data.id || existing) {
+    await prisma.supplier.update({
+      where: { id: supplierId },
+      data: {
+        name: data.name, phone: data.phone || null, email: data.email || null,
+        address: data.address || null, gstin: data.gstin || null,
+        creditDays: data.creditDays, balancePaisa: data.balancePaisa
+      }
+    });
+  } else {
+    await prisma.supplier.create({
+      data: {
+        id: supplierId, tenantId, name: data.name,
+        phone: data.phone || null, email: data.email || null,
+        address: data.address || null, gstin: data.gstin || null,
+        creditDays: data.creditDays, balancePaisa: data.balancePaisa
+      }
+    });
+  }
   return (await getSuppliers(tenantId)).find((s) => s.id === supplierId);
 }
 
@@ -853,14 +866,16 @@ export async function getCustomer(tenantId: string, customerId: string) {
 export async function addCustomer(tenantId: string, input: unknown) {
   const data = createCustomerSchema.parse(input);
   await ensureDefaultData();
-  const existing = data.phone ? await prisma.customer.findFirst({ where: { tenantId, phone: data.phone } }) : null;
-  const customerId = existing?.id ?? uid("cust");
+  const existing = data.id 
+    ? await prisma.customer.findFirst({ where: { tenantId, id: data.id } }) 
+    : (data.phone ? await prisma.customer.findFirst({ where: { tenantId, phone: data.phone } }) : null);
+  const customerId = data.id ?? existing?.id ?? uid("cust");
 
-  if (existing) {
+  if (data.id || existing) {
     await prisma.customer.update({
       where: { id: customerId },
       data: {
-        name: data.name, email: data.email || null, address: data.address || null,
+        name: data.name, phone: data.phone || null, email: data.email || null, address: data.address || null,
         doctorName: data.doctorName || null, outstandingPaisa: data.outstandingPaisa,
         loyaltyPoints: data.loyaltyPoints
       }
@@ -1614,18 +1629,74 @@ export async function getSlowMovingReport(tenantId: string) {
 
 export async function searchByBarcode(tenantId: string, barcode: string) {
   await ensureDefaultData();
-  const normalized = barcode.trim();
-  if (!normalized) return [];
-  const rows = await prisma.inventoryItem.findMany({
+  const raw = barcode.trim();
+  if (!raw) return [];
+
+  // 1. Exact match first
+  let rows = await prisma.inventoryItem.findMany({
     where: {
       tenantId,
       isActive: true,
       quantity: { gt: 0 },
-      medicine: { barcode: normalized },
+      medicine: { barcode: raw },
     },
     include: { medicine: true, supplier: true },
     take: 5,
   });
+
+  // 2. Fallback: try stripping leading zeros (common when scanner prefixes barcodes)
+  if (rows.length === 0 && raw.startsWith("0")) {
+    const stripped = raw.replace(/^0+/, "");
+    if (stripped.length >= 3) {
+      rows = await prisma.inventoryItem.findMany({
+        where: {
+          tenantId,
+          isActive: true,
+          quantity: { gt: 0 },
+          medicine: { barcode: stripped },
+        },
+        include: { medicine: true, supplier: true },
+        take: 5,
+      });
+    }
+  }
+
+  // 3. Fallback: If 13 digits (EAN-13), try the first 12 digits (truncation of check digit)
+  if (rows.length === 0 && raw.length === 13) {
+    const prefix12 = raw.substring(0, 12);
+    rows = await prisma.inventoryItem.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        quantity: { gt: 0 },
+        medicine: {
+          OR: [
+            { barcode: { startsWith: prefix12 } },
+            { barcode: prefix12 },
+          ],
+        },
+      },
+      include: { medicine: true, supplier: true },
+      take: 5,
+    });
+  }
+
+  // 4. Fallback: Prefix/startsWith matching for general numeric queries >= 6 digits
+  if (rows.length === 0 && raw.length >= 6) {
+    rows = await prisma.inventoryItem.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        quantity: { gt: 0 },
+        medicine: {
+          barcode: { startsWith: raw },
+        },
+      },
+      include: { medicine: true, supplier: true },
+      take: 5,
+    });
+  }
+
   return rows.map(mapInventory);
 }
 

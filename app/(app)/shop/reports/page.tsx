@@ -89,10 +89,10 @@ export default function ReportsPage() {
       } />
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl bg-slate-100 p-1 overflow-x-auto">
+      <div className="flex gap-1 rounded-xl bg-slate-100 p-1 overflow-x-auto scrollbar-none">
         {tabs.map((tab) => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.key ? "bg-white text-med-navy shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+            className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all whitespace-nowrap shrink-0 ${activeTab === tab.key ? "bg-white text-med-navy shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
             {tab.icon} {tab.label}
           </button>
         ))}
@@ -105,7 +105,7 @@ export default function ReportsPage() {
           {/* Sales Summary */}
           {activeTab === "sales" && salesData && (
             <div className="space-y-6">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
                 <MetricCard label="Total Sales" value={formatCurrency(Number(salesData.totalPaisa ?? 0))} sub={`${salesData.bills ?? 0} invoices`} color="emerald" />
                 <MetricCard label="Today's Sales" value={formatCurrency(Number(salesData.todaySalesPaisa ?? 0))} sub={`${salesData.todayBills ?? 0} bills`} color="sky" />
                 <MetricCard label="GST Collected" value={formatCurrency(Number(salesData.gstPaisa ?? 0))} sub="Total tax" color="purple" />
@@ -121,24 +121,26 @@ export default function ReportsPage() {
           {/* GST Report */}
           {activeTab === "gst" && gstData && (
             <div className="glass-card overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
-                  <th className="px-4 py-3 font-medium">HSN Code</th>
-                  <th className="px-4 py-3 font-medium">GST Rate</th>
-                  <th className="px-4 py-3 font-medium">Taxable Amount</th>
-                  <th className="px-4 py-3 font-medium">GST Amount</th>
-                </tr></thead>
-                <tbody>
-                  {gstData.map((row, i) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-3 font-mono text-xs">{String(row.hsnCode ?? "-")}</td>
-                      <td className="px-4 py-3">{Number(row.gstRate)}%</td>
-                      <td className="px-4 py-3 font-semibold">{formatCurrency(Number(row.taxablePaisa))}</td>
-                      <td className="px-4 py-3 font-semibold text-med-green">{formatCurrency(Number(row.gstPaisa))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px] text-sm">
+                  <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
+                    <th className="px-4 py-3 font-medium">HSN Code</th>
+                    <th className="px-4 py-3 font-medium">GST Rate</th>
+                    <th className="px-4 py-3 font-medium">Taxable Amount</th>
+                    <th className="px-4 py-3 font-medium">GST Amount</th>
+                  </tr></thead>
+                  <tbody>
+                    {gstData.map((row, i) => (
+                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="px-4 py-3 font-mono text-xs">{String(row.hsnCode ?? "-")}</td>
+                        <td className="px-4 py-3">{Number(row.gstRate)}%</td>
+                        <td className="px-4 py-3 font-semibold">{formatCurrency(Number(row.taxablePaisa))}</td>
+                        <td className="px-4 py-3 font-semibold text-med-green">{formatCurrency(Number(row.gstPaisa))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               {gstData.length === 0 && <div className="py-12 text-center text-slate-400">No GST data yet</div>}
             </div>
           )}
@@ -146,7 +148,7 @@ export default function ReportsPage() {
           {/* Profit & Loss */}
           {activeTab === "profit" && profitData && (
             <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
                 <MetricCard label="Total Revenue" value={formatCurrency(Number(profitData.totalRevenue ?? 0))} sub={`${profitData.itemCount ?? 0} items sold`} color="emerald" />
                 <MetricCard label="Cost of Goods" value={formatCurrency(Number(profitData.totalCost ?? 0))} sub="Purchase cost" color="sky" />
                 <MetricCard label="Tax Collected" value={formatCurrency(Number(profitData.totalGst ?? 0))} sub="GST" color="purple" />
@@ -257,30 +259,32 @@ export default function ReportsPage() {
           {/* Slow Moving */}
           {activeTab === "slow-moving" && slowData && (
             <div className="glass-card overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
-                  <th className="px-4 py-3 font-medium">Medicine</th>
-                  <th className="px-4 py-3 font-medium">Batch</th>
-                  <th className="px-4 py-3 font-medium">Stock</th>
-                  <th className="px-4 py-3 font-medium">Days Since Last Sale</th>
-                  <th className="px-4 py-3 font-medium">Value</th>
-                </tr></thead>
-                <tbody>
-                  {(slowData as Record<string, unknown>[]).map((row: Record<string, unknown>, i: number) => (
-                    <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-med-navy">{String((row.medicine as Record<string, unknown>)?.name ?? "")}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{String(row.batchNo)}</td>
-                      <td className="px-4 py-3">{Number(row.quantity)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${Number(row.daysSinceLastSale) > 90 ? "bg-red-100 text-red-700" : Number(row.daysSinceLastSale) > 60 ? "bg-orange-100 text-orange-700" : "bg-yellow-100 text-yellow-700"}`}>
-                          {row.daysSinceLastSale === 999 ? "Never sold" : `${row.daysSinceLastSale} days`}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-semibold">{formatCurrency(Number(row.mrpPaisa) * Number(row.quantity))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[600px] text-sm">
+                  <thead><tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
+                    <th className="px-4 py-3 font-medium">Medicine</th>
+                    <th className="px-4 py-3 font-medium">Batch</th>
+                    <th className="px-4 py-3 font-medium">Stock</th>
+                    <th className="px-4 py-3 font-medium">Days Since Last Sale</th>
+                    <th className="px-4 py-3 font-medium">Value</th>
+                  </tr></thead>
+                  <tbody>
+                    {(slowData as Record<string, unknown>[]).map((row: Record<string, unknown>, i: number) => (
+                      <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="px-4 py-3 font-medium text-med-navy">{String((row.medicine as Record<string, unknown>)?.name ?? "")}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{String(row.batchNo)}</td>
+                        <td className="px-4 py-3">{Number(row.quantity)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${Number(row.daysSinceLastSale) > 90 ? "bg-red-100 text-red-700" : Number(row.daysSinceLastSale) > 60 ? "bg-orange-100 text-orange-700" : "bg-yellow-100 text-yellow-700"}`}>
+                            {row.daysSinceLastSale === 999 ? "Never sold" : `${row.daysSinceLastSale} days`}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-semibold">{formatCurrency(Number(row.mrpPaisa) * Number(row.quantity))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               {slowData.length === 0 && <div className="py-12 text-center text-slate-400"><Package className="h-10 w-10 mx-auto mb-3 text-slate-300" /><p>All items are moving well</p></div>}
             </div>
           )}
@@ -304,12 +308,15 @@ function MetricCard({ label, value, sub, color }: { label: string; value: string
 function BarRow({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   const pct = max > 0 ? Math.max((value / max) * 100, 2) : 0;
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-24 text-sm text-slate-500 shrink-0">{label}</span>
-      <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+      <div className="flex justify-between sm:block w-full sm:w-24 shrink-0">
+        <span className="text-sm text-slate-500 font-medium">{label}</span>
+        <span className="sm:hidden text-sm font-semibold text-med-navy">{formatCurrency(value)}</span>
+      </div>
+      <div className="flex-1 h-3 sm:h-6 w-full bg-slate-100 rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="w-28 text-right text-sm font-semibold text-med-navy">{formatCurrency(value)}</span>
+      <span className="hidden sm:inline w-28 text-right text-sm font-semibold text-med-navy">{formatCurrency(value)}</span>
     </div>
   );
 }
@@ -327,64 +334,66 @@ function SalesTrendChart({ data }: { data: { day: string; sales: number; bills: 
           <p className="text-xs text-slate-400">Daily sales revenue in Rupees (₹)</p>
         </div>
       </div>
-      <div className="relative h-64 w-full">
-        <svg className="w-full h-full" viewBox="0 0 600 220" preserveAspectRatio="none">
-          {/* Grid lines & Y-axis labels */}
-          {steps.map((val, idx) => {
-            const y = 20 + idx * 35;
-            return (
-              <g key={idx} className="opacity-40">
-                <line x1="60" y1={y} x2="580" y2={y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
-                <text x="50" y={y + 4} textAnchor="end" className="text-[10px] font-semibold fill-slate-400 font-sans">
-                  ₹{val}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Bars */}
-          {data.map((item, idx) => {
-            const x = 85 + idx * 70;
-            const barHeight = yAxisMax > 0 ? (item.sales / yAxisMax) * 140 : 0;
-            const y = 160 - barHeight;
-            const isMax = item.sales === maxSales && maxSales > 0;
-
-            return (
-              <g key={idx} className="group cursor-pointer">
-                {/* Tooltip on hover */}
-                <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <rect x={x - 20} y={y - 30} width="70" height="24" rx="4" fill="#0f172a" />
-                  <text x={x + 15} y={y - 14} textAnchor="middle" className="text-[10px] font-bold fill-white">
-                    ₹{item.sales}
+      <div className="overflow-x-auto pb-2 scrollbar-none">
+        <div className="relative h-64 min-w-[500px]">
+          <svg className="w-full h-full" viewBox="0 0 600 220" preserveAspectRatio="none">
+            {/* Grid lines & Y-axis labels */}
+            {steps.map((val, idx) => {
+              const y = 20 + idx * 35;
+              return (
+                <g key={idx} className="opacity-40">
+                  <line x1="60" y1={y} x2="580" y2={y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3 3" />
+                  <text x="50" y={y + 4} textAnchor="end" className="text-[10px] font-semibold fill-slate-400 font-sans">
+                    ₹{val}
                   </text>
-                  <path d={`M ${x + 15} ${y - 6} L ${x + 10} ${y} L ${x + 20} ${y} Z`} fill="#0f172a" />
                 </g>
+              );
+            })}
 
-                {/* Bar */}
-                <rect
-                  x={x}
-                  y={y}
-                  width="30"
-                  height={Math.max(barHeight, 4)}
-                  rx="4"
-                  className={`transition-all duration-300 ${
-                    isMax 
-                      ? "fill-med-green hover:fill-med-greenDark" 
-                      : "fill-slate-300 hover:fill-med-greenSoft text-slate-500"
-                  }`}
-                />
+            {/* Bars */}
+            {data.map((item, idx) => {
+              const x = 85 + idx * 70;
+              const barHeight = yAxisMax > 0 ? (item.sales / yAxisMax) * 140 : 0;
+              const y = 160 - barHeight;
+              const isMax = item.sales === maxSales && maxSales > 0;
 
-                {/* Labels */}
-                <text x={x + 15} y="185" textAnchor="middle" className="text-[11px] font-semibold fill-slate-500 font-sans">
-                  {item.day}
-                </text>
-                <text x={x + 15} y="198" textAnchor="middle" className="text-[9px] fill-slate-400 font-sans">
-                  {item.bills} bills
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+              return (
+                <g key={idx} className="group cursor-pointer">
+                  {/* Tooltip on hover */}
+                  <g className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <rect x={x - 20} y={y - 30} width="70" height="24" rx="4" fill="#0f172a" />
+                    <text x={x + 15} y={y - 14} textAnchor="middle" className="text-[10px] font-bold fill-white">
+                      ₹{item.sales}
+                    </text>
+                    <path d={`M ${x + 15} ${y - 6} L ${x + 10} ${y} L ${x + 20} ${y} Z`} fill="#0f172a" />
+                  </g>
+
+                  {/* Bar */}
+                  <rect
+                    x={x}
+                    y={y}
+                    width="30"
+                    height={Math.max(barHeight, 4)}
+                    rx="4"
+                    className={`transition-all duration-300 ${
+                      isMax 
+                        ? "fill-med-green hover:fill-med-greenDark" 
+                        : "fill-slate-300 hover:fill-med-greenSoft text-slate-500"
+                    }`}
+                  />
+
+                  {/* Labels */}
+                  <text x={x + 15} y="185" textAnchor="middle" className="text-[11px] font-semibold fill-slate-500 font-sans">
+                    {item.day}
+                  </text>
+                  <text x={x + 15} y="198" textAnchor="middle" className="text-[9px] fill-slate-400 font-sans">
+                    {item.bills} bills
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+        </div>
       </div>
     </div>
   );

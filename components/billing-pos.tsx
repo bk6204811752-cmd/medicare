@@ -2,25 +2,17 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, CameraOff, ChevronDown, ChevronUp, Database, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Sparkles, Trash2, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X } from "lucide-react";
+import { Camera, CameraOff, ChevronDown, ChevronUp, Database, FileImage, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Sparkles, Trash2, Upload, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X, ShoppingCart, Users } from "lucide-react";
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
 import type { SaleLine } from "@/lib/types";
 import { daysUntil, formatCurrency, parseUnitsPerPack } from "@/lib/utils";
 import { AddMedicineForm } from "@/components/add-medicine-form";
+import { BarcodeScanner } from "@/components/barcode-scanner";
 import type { DrugMasterSuggestion } from "@/components/drug-master-confirm-modal";
 import { BillDetailClient } from "@/app/(app)/shop/billing/[id]/BillDetailClient";
 
-// ─── Lazy-loaded barcode reader singleton ───
-let _readerPromise: Promise<any> | null = null;
-function getReader() {
-  if (!_readerPromise) {
-    _readerPromise = import("@zxing/browser").then(
-      (mod) => new mod.BrowserMultiFormatReader()
-    );
-  }
-  return _readerPromise;
-}
+
 
 type InventorySearchRow = {
   id: string;
@@ -77,27 +69,24 @@ export function BillingPos({ tenant }: { tenant: any }) {
   const [modalPrintFormat, setModalPrintFormat] = useState<"a4" | "thermal">("a4");
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
-  const [scanStatus, setScanStatus] = useState("");
   const [showManualBarcode, setShowManualBarcode] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
   const [addMedicinePrefill, setAddMedicinePrefill] = useState<{ barcode?: string; name?: string }>({});
   const [lastScanCode, setLastScanCode] = useState("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [torchEnabled, setTorchEnabled] = useState(false);
-  const [torchSupported, setTorchSupported] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const brightnessIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const scanControlsRef = useRef<{ stop: () => void } | null>(null);
-  const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const customerDropdownRef = useRef<HTMLDivElement | null>(null);
   const [searching, setSearching] = useState(false);
   const [drugMasterHits, setDrugMasterHits] = useState<DrugMasterSuggestion[]>([]);
   const [drugMasterLoading, setDrugMasterLoading] = useState(false);
-  const [scanCountdown, setScanCountdown] = useState(0);
-  const scanCountdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [mobileTab, setMobileTab] = useState<"cart" | "checkout">("cart");
+  const [modalAutoShare, setModalAutoShare] = useState(false);
+  // Prescription upload prompt for H1 medicines
+  const [showPrescriptionUpload, setShowPrescriptionUpload] = useState(false);
+  const [prescriptionSaleId, setPrescriptionSaleId] = useState<string | null>(null);
+  const [prescriptionUploading, setPrescriptionUploading] = useState(false);
+  const prescriptionFileRef = useRef<HTMLInputElement>(null);
   // External USB barcode scanner detection: rapid keypresses ending with Enter
   const barcodeBufferRef = useRef("");
   const barcodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -157,13 +146,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
       .catch(() => setCustomers([]));
   }, []);
 
-  // Cleanup camera stream on unmount
-  useEffect(() => {
-    return () => {
-      cleanupScanner();
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
 
   // Debounced medicine search with loading indicator — 100ms for speed
   useEffect(() => {
@@ -267,109 +250,41 @@ export function BillingPos({ tenant }: { tenant: any }) {
       current.map((line) => {
         if (line.inventoryId !== inventoryId) return line;
         const next = { ...line, ...patch };
-        next.quantity = Math.min(Math.max(1, Number(next.quantity) || 1), line.maxQuantity);
-        next.discountPercent = Math.min(Math.max(0, Number(next.discountPercent) || 0), 100);
-        next.saleRatePaisa = Math.max(0, Number(next.saleRatePaisa) || 0);
+        next.quantity = Math.min(Math.max(0, isNaN(Number(next.quantity)) ? 0 : Number(next.quantity)), line.maxQuantity);
+        next.discountPercent = Math.min(Math.max(0, isNaN(Number(next.discountPercent)) ? 0 : Number(next.discountPercent)), 100);
+        next.saleRatePaisa = Math.max(0, isNaN(Number(next.saleRatePaisa)) ? 0 : Number(next.saleRatePaisa));
         return next;
       })
     );
   }
 
-  // ─── Camera barcode scanner with continuous scanning ───
-  function cleanupScanner() {
-    if (scanControlsRef.current) {
-      try { scanControlsRef.current.stop(); } catch { /* ignore */ }
-      scanControlsRef.current = null;
-    }
-    if (scanTimeoutRef.current) {
-      clearTimeout(scanTimeoutRef.current);
-      scanTimeoutRef.current = null;
-    }
-    if (brightnessIntervalRef.current) {
-      clearInterval(brightnessIntervalRef.current);
-      brightnessIntervalRef.current = null;
-    }
-    if (videoRef.current?.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(t => t.stop());
-      videoRef.current.srcObject = null;
-    }
-    setTorchEnabled(false);
-    setTorchSupported(false);
+  // ─── Camera barcode scanner triggers ───
+  function startScanning() {
+    setScanning(true);
   }
 
   function stopScanning() {
-    cleanupScanner();
-    if (scanCountdownRef.current) {
-      clearInterval(scanCountdownRef.current);
-      scanCountdownRef.current = null;
-    }
     setScanning(false);
-    setScanStatus("");
-    setScanCountdown(0);
   }
 
-  // ─── Torch toggle helper ───
-  async function toggleTorch(forceState?: boolean) {
-    try {
-      const stream = videoRef.current?.srcObject as MediaStream | null;
-      const track = stream?.getVideoTracks()[0];
-      if (!track) return;
-      const newState = forceState ?? !torchEnabled;
-      await track.applyConstraints({ advanced: [{ torch: newState } as any] });
-      setTorchEnabled(newState);
-    } catch { /* torch not supported */ }
-  }
-
-  // ─── Brightness detection from video frame ───
-  function startBrightnessDetection() {
-    if (brightnessIntervalRef.current) clearInterval(brightnessIntervalRef.current);
-    brightnessIntervalRef.current = setInterval(() => {
-      if (!videoRef.current || !canvasRef.current) return;
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video.videoWidth === 0) return;
-      const w = 64, h = 48; // sample at low res for performance
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(video, 0, 0, w, h);
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const data = imageData.data;
-      let totalLuminance = 0;
-      const pixelCount = w * h;
-      for (let i = 0; i < data.length; i += 4) {
-        totalLuminance += data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      }
-      const avgLuminance = totalLuminance / pixelCount;
-      // Auto-enable torch in low light
-      if (avgLuminance < 50 && !torchEnabled && torchSupported) {
-        toggleTorch(true);
-        toast.info("🔦 Low light detected — flash enabled", { duration: 2000 });
-      }
-    }, 2500);
-  }
-
-  async function handleBarcodeResult(code: string) {
-    stopScanning();
-    setScanStatus("Processing barcode...");
+  async function handleBarcodeResult(code: string, isContinuous = false) {
+    if (!isContinuous) {
+      setScanning(false);
+    }
     setLastScanCode(code);
-
-    // Vibrate on successful scan (mobile)
-    if (navigator.vibrate) navigator.vibrate(200);
 
     try {
       const response = await fetch(`/api/medicines/search?q=${encodeURIComponent(code)}`);
       const resultJson = await response.json();
       const item = resultJson.data?.[0] as InventorySearchRow | undefined;
       if (item) {
-        setRows([item]);
+        const exact = item.medicine.barcode === code;
         addItemToBill(item);
-        toast.success(`✅ Added ${item.medicine.name}`, {
-          action: { label: "Scan again", onClick: () => startScanning() },
+        toast.success(`✅ ${exact ? "Added" : "Matched & Added"} ${item.medicine.name}`, {
+          description: `Batch: ${item.batchNo} • Qty: 1`,
         });
       } else {
+        setScanning(false);
         setQuery(code);
         setAddMedicinePrefill({ barcode: code });
         setShowAddMedicine(true);
@@ -377,90 +292,6 @@ export function BillingPos({ tenant }: { tenant: any }) {
       }
     } catch {
       toast.error("Failed to look up barcode. Try manual entry.");
-    } finally {
-      setScanStatus("");
-    }
-  }
-
-  async function startScanning() {
-    if (scanning) {
-      stopScanning();
-      return;
-    }
-    setScanning(true);
-    setScanStatus("Starting camera...");
-    setScanCountdown(30);
-
-    try {
-      const reader = await getReader();
-
-      // Use constraints for rear camera + higher resolution + continuous autofocus
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      };
-
-      setScanStatus("📷 Point camera at barcode...");
-
-      // Continuous scanning with callback
-      const controls = await reader.decodeFromConstraints(
-        constraints,
-        videoRef.current!,
-        (result: any, _error: any) => {
-          if (result) {
-            const code = result.getText();
-            if (code) {
-              handleBarcodeResult(code);
-            }
-          }
-        }
-      );
-
-      scanControlsRef.current = controls;
-
-      // Check torch capability and auto-detect brightness
-      try {
-        const stream = videoRef.current?.srcObject as MediaStream | null;
-        const track = stream?.getVideoTracks()[0];
-        if (track) {
-          const capabilities = track.getCapabilities?.() as any;
-          if (capabilities?.torch) {
-            setTorchSupported(true);
-            // Start brightness detection — auto-enables torch in low light
-            startBrightnessDetection();
-          } else {
-            setTorchSupported(false);
-          }
-        }
-      } catch { setTorchSupported(false); }
-
-      // Countdown timer
-      scanCountdownRef.current = setInterval(() => {
-        setScanCountdown(prev => {
-          if (prev <= 1) {
-            stopScanning();
-            toast.info("⏱️ Camera scan timed out. Try manual barcode entry.", { duration: 5000 });
-            setShowManualBarcode(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-    } catch (err: any) {
-      stopScanning();
-      const msg = err?.message?.toLowerCase() ?? "";
-      if (msg.includes("permission") || msg.includes("denied") || msg.includes("notallowed")) {
-        toast.error("Camera permission denied. Please allow camera access in browser settings.");
-      } else if (msg.includes("notfound") || msg.includes("no video")) {
-        toast.error("No camera found on this device.");
-      } else {
-        toast.error("Camera error. Use manual barcode entry instead.");
-      }
-      setShowManualBarcode(true);
     }
   }
 
@@ -521,6 +352,10 @@ export function BillingPos({ tenant }: { tenant: any }) {
       toast.error("Add at least one medicine before saving.");
       return;
     }
+    if (lines.some((line) => line.quantity <= 0)) {
+      toast.error("Quantity must be greater than 0 for all items.");
+      return;
+    }
     if (controlled.length && (!doctorName || !prescriptionNo)) {
       toast.error("Prescription and doctor details are required for Schedule H/H1/X items.");
       return;
@@ -570,15 +405,14 @@ export function BillingPos({ tenant }: { tenant: any }) {
       });
 
       if (actionAfterSave === "print-a4" || actionAfterSave === "print-thermal") {
+        setModalAutoShare(false);
         setTimeout(() => {
           window.print();
         }, 500);
       } else if (actionAfterSave === "share") {
-        const whatsappText = encodeURIComponent(
-          `Medicare invoice ${String(result.data?.sale?.invoice_no ?? "invoice created")} from ${tenant.name}. Total: ${formatCurrency(savedTotalPaisa)}. Thank you.`
-        );
-        const whatsappHref = savedPhone ? `https://wa.me/91${savedPhone.replace(/\D/g, "").slice(-10)}?text=${whatsappText}` : `https://wa.me/?text=${whatsappText}`;
-        window.open(whatsappHref, "_blank");
+        setModalAutoShare(true);
+      } else {
+        setModalAutoShare(false);
       }
 
       setLines([]);
@@ -588,6 +422,13 @@ export function BillingPos({ tenant }: { tenant: any }) {
       setDoctorName("");
       setPrescriptionNo("");
       toast.success(`Bill saved: ${result.data?.sale?.invoice_no ?? "invoice created"}`);
+
+      // Show prescription upload prompt if bill had H/H1/X medicines
+      const hadControlled = controlled.length > 0;
+      if (hadControlled && result.data?.sale?.id) {
+        setPrescriptionSaleId(result.data.sale.id);
+        setShowPrescriptionUpload(true);
+      }
     } catch {
       toast.error("Network error — please check your connection and try again.");
     } finally {
@@ -595,11 +436,94 @@ export function BillingPos({ tenant }: { tenant: any }) {
     }
   }
 
+  async function handlePrescriptionUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB.");
+      return;
+    }
+
+    setPrescriptionUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (prescriptionSaleId) {
+        formData.append("saleId", prescriptionSaleId);
+      }
+
+      const res = await fetch("/api/upload/prescription", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        toast.success("Prescription uploaded successfully!");
+        setShowPrescriptionUpload(false);
+        setPrescriptionSaleId(null);
+      } else {
+        toast.error(json.error || "Failed to upload prescription.");
+      }
+    } catch {
+      toast.error("An error occurred during upload.");
+    } finally {
+      setPrescriptionUploading(false);
+      if (prescriptionFileRef.current) {
+        prescriptionFileRef.current.value = "";
+      }
+    }
+  }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-      <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm no-print">
+    <div className="flex flex-col gap-4">
+      {/* Premium Viewport Tab Switcher (Visible on screens < xl) */}
+      <div className="sticky top-0 z-30 -mx-4 flex border-b border-slate-200 bg-white/95 p-1.5 backdrop-blur-md xl:hidden no-print">
+        <button
+          type="button"
+          onClick={() => setMobileTab("cart")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition-all ${
+            mobileTab === "cart"
+              ? "bg-med-green text-white shadow-sm shadow-med-green/15"
+              : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+          }`}
+        >
+          <ShoppingCart className="h-4 w-4" />
+          <span>Cart</span>
+          {lines.length > 0 && (
+            <span className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-extrabold transition-colors ${
+              mobileTab === "cart" ? "bg-white text-med-green" : "bg-med-green text-white"
+            }`}>
+              {lines.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("checkout")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs sm:text-sm font-bold transition-all ${
+            mobileTab === "checkout"
+              ? "bg-med-green text-white shadow-sm shadow-med-green/15"
+              : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+          }`}
+        >
+          <Users className="h-4 w-4" />
+          <span>Checkout</span>
+          {customerName && customerName !== "Walk-in Customer" && (
+            <span className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+          )}
+        </button>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+        <section className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm no-print ${
+          mobileTab === "cart" ? "block" : "hidden xl:block"
+        } ${lines.length > 0 ? "pb-24 xl:pb-4" : ""}`}>
         {/* ─── Search + Scanner Controls ─── */}
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_160px]">
           <label className="relative">
@@ -642,51 +566,17 @@ export function BillingPos({ tenant }: { tenant: any }) {
           </select>
         </div>
 
-        {/* ─── Camera Scanner View ─── */}
+        {/* ─── Shared Camera Barcode Scanner ─── */}
         {scanning && (
-          <div className="relative mt-3 overflow-hidden rounded-lg bg-slate-900">
-            <video ref={videoRef} className="h-56 w-full object-cover" muted autoPlay playsInline />
-            {/* Scanning overlay with animated scan line + corner marks */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative h-32 w-72">
-                {/* Corner marks */}
-                <div className="absolute left-0 top-0 h-5 w-5 border-l-2 border-t-2 border-green-400 rounded-tl" />
-                <div className="absolute right-0 top-0 h-5 w-5 border-r-2 border-t-2 border-green-400 rounded-tr" />
-                <div className="absolute bottom-0 left-0 h-5 w-5 border-b-2 border-l-2 border-green-400 rounded-bl" />
-                <div className="absolute bottom-0 right-0 h-5 w-5 border-b-2 border-r-2 border-green-400 rounded-br" />
-                {/* Animated scan line */}
-                <div className="absolute inset-x-2 top-0 h-0.5 animate-bounce bg-gradient-to-r from-transparent via-green-400 to-transparent" style={{ animationDuration: '2s' }} />
-              </div>
-            </div>
-            {/* Countdown + status bar */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-white">{scanStatus}</p>
-                  <p className="text-xs text-white/60">Hold steady • Ensure good lighting</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {torchSupported && (
-                    <button onClick={() => toggleTorch()} className={`rounded-full p-1.5 transition-colors ${torchEnabled ? "bg-yellow-400 text-slate-900" : "bg-white/20 text-white hover:bg-white/30"}`} title={torchEnabled ? "Turn off flash" : "Turn on flash"}>
-                      {torchEnabled ? <FlashlightOff className="h-3.5 w-3.5" /> : <Flashlight className="h-3.5 w-3.5" />}
-                    </button>
-                  )}
-                  <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-xs font-mono text-white">
-                    <Clock className="h-3 w-3" /> {scanCountdown}s
-                  </span>
-                  <button onClick={stopScanning} className="rounded-full bg-red-500/90 p-1.5 text-white hover:bg-red-600">
-                    <CameraOff className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div className="mt-3">
+            <BarcodeScanner
+              onScan={(result) => handleBarcodeResult(result.text, true)}
+              continuousMode={true}
+              onClose={stopScanning}
+              fullscreenMobile={true}
+            />
           </div>
         )}
-
-        {/* Hidden video element for when not scanning (used as target by library) */}
-        {!scanning && <video ref={videoRef} className="hidden" muted />}
-        {/* Hidden canvas for brightness detection */}
-        <canvas ref={canvasRef} className="hidden" />
 
         {/* ─── Manual Barcode Entry ─── */}
         {showManualBarcode && (
@@ -889,17 +779,17 @@ export function BillingPos({ tenant }: { tenant: any }) {
                     <td className="px-2 py-2 font-mono text-[10px]">{line.batchNo}</td>
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-0.5">
-                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(1, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
-                        <input className="h-7 w-10 rounded border text-center text-xs" type="number" min={1} max={line.maxQuantity} value={line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: Number(event.target.value) || 1 })} />
+                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
+                        <input className="h-7 w-10 rounded border text-center text-xs" type="number" min={0} max={line.maxQuantity} value={line.quantity === 0 ? "" : line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} />
                         <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3 w-3" /></button>
                       </div>
                       <p className="mt-0.5 text-[10px] text-slate-400">Avl {line.maxQuantity}</p>
                     </td>
                     <td className="px-2 py-2">
-                      <input className="h-7 w-20 rounded border px-1.5 text-xs" type="number" value={line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: Math.round(Number(event.target.value) * 100) })} />
+                      <input className="h-7 w-20 rounded border px-1.5 text-xs" type="number" value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} />
                     </td>
                     <td className="px-2 py-2">
-                      <input className="h-7 w-12 rounded border px-1 text-xs" type="number" value={line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: Number(event.target.value) })} />
+                      <input className="h-7 w-12 rounded border px-1 text-xs" type="number" value={line.discountPercent === 0 ? "" : line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} />
                     </td>
                     <td className="px-2 py-2 text-xs">{line.gstRate}%</td>
                     <td className="px-2 py-2 font-semibold text-xs">{formatCurrency(total.totalPaisa)}</td>
@@ -916,44 +806,46 @@ export function BillingPos({ tenant }: { tenant: any }) {
         </div>
 
         {/* ─── Bill Items — Mobile Card Layout ─── */}
-        <div className="mt-4 space-y-3 md:hidden">
+        <div className="mt-4 space-y-3.5 md:hidden">
           {lines.map((line, index) => {
             const total = totals.lineTotals[index];
             return (
-              <div key={line.inventoryId} className="relative rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <button className="absolute right-2 top-2 rounded-full p-1.5 text-red-500 hover:bg-red-50" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
+              <div key={line.inventoryId} className="relative rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm hover:shadow-md transition-all animate-slide-up">
+                <button className="absolute right-3.5 top-3.5 rounded-full p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
                   <Trash2 className="h-4 w-4" />
                 </button>
-                <p className="pr-8 font-semibold text-sm text-med-navy">{line.medicineName}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-                  {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
-                    <span className="rounded bg-orange-100 px-1.5 py-0.5 text-orange-700">{line.schedule}</span>
-                  )}
-                  <span>Batch {line.batchNo}</span>
-                  <span>MRP {formatCurrency(line.mrpPaisa)}</span>
+                <div className="pr-10">
+                  <p className="font-display font-bold text-base text-med-navy leading-tight">{line.medicineName}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                    {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
+                      <span className="rounded bg-orange-50 border border-orange-150 px-2 py-0.5 text-[10px] font-bold text-orange-700 uppercase tracking-wide">{line.schedule}</span>
+                    )}
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium text-slate-500 font-mono">Batch {line.batchNo}</span>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-med-greenDark">MRP {formatCurrency(line.mrpPaisa)}</span>
+                  </div>
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2">
-                  <div>
-                    <p className="text-[10px] font-medium text-slate-500 mb-1">Quantity</p>
+                <div className="mt-4.5 grid grid-cols-4 gap-2">
+                  <div className="col-span-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Quantity</p>
                     <div className="flex items-center gap-1">
-                      <button className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 active:bg-slate-100" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(1, line.quantity - 1) })}><Minus className="h-4 w-4" /></button>
-                      <input className="h-9 w-12 rounded-md border text-center text-sm" type="number" min={1} max={line.maxQuantity} value={line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: Number(event.target.value) || 1 })} />
-                      <button className="flex h-9 w-9 items-center justify-center rounded-md border border-slate-300 active:bg-slate-100" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-4 w-4" /></button>
+                      <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 active:bg-slate-200 hover:bg-slate-100 transition-colors text-slate-600" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}><Minus className="h-3.5 w-3.5" /></button>
+                      <input className="h-9 w-11 rounded-lg border border-slate-200 text-center text-sm font-semibold text-slate-800 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green" type="number" min={0} max={line.maxQuantity} value={line.quantity === 0 ? "" : line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} />
+                      <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 active:bg-slate-200 hover:bg-slate-100 transition-colors text-slate-600" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3.5 w-3.5" /></button>
                     </div>
-                    <p className="mt-0.5 text-[10px] text-slate-400">Avl {line.maxQuantity}</p>
+                    <p className="mt-1 text-[9px] text-slate-400 font-semibold tracking-wide">Avl: {line.maxQuantity}</p>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-medium text-slate-500 mb-1">Rate (₹)</p>
-                    <input className="h-9 w-full rounded-md border px-2 text-sm" type="number" value={line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: Math.round(Number(event.target.value) * 100) })} />
+                  <div className="col-span-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rate (₹)</p>
+                    <input className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none" type="number" value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} />
                   </div>
-                  <div>
-                    <p className="text-[10px] font-medium text-slate-500 mb-1">Disc %</p>
-                    <input className="h-9 w-full rounded-md border px-2 text-sm" type="number" value={line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: Number(event.target.value) })} />
+                  <div className="col-span-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Disc %</p>
+                    <input className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none" type="number" value={line.discountPercent === 0 ? "" : line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} />
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-                  <span className="text-xs text-slate-500">GST {line.gstRate}%</span>
-                  <span className="text-sm font-bold text-med-navy">{formatCurrency(total.totalPaisa)}</span>
+                <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 pt-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">GST {line.gstRate}%</span>
+                  <span className="text-base font-extrabold text-med-greenDark">{formatCurrency(total.totalPaisa)}</span>
                 </div>
               </div>
             );
@@ -980,7 +872,9 @@ export function BillingPos({ tenant }: { tenant: any }) {
       </section>
 
       {/* ─── Mobile Floating Action Bar ─── */}
-      <div className="mobile-fab gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur-sm no-print">
+      <div className={`mobile-fab gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur-sm no-print ${
+        lines.length > 0 && mobileTab === "cart" ? "hidden" : ""
+      }`}>
         <button onClick={() => searchInputRef.current?.focus()} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-slate-600 active:bg-slate-100" aria-label="Search medicine">
           <Search className="h-5 w-5" />
           <span className="mt-0.5 text-[9px]">Search</span>
@@ -999,7 +893,34 @@ export function BillingPos({ tenant }: { tenant: any }) {
         </button>
       </div>
 
-      <aside className="space-y-4 no-print">
+      {/* ─── Mobile Sticky Floating Checkout Footer (Cart Tab Only) ─── */}
+      {mobileTab === "cart" && lines.length > 0 && (
+        <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-30 border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur-md xl:hidden no-print">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subtotal</p>
+              <p className="text-lg font-extrabold text-med-navy">
+                {formatCurrency(totals.totalPaisa)}
+              </p>
+              <p className="text-[10px] font-semibold text-med-green">
+                {totalItems} item{totalItems !== 1 ? "s" : ""} in cart
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileTab("checkout")}
+              className="flex items-center gap-2 rounded-xl bg-med-green px-6 py-3 font-semibold text-white shadow-md shadow-med-green/20 hover:bg-med-greenDark transition-all active:scale-95 animate-pulse"
+            >
+              <span>Checkout</span>
+              <ShoppingCart className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <aside className={`space-y-4 no-print ${
+        mobileTab === "checkout" ? "block animate-fade-in" : "hidden xl:block"
+      }`}>
         <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="font-display text-lg font-semibold text-med-navy">Customer</h2>
           {/* Quick-select chips */}
@@ -1084,16 +1005,16 @@ export function BillingPos({ tenant }: { tenant: any }) {
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <button onClick={() => saveBill("none")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-50 font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 transition-all">
+            <button onClick={() => saveBill("none")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-50 font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 transition-all active:scale-[0.97]">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
             </button>
-            <button onClick={() => saveBill("print-a4")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-med-green font-semibold text-white hover:bg-med-greenDark disabled:opacity-60 transition-all">
+            <button onClick={() => saveBill("print-a4")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-med-green font-semibold text-white hover:bg-med-greenDark disabled:opacity-60 transition-all active:scale-[0.97]">
               <Printer className="h-4 w-4" /> Print A4 <span className="text-[10px] opacity-70">(F8)</span>
             </button>
-            <button onClick={() => saveBill("print-thermal")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sky-600 font-semibold text-white hover:bg-sky-700 disabled:opacity-60 transition-all">
+            <button onClick={() => saveBill("print-thermal")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sky-600 font-semibold text-white hover:bg-sky-700 disabled:opacity-60 transition-all active:scale-[0.97]">
               <Printer className="h-4 w-4" /> Print Thermal Roll <span className="text-[10px] opacity-70">(F9)</span>
             </button>
-            <button onClick={() => saveBill("share")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 font-semibold text-emerald-700 hover:bg-emerald-100/70 disabled:opacity-60 transition-all">
+            <button onClick={() => saveBill("share")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 font-semibold text-emerald-700 hover:bg-emerald-100/70 disabled:opacity-60 transition-all active:scale-[0.97]">
               <Send className="h-4 w-4" /> Save & Share on WhatsApp
             </button>
             {lines.length > 0 && (
@@ -1120,8 +1041,9 @@ export function BillingPos({ tenant }: { tenant: any }) {
           ) : null}
         </section>
       </aside>
+    </div>
 
-      {/* Render the Exact Bill Detail Client Component Overlay Modal */}
+    {/* Render the Exact Bill Detail Client Component Overlay Modal */}
       {savedSaleDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto print:static print:bg-white print:p-0 print:block print:overflow-visible print:z-0">
           <div className="relative w-full max-w-5xl rounded-2xl bg-slate-100 p-6 shadow-2xl overflow-y-auto max-h-[92vh] print:bg-white print:p-0 print:border-0 print:shadow-none print:max-h-none print:overflow-visible">
@@ -1146,6 +1068,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
                 items={savedSaleDetails.items}
                 tenant={tenant}
                 initialFormat={modalPrintFormat}
+                autoSharePDF={modalAutoShare}
               />
             </div>
 
@@ -1163,6 +1086,44 @@ export function BillingPos({ tenant }: { tenant: any }) {
               >
                 Close & Start Next Bill
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── H1/H Prescription Upload Prompt ─── */}
+      {showPrescriptionUpload && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in no-print" onClick={() => { setShowPrescriptionUpload(false); setPrescriptionSaleId(null); }}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-xl border border-orange-200 animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-100 px-5 py-4">
+              <h3 className="font-display text-base font-bold text-orange-900 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-500" />
+                Upload Doctor Prescription
+              </h3>
+              <p className="mt-1 text-xs text-orange-700">This bill contains Schedule H/H1/X medicines. Upload the doctor&apos;s prescription for legal compliance records.</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <input ref={prescriptionFileRef} type="file" accept="image/*" className="hidden" onChange={handlePrescriptionUpload} />
+              <button
+                onClick={() => prescriptionFileRef.current?.click()}
+                disabled={prescriptionUploading}
+                className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-dashed border-orange-300 bg-orange-50/50 px-4 py-6 text-sm font-semibold text-orange-800 hover:bg-orange-100/50 hover:border-orange-400 disabled:opacity-50 transition-all active:scale-[0.98]"
+              >
+                {prescriptionUploading ? (
+                  <><Loader2 className="h-5 w-5 animate-spin" /> Uploading...</>
+                ) : (
+                  <><Upload className="h-5 w-5" /> Take Photo or Select Prescription Image</>
+                )}
+              </button>
+              <div className="flex justify-between items-center">
+                <button
+                  onClick={() => { setShowPrescriptionUpload(false); setPrescriptionSaleId(null); }}
+                  className="text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  Skip for now
+                </button>
+                <span className="text-[10px] text-slate-400">You can upload later from Prescriptions page</span>
+              </div>
             </div>
           </div>
         </div>

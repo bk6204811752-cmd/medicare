@@ -164,7 +164,15 @@ export function searchMedicineDatabase(query: string): MedicineDatabaseResult[] 
   for (const entry of mergedEntries.values()) {
     const [name, , manufacturer, , composition] = entry;
     const nameLower = name.toLowerCase();
-    const searchStr = `${nameLower} ${(composition || "").toLowerCase()} ${(manufacturer || "").toLowerCase()}`;
+    let searchStr = `${nameLower} ${(composition || "").toLowerCase()} ${(manufacturer || "").toLowerCase()}`;
+    
+    // Inject phonetic/spelling aliases to resolve common search variations on the correct record
+    if (nameLower.includes("dettol")) searchStr += " detol";
+    if (nameLower.includes("savlon")) searchStr += " sevlon";
+    if (nameLower.includes("betadine")) searchStr += " betadin";
+    if (nameLower.includes("waist belt") || nameLower.includes("back support") || nameLower.includes("abdominal")) searchStr += " west belt";
+    if (nameLower.includes("hansaplast")) searchStr += " handiplast";
+    if (nameLower.includes("handiplast")) searchStr += " hansaplast";
 
     const searchStrClean = searchStr.replace(/[^a-z0-9]/g, "");
     if (!matchesAllTokens(searchStr, allTokens) && !matchesAllTokens(searchStrClean, allTokens)) continue;

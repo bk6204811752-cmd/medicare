@@ -16,7 +16,28 @@ export async function GET(_request: Request, { params }: { params: Promise<{ typ
     if (type === "sales") {
       rows = (await getSales(tid)) as Record<string, unknown>[];
     } else if (type === "gst") {
-      rows = (await getGstReport(tid, month)) as Record<string, unknown>[];
+      const gstRows = (await getGstReport(tid, month)) as {
+        hsnCode: string | null;
+        gstRate: number;
+        taxablePaisa: number;
+        gstPaisa: number;
+      }[];
+      rows = gstRows.map(row => {
+        const cgstRate = row.gstRate / 2;
+        const sgstRate = row.gstRate - cgstRate;
+        const cgstAmt = Math.round(row.gstPaisa / 2);
+        const sgstAmt = row.gstPaisa - cgstAmt;
+        return {
+          "HSN Code": row.hsnCode ?? "N/A",
+          "GST Rate (%)": `${row.gstRate}%`,
+          "CGST Rate (%)": `${cgstRate}%`,
+          "SGST Rate (%)": `${sgstRate}%`,
+          "Taxable Value (INR)": (row.taxablePaisa / 100).toFixed(2),
+          "CGST Amount (INR)": (cgstAmt / 100).toFixed(2),
+          "SGST Amount (INR)": (sgstAmt / 100).toFixed(2),
+          "Total Tax (INR)": (row.gstPaisa / 100).toFixed(2),
+        };
+      }) as unknown as Record<string, unknown>[];
     } else if (type === "inventory") {
       rows = (await getInventoryRows(tid)).map((row) => ({
         medicine: row.medicine.name, batchNo: row.batchNo, expiryDate: row.expiryDate,

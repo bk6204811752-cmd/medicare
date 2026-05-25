@@ -998,23 +998,26 @@ export function BillingPos({ tenant }: { tenant: any }) {
 
         {/* ─── Clinical Decision Drug Interaction Banner ─── */}
         {cartInteractions.length > 0 && (
-          <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/65 p-4.5 shadow-sm animate-pulse-slow">
+          <div className="mt-4 rounded-xl border border-orange-350 bg-orange-50/90 p-4.5 shadow-md animate-pulse">
             <div className="flex gap-3">
-              <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-sm text-orange-950">⚠️ Severe Drug Interaction Alert</h4>
-                <div className="mt-2 space-y-2">
-                  {cartInteractions.map((inter, idx) => (
-                    <div key={idx} className="text-xs text-orange-850 leading-relaxed border-l-2 border-orange-300 pl-3">
-                      <span className="font-extrabold text-orange-900">{inter.brandA} ({inter.ingredientA})</span>{" "}
-                      &{" "}
-                      <span className="font-extrabold text-orange-900">{inter.brandB} ({inter.ingredientB})</span>{" "}
-                      may interact severely:
-                      <p className="mt-0.5 text-[11px] text-orange-800 italic">{inter.description}</p>
+              <AlertTriangle className="h-5.5 w-5.5 text-orange-600 shrink-0 mt-0.5" />
+              <div className="space-y-3 w-full">
+                {cartInteractions.map((inter, idx) => {
+                  const compA = inter.ingredientA.charAt(0).toUpperCase() + inter.ingredientA.slice(1);
+                  const compB = inter.ingredientB.charAt(0).toUpperCase() + inter.ingredientB.slice(1);
+                  return (
+                    <div key={idx} className="text-xs text-orange-950 leading-relaxed border-b border-orange-200/60 last:border-0 pb-3 last:pb-0">
+                      <p className="font-bold text-orange-900 text-sm">
+                        ⚠️ Clinical Alert: {compA} &amp; {compB} in cart may interact. Confirm with doctor.
+                      </p>
+                      <p className="mt-1 text-xs text-orange-850 font-medium">
+                        <span className="font-semibold text-orange-900">Interaction details ({inter.brandA} vs {inter.brandB}):</span>{" "}
+                        <span className="italic">{inter.description}</span>
+                      </p>
                     </div>
-                  ))}
-                </div>
-                <p className="mt-3 text-[10px] text-orange-600 font-bold uppercase tracking-wider">
+                  );
+                })}
+                <p className="text-[10px] text-orange-600 font-bold uppercase tracking-wider">
                   ⚠️ Clinical Decision Warning • Please consult doctor before dispensing
                 </p>
               </div>

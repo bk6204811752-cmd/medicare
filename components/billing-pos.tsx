@@ -1148,65 +1148,79 @@ export function BillingPos({ tenant }: { tenant: any }) {
                   </div>
                 </div>
 
-                {/* Input Fields Grid (3-Column Layout to prevent squishing) */}
-                <div className="mt-4 grid grid-cols-3 gap-2 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
-                  {/* Quantity Column */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quantity</span>
-                    <div className="flex items-center gap-1">
-                      <button 
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white active:bg-slate-205 text-slate-600 shadow-sm"
-                        onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <input 
-                        className="h-8 w-10 rounded-lg border border-slate-200 bg-white text-center text-xs font-bold text-slate-800 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green shadow-xs" 
-                        type="number" 
-                        min={0} 
-                        max={line.maxQuantity} 
-                        value={line.quantity === 0 ? "" : line.quantity} 
-                        onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} 
-                      />
-                      <button 
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white active:bg-slate-205 text-slate-600 shadow-sm"
-                        onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
+                {/* Mobile Input Fields Redesign */}
+                <div className="mt-4 flex flex-col gap-3 rounded-xl bg-slate-50/70 p-3 border border-slate-100">
+                  {/* Row 1: Quantity and Item Total */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quantity</span>
+                      <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                        <button 
+                          className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 active:bg-slate-100 transition-colors"
+                          onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </button>
+                        <input 
+                          className="h-8 w-12 text-center text-sm font-bold text-slate-800 outline-none border-none focus:ring-0 bg-transparent" 
+                          type="number" 
+                          min={0} 
+                          max={line.maxQuantity} 
+                          value={line.quantity === 0 ? "" : line.quantity} 
+                          onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} 
+                        />
+                        <button 
+                          className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-50 text-slate-600 active:bg-slate-100 transition-colors"
+                          onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <span className="text-[9px] text-slate-450 font-semibold leading-tight px-1">Avl: {line.maxQuantity}</span>
                     </div>
-                    <span className="text-[9px] text-slate-450 font-semibold leading-tight">Avl: {line.maxQuantity}</span>
+
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Item Total</span>
+                      <span className="text-xl font-black text-med-greenDark font-mono">{formatCurrency(total.totalPaisa)}</span>
+                    </div>
                   </div>
 
-                  {/* Rate Column */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rate (₹)</span>
-                    <input 
-                      className="h-8 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-bold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none shadow-xs" 
-                      type="number" 
-                      value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} 
-                      onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} 
-                    />
-                    <span className="text-[9px] text-slate-455 font-semibold leading-tight truncate">MRP: {formatCurrency(line.mrpPaisa)}</span>
-                  </div>
+                  {/* Row 2: Rate and Discount */}
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-200/60">
+                    {/* Rate Column */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rate</span>
+                        <span className="text-[9px] text-slate-455 font-semibold truncate">MRP: {formatCurrency(line.mrpPaisa)}</span>
+                      </div>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">₹</span>
+                        <input 
+                          className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-7 pr-2 text-sm font-bold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none shadow-sm transition-all" 
+                          type="number" 
+                          value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} 
+                          onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} 
+                        />
+                      </div>
+                    </div>
 
-                  {/* Discount Column */}
-                  <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disc %</span>
-                    <input 
-                      className="h-8 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-bold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none shadow-xs" 
-                      type="number" 
-                      value={line.discountPercent === 0 ? "" : line.discountPercent} 
-                      onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} 
-                    />
-                    <span className="text-[9px] text-slate-455 font-semibold leading-tight">GST: {line.gstRate}%</span>
+                    {/* Discount Column */}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disc %</span>
+                        <span className="text-[9px] text-slate-455 font-semibold">GST: {line.gstRate}%</span>
+                      </div>
+                      <div className="relative">
+                        <input 
+                          className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 pr-7 text-sm font-bold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none shadow-sm transition-all text-left" 
+                          type="number" 
+                          value={line.discountPercent === 0 ? "" : line.discountPercent} 
+                          onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} 
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">%</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-
-                {/* Final Total Amount Row */}
-                <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Item Total</span>
-                  <span className="text-lg font-black text-med-greenDark font-mono">{formatCurrency(total.totalPaisa)}</span>
                 </div>
               </div>
             );

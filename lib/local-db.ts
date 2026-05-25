@@ -1270,11 +1270,15 @@ export async function getSalesSummary(tenantId: string) {
   ]);
 
   return {
-    bills: allCount, totalPaisa: allAgg._sum.totalPaisa ?? 0,
-    gstPaisa: allAgg._sum.gstPaisa ?? 0, duePaisa: allAgg._sum.amountDuePaisa ?? 0,
-    discountPaisa: allAgg._sum.discountPaisa ?? 0,
-    todayBills: todayCount, todaySalesPaisa: todayAgg._sum.totalPaisa ?? 0,
-    todayGstPaisa: todayAgg._sum.gstPaisa ?? 0, todayDuePaisa: todayAgg._sum.amountDuePaisa ?? 0,
+    bills: allCount,
+    totalPaisa: allAgg._sum?.totalPaisa ?? 0,
+    gstPaisa: allAgg._sum?.gstPaisa ?? 0,
+    duePaisa: allAgg._sum?.amountDuePaisa ?? 0,
+    discountPaisa: allAgg._sum?.discountPaisa ?? 0,
+    todayBills: todayCount,
+    todaySalesPaisa: todayAgg._sum?.totalPaisa ?? 0,
+    todayGstPaisa: todayAgg._sum?.gstPaisa ?? 0,
+    todayDuePaisa: todayAgg._sum?.amountDuePaisa ?? 0,
   };
 }
 

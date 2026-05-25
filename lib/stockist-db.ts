@@ -577,11 +577,11 @@ export async function getB2BSalesSummary(tenantId: string) {
   ]);
 
   return {
-    todaySalesPaisa: todaySales._sum.totalPaisa || 0,
-    todayInvoices: todaySales._count.id || 0,
-    monthSalesPaisa: monthSales._sum.totalPaisa || 0,
-    outstandingReceivablesPaisa: unpaidReceivables._sum.outstandingPaisa || 0,
-    todayCollectionsPaisa: todayCollections._sum.amountPaisa || 0,
+    todaySalesPaisa: todaySales._sum?.totalPaisa || 0,
+    todayInvoices: todaySales._count?.id || 0,
+    monthSalesPaisa: monthSales._sum?.totalPaisa || 0,
+    outstandingReceivablesPaisa: unpaidReceivables._sum?.outstandingPaisa || 0,
+    todayCollectionsPaisa: todayCollections._sum?.amountPaisa || 0,
   };
 }
 

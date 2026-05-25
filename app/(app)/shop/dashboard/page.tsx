@@ -1,69 +1,21 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { AlertTriangle, BarChart3, Clock, IndianRupee, Package, Plus, ShoppingCart, TrendingUp } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { PageHeader } from "@/components/page-header";
 import { formatCurrency } from "@/lib/utils";
+import { requireUser } from "@/lib/auth";
+import { getSalesSummary, getSalesTrend, getNotifications } from "@/lib/local-db";
 
-type Summary = { bills: number; totalPaisa: number; gstPaisa: number; duePaisa: number; todayBills: number; todaySalesPaisa: number; todayGstPaisa: number; todayDuePaisa: number };
-type Trend = { day: string; sales: number; bills: number }[];
-type Notification = { id: string; type: string; title: string; message: string; severity: string };
+export default async function ShopDashboard() {
+  const user = await requireUser();
+  const tid = user.tenantId;
+  if (!tid) return <div>No tenant found</div>;
 
-export default function ShopDashboard() {
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [trend, setTrend] = useState<Trend>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const [error, setError] = useState<string | null>(null);
-
-  const loadDashboard = () => {
-    setLoading(true);
-    setError(null);
-    fetch("/api/dashboard")
-      .then((r) => r.json())
-      .then((result) => {
-        if (result.error) {
-          setError(result.error);
-          return;
-        }
-        const d = result.data ?? {};
-        setSummary(d.summary ?? null);
-        setTrend(d.trend ?? []);
-        setNotifications(d.notifications ?? []);
-      })
-      .catch(() => setError("Unable to connect. Please check your network."))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { loadDashboard(); }, []);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-8 w-48 skeleton" />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-32 skeleton rounded-xl" />)}
-        </div>
-        <div className="h-64 skeleton rounded-xl" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div className="text-center">
-          <p className="text-sm text-red-600 font-medium">{error}</p>
-          <button onClick={loadDashboard} className="mt-3 rounded-lg bg-med-green px-4 py-2 text-sm font-semibold text-white hover:bg-med-greenDark transition-colors">
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const [summary, trend, notifications] = await Promise.all([
+    getSalesSummary(tid),
+    getSalesTrend(tid),
+    getNotifications(tid),
+  ]);
 
   const lowStock = notifications.filter((n) => n.type === "low_stock");
   const expiry = notifications.filter((n) => n.type === "expiry_alert");

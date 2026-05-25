@@ -732,20 +732,24 @@ export async function searchInventory(tenantId: string, q: string) {
           { medicine: { name: { contains: normalized } } },
           { medicine: { genericName: { contains: normalized } } },
           { medicine: { barcode: { contains: normalized } } },
-          { medicine: { category: { contains: normalized } } },
           { batchNo: { contains: normalized } },
         ],
       },
       include: { medicine: true, supplier: true },
       orderBy: [{ quantity: "desc" }, { expiryDate: "asc" }],
-      take: 20,
+      take: 10,
     });
     return rows.map(mapInventory);
   }
 
   // Each token must match at least one field
+  const isShortQuery = normalized.length < 4;
   const tokenConditions = tokens.map(token => ({
-    OR: [
+    OR: isShortQuery ? [
+      { medicine: { name: { contains: token } } },
+      { medicine: { genericName: { contains: token } } },
+      { batchNo: { contains: token } },
+    ] : [
       { medicine: { name: { contains: token } } },
       { medicine: { genericName: { contains: token } } },
       { medicine: { manufacturer: { contains: token } } },
@@ -764,7 +768,7 @@ export async function searchInventory(tenantId: string, q: string) {
     },
     include: { medicine: true, supplier: true },
     orderBy: [{ quantity: "desc" }, { expiryDate: "asc" }],
-    take: 20,
+    take: 10,
   });
   return rows.map(mapInventory);
 }
@@ -1817,10 +1821,14 @@ export async function searchMedicinesByName(q: string) {
   const normalized = q.trim().toLowerCase();
   if (!normalized || normalized.length < 2) return [];
   const tokens = normalized.split(/\s+/).filter(t => t.length >= 2);
+  const isShortQuery = normalized.length < 4;
 
   const conditions = tokens.length > 0
     ? tokens.map(token => ({
-        OR: [
+        OR: isShortQuery ? [
+          { name: { contains: token } },
+          { genericName: { contains: token } },
+        ] : [
           { name: { contains: token } },
           { genericName: { contains: token } },
           { manufacturer: { contains: token } },

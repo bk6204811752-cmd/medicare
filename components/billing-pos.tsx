@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { Camera, CameraOff, ChevronDown, ChevronUp, Database, FileImage, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Sparkles, Trash2, Upload, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X, ShoppingCart, Users } from "lucide-react";
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
@@ -137,6 +137,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
   const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [manualBarcode, setManualBarcode] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerName, setCustomerName] = useState("");
@@ -323,7 +324,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
 
   // Debounced medicine search with loading indicator — 100ms for speed
   useEffect(() => {
-    if (query.length < 1) {
+    if (deferredQuery.length < 1) {
       setRows([]);
       setSuggestions([]);
       setSearching(false);
@@ -331,8 +332,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
     }
 
     // Allow single character only for numeric (barcode prefix), require 2+ for text
-    const isNumeric = /^\d+$/.test(query);
-    if (!isNumeric && query.length < 2) {
+    const isNumeric = /^\d+$/.test(deferredQuery);
+    if (!isNumeric && deferredQuery.length < 2) {
       setRows([]);
       setSuggestions([]);
       setSearching(false);
@@ -342,7 +343,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
     setSearching(true);
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/medicines/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      fetch(`/api/medicines/search?q=${encodeURIComponent(deferredQuery)}`, { signal: controller.signal })
         .then((response) => response.json())
         .then((result) => {
           setRows(result.data ?? []);
@@ -353,11 +354,11 @@ export function BillingPos({ tenant }: { tenant: any }) {
     }, isNumeric ? 50 : 100); // Barcode = 50ms, text search = 100ms
 
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [query]);
+  }, [deferredQuery]);
 
   // Debounced Drug Master API search — runs in parallel with inventory search
   useEffect(() => {
-    if (query.length < 2 || /^\d+$/.test(query)) {
+    if (deferredQuery.length < 2 || /^\d+$/.test(deferredQuery)) {
       setDrugMasterHits([]);
       setDrugMasterLoading(false);
       return;
@@ -365,7 +366,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
     setDrugMasterLoading(true);
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/drug-master/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+      fetch(`/api/drug-master/search?q=${encodeURIComponent(deferredQuery)}`, { signal: controller.signal })
         .then(r => r.json())
         .then(result => {
           setDrugMasterHits(result.data ?? []);
@@ -374,9 +375,9 @@ export function BillingPos({ tenant }: { tenant: any }) {
         .catch(() => setDrugMasterLoading(false));
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [query]);
+  }, [deferredQuery]);
 
-  const matches = query.length < 2 ? [] : rows;
+  const matches = deferredQuery.length < 2 ? [] : rows;
 
   // ─── Add item to bill ───
   const addItemToBill = useCallback((item: InventorySearchRow) => {

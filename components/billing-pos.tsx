@@ -1103,18 +1103,28 @@ export function BillingPos({ tenant }: { tenant: any }) {
             const total = totals.lineTotals[index];
             return (
               <div key={line.inventoryId} className="relative rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm hover:shadow-md transition-all animate-slide-up">
-                <button className="absolute right-3.5 top-3.5 rounded-full p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
-                  <Trash2 className="h-4 w-4" />
+                {/* Trash Button */}
+                <button 
+                  className="absolute right-3.5 top-3.5 rounded-full p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" 
+                  onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} 
+                  aria-label="Remove item"
+                >
+                  <Trash2 className="h-5 w-5 text-slate-400" />
                 </button>
+                
+                {/* Product Info */}
                 <div className="pr-10">
                   <p className="font-display font-bold text-base text-med-navy leading-tight">{line.medicineName}</p>
+                  
+                  {/* Badges / Expiries */}
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
                     {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
                       <span className="rounded bg-orange-50 border border-orange-150 px-2 py-0.5 text-[10px] font-bold text-orange-700 uppercase tracking-wide">{line.schedule}</span>
                     )}
+                    
                     {availableBatches[line.medicineId ?? ""] && availableBatches[line.medicineId ?? ""].length > 1 ? (
-                      <div className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-150 px-2.5 py-0.5 text-[10px] text-blue-700">
-                        <span className="font-bold uppercase tracking-wide text-[9px] text-blue-800">Batch:</span>
+                      <div className="flex items-center gap-1 rounded-full bg-blue-50 border border-blue-150 px-2.5 py-0.5 text-[10px] text-blue-750 font-bold">
+                        <span className="text-[9px] uppercase tracking-wide text-blue-850">Batch:</span>
                         <select
                           value={line.inventoryId}
                           onChange={(e) => {
@@ -1125,39 +1135,78 @@ export function BillingPos({ tenant }: { tenant: any }) {
                         >
                           {availableBatches[line.medicineId ?? ""].map((b) => (
                             <option key={b.id} value={b.id}>
-                              {b.batchNo} (Avl: {b.quantity})
+                              {b.batchNo} (Stock: {b.quantity})
                             </option>
                           ))}
                         </select>
                       </div>
                     ) : (
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-medium text-slate-500 font-mono">Batch {line.batchNo}</span>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold text-slate-500 font-mono">
+                        Batch: {line.batchNo}
+                      </span>
                     )}
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-med-greenDark">MRP {formatCurrency(line.mrpPaisa)}</span>
                   </div>
                 </div>
-                <div className="mt-4.5 grid grid-cols-4 gap-2">
-                  <div className="col-span-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Quantity</p>
+
+                {/* Input Fields Grid (3-Column Layout to prevent squishing) */}
+                <div className="mt-4 grid grid-cols-3 gap-2 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
+                  {/* Quantity Column */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quantity</span>
                     <div className="flex items-center gap-1">
-                      <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 active:bg-slate-200 hover:bg-slate-100 transition-colors text-slate-600" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}><Minus className="h-3.5 w-3.5" /></button>
-                      <input className="h-9 w-11 rounded-lg border border-slate-200 text-center text-sm font-semibold text-slate-800 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green" type="number" min={0} max={line.maxQuantity} value={line.quantity === 0 ? "" : line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} />
-                      <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 active:bg-slate-200 hover:bg-slate-100 transition-colors text-slate-600" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3.5 w-3.5" /></button>
+                      <button 
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white active:bg-slate-205 text-slate-600 shadow-sm"
+                        onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <input 
+                        className="h-8 w-10 rounded-lg border border-slate-200 bg-white text-center text-xs font-bold text-slate-800 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green shadow-xs" 
+                        type="number" 
+                        min={0} 
+                        max={line.maxQuantity} 
+                        value={line.quantity === 0 ? "" : line.quantity} 
+                        onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} 
+                      />
+                      <button 
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white active:bg-slate-205 text-slate-600 shadow-sm"
+                        onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
                     </div>
-                    <p className="mt-1 text-[9px] text-slate-400 font-semibold tracking-wide">Avl: {line.maxQuantity}</p>
+                    <span className="text-[9px] text-slate-450 font-semibold leading-tight">Avl: {line.maxQuantity}</span>
                   </div>
-                  <div className="col-span-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Rate (₹)</p>
-                    <input className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none" type="number" value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} />
+
+                  {/* Rate Column */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rate (₹)</span>
+                    <input 
+                      className="h-8 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-bold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none shadow-xs" 
+                      type="number" 
+                      value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} 
+                      onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} 
+                    />
+                    <span className="text-[9px] text-slate-455 font-semibold leading-tight truncate">MRP: {formatCurrency(line.mrpPaisa)}</span>
                   </div>
-                  <div className="col-span-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Disc %</p>
-                    <input className="h-9 w-full rounded-lg border border-slate-200 px-2 text-sm font-semibold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none" type="number" value={line.discountPercent === 0 ? "" : line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} />
+
+                  {/* Discount Column */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disc %</span>
+                    <input 
+                      className="h-8 w-full rounded-lg border border-slate-200 bg-white px-1.5 text-center text-xs font-bold text-slate-800 focus:border-med-green focus:ring-1 focus:ring-med-green outline-none shadow-xs" 
+                      type="number" 
+                      value={line.discountPercent === 0 ? "" : line.discountPercent} 
+                      onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} 
+                    />
+                    <span className="text-[9px] text-slate-455 font-semibold leading-tight">GST: {line.gstRate}%</span>
                   </div>
                 </div>
+
+                {/* Final Total Amount Row */}
                 <div className="mt-3.5 flex items-center justify-between border-t border-slate-100 pt-3">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">GST {line.gstRate}%</span>
-                  <span className="text-base font-extrabold text-med-greenDark">{formatCurrency(total.totalPaisa)}</span>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Item Total</span>
+                  <span className="text-lg font-black text-med-greenDark font-mono">{formatCurrency(total.totalPaisa)}</span>
                 </div>
               </div>
             );
@@ -1166,44 +1215,74 @@ export function BillingPos({ tenant }: { tenant: any }) {
 
         {/* ─── Empty State ─── */}
         {!lines.length && (
-          <div className="py-12 text-center">
+          <div className="py-12 text-center animate-fade-in">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
               <Search className="h-7 w-7 text-slate-400" />
             </div>
-            <p className="font-medium text-slate-600">Search a medicine or scan a barcode to begin</p>
-            <p className="mt-1 text-sm text-slate-400">You can also use an external barcode scanner</p>
+            <p className="font-medium text-slate-600 text-sm sm:text-base">Search a medicine or scan a barcode to begin</p>
+            <p className="mt-1 text-xs sm:text-sm text-slate-400">You can also use an external barcode scanner</p>
+            
+            {/* Desktop Keyboard Shortcuts */}
             <div className="mx-auto mt-4 hidden md:flex flex-wrap justify-center gap-2">
               <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F2 Search</kbd>
               <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F3 Camera</kbd>
               <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F4 Barcode</kbd>
               <kbd className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-500">F8 Save</kbd>
             </div>
-            <p className="mt-3 text-xs text-slate-400 md:hidden">Use the toolbar below to search, scan, or type a barcode</p>
+
+            {/* Mobile Scan & Barcode Quick Actions */}
+            <div className="mx-auto mt-6 flex flex-col sm:flex-row justify-center gap-3 px-4 md:hidden">
+              <button 
+                onClick={startScanning} 
+                className="flex items-center justify-center gap-2 rounded-xl bg-med-green/10 border border-med-green/20 px-5 py-3 text-sm font-bold text-med-greenDark active:bg-med-greenSoft transition-all active:scale-[0.98]"
+              >
+                <Camera className="h-5 w-5" />
+                <span>Scan Medicine Barcode</span>
+              </button>
+              <button 
+                onClick={() => setShowManualBarcode(!showManualBarcode)} 
+                className="flex items-center justify-center gap-2 rounded-xl bg-slate-100 border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 active:bg-slate-205 transition-all active:scale-[0.98]"
+              >
+                <Keyboard className="h-5 w-5" />
+                <span>Enter Barcode Manually</span>
+              </button>
+            </div>
           </div>
         )}
       </section>
 
-      {/* ─── Mobile Floating Action Bar ─── */}
-      <div className={`mobile-fab gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-lg backdrop-blur-sm no-print ${
-        lines.length > 0 && mobileTab === "cart" ? "hidden" : ""
-      }`}>
-        <button onClick={() => searchInputRef.current?.focus()} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-slate-600 active:bg-slate-100" aria-label="Search medicine">
-          <Search className="h-5 w-5" />
-          <span className="mt-0.5 text-[9px]">Search</span>
-        </button>
-        <button onClick={startScanning} className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl active:bg-slate-100 ${scanning ? "text-red-600" : "text-slate-600"}`} aria-label="Scan barcode">
-          {scanning ? <CameraOff className="h-5 w-5" /> : <Camera className="h-5 w-5" />}
-          <span className="mt-0.5 text-[9px]">{scanning ? "Stop" : "Scan"}</span>
-        </button>
-        <button onClick={() => setShowManualBarcode(!showManualBarcode)} className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl active:bg-slate-100 ${showManualBarcode ? "text-blue-600" : "text-slate-600"}`} aria-label="Manual barcode">
-          <Keyboard className="h-5 w-5" />
-          <span className="mt-0.5 text-[9px]">Barcode</span>
-        </button>
-        <button onClick={() => saveBill("none")} disabled={saving || !lines.length} className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-med-green disabled:opacity-40 active:bg-med-greenSoft" aria-label="Save bill">
-          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-          <span className="mt-0.5 text-[9px]">{saving ? "..." : "Save"}</span>
-        </button>
-      </div>
+      {/* ─── Mobile Vertically Oriented Floating Action Bar ─── */}
+      {mobileTab === "cart" && lines.length > 0 && (
+        <div className="fixed right-3 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 px-2 py-4 shadow-2xl backdrop-blur-md xl:hidden no-print animate-scale-in">
+          <button 
+            onClick={startScanning} 
+            className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl transition-colors active:bg-slate-100 ${scanning ? "text-red-650 font-bold bg-red-50" : "text-slate-600"}`} 
+            aria-label="Scan barcode"
+          >
+            {scanning ? <CameraOff className="h-5 w-5 animate-pulse" /> : <Camera className="h-5 w-5" />}
+            <span className="mt-1 text-[9px] font-bold">{scanning ? "Stop" : "Scan"}</span>
+          </button>
+          
+          <button 
+            onClick={() => setShowManualBarcode(!showManualBarcode)} 
+            className={`flex h-12 w-12 flex-col items-center justify-center rounded-xl transition-colors active:bg-slate-100 ${showManualBarcode ? "text-blue-650 font-bold bg-blue-50" : "text-slate-600"}`} 
+            aria-label="Manual barcode"
+          >
+            <Keyboard className="h-5 w-5" />
+            <span className="mt-1 text-[9px] font-bold">Barcode</span>
+          </button>
+          
+          <button 
+            onClick={() => saveBill("none")} 
+            disabled={saving} 
+            className="flex h-12 w-12 flex-col items-center justify-center rounded-xl text-med-green disabled:opacity-40 transition-colors active:bg-med-greenSoft" 
+            aria-label="Save bill"
+          >
+            {saving ? <Loader2 className="h-5 w-5 animate-spin text-med-green" /> : <Save className="h-5 w-5" />}
+            <span className="mt-1 text-[9px] font-bold">{saving ? "..." : "Save"}</span>
+          </button>
+        </div>
+      )}
 
       {/* ─── Mobile Sticky Floating Checkout Footer (Cart Tab Only) ─── */}
       {mobileTab === "cart" && lines.length > 0 && (

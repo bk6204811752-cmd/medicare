@@ -12,8 +12,10 @@ export default async function StockistDashboard() {
   const tid = user.tenantId;
   if (!tid) return <div className="p-8 text-center text-red-600 font-semibold">No tenant configuration found</div>;
 
-  const [summary, trend, notifications] = await Promise.all([
-    getB2BSalesSummary(tid),
+  // Await seeder bootstrapping sequentially first to avoid SQLite lock contention
+  const summary = await getB2BSalesSummary(tid);
+  
+  const [trend, notifications] = await Promise.all([
     getB2BSalesTrend(tid),
     getNotifications(tid),
   ]);

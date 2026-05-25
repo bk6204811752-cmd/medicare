@@ -291,6 +291,31 @@ async function ensureDefaultUsers() {
       }
     });
   }
+
+  // 📦 Pre-seed a default demo Wholesaler / Stockist
+  const stockistTenantId = "tenant-demo-stockist";
+  const stockist = await prisma.user.findUnique({ where: { email: "stockist@medcare.local" } });
+  if (!stockist) {
+    let stockistTenant = await prisma.tenant.findUnique({ where: { id: stockistTenantId } });
+    if (!stockistTenant) {
+      await prisma.tenant.create({
+        data: {
+          id: stockistTenantId, name: "Shankar Pharma Wholesalers", slug: "shankar-pharma",
+          ownerName: "Sanjay Mehta", phone: "+91 94311 02938", email: "stockist@medcare.local",
+          city: "Ranchi", state: "Jharkhand", gstin: "20BBBBB1111B1Z2", drugLicenseNo: "JH-RAN-19283B",
+          plan: "premium", isActive: true, approvalStatus: "approved"
+        }
+      });
+    }
+
+    await prisma.user.create({
+      data: {
+        id: "user-demo-stockist", tenantId: stockistTenantId, name: "Sanjay Mehta",
+        email: "stockist@medcare.local", phone: "+91 94311 02938",
+        passwordHash: await hashPassword("Stockist@12345"), role: "stockist_admin", isActive: true
+      }
+    });
+  }
 }
 
 // ─── Utilities ───────────────────────────────────────────────

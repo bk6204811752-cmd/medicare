@@ -67,7 +67,9 @@ function isTransientError(error: unknown): boolean {
     msg.includes("socket hang up") ||
     msg.includes("timed out") ||
     msg.includes("connection pool") ||
-    msg.includes("server is not ready")
+    msg.includes("server is not ready") ||
+    msg.includes("database is locked") ||
+    (msg.includes("sqlite") && msg.includes("busy"))
   );
 }
 

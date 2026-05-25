@@ -683,57 +683,67 @@ export async function getWholesaleInventory(tenantId: string) {
 // ─── Bootstrap Stockist Seed Helper (Fast Onboarding) ──────────
 
 async function ensureB2BDataBootstrapped(tenantId: string) {
-  const partyCount = await prisma.party.count({ where: { tenantId } });
-  if (partyCount > 0) return;
+  try {
+    const partyCount = await prisma.party.count({ where: { tenantId } });
+    if (partyCount > 0) return;
 
-  await prisma.$transaction(async (tx) => {
-    const routeNorth = await tx.route.create({
-      data: { id: uid("route"), tenantId, name: "North Beat Area", code: "NT-RCH" },
-    });
-    const routeSouth = await tx.route.create({
-      data: { id: uid("route"), tenantId, name: "South Beat Area", code: "ST-RCH" },
-    });
+    await prisma.$transaction(async (tx) => {
+      const routeNorth = await tx.route.create({
+        data: { id: uid("route"), tenantId, name: "North Beat Area", code: "NT-RCH" },
+      });
+      const routeSouth = await tx.route.create({
+        data: { id: uid("route"), tenantId, name: "South Beat Area", code: "ST-RCH" },
+      });
 
-    const salesman1 = await tx.salesman.create({
-      data: {
-        id: uid("salesman"),
-        tenantId,
-        name: "Vijay Shankar",
-        phone: "+91 91000 23456",
-        targetPaisa: 5000000,
-        commissionPercent: 1.5,
-        commissionOn: "sales",
-      },
-    });
+      const salesman1 = await tx.salesman.create({
+        data: {
+          id: uid("salesman"),
+          tenantId,
+          name: "Vijay Shankar",
+          phone: "+91 91000 23456",
+          targetPaisa: 5000000,
+          commissionPercent: 1.5,
+          commissionOn: "sales",
+        },
+      });
 
-    await tx.salesmanRoute.create({ data: { salesmanId: salesman1.id, routeId: routeNorth.id } });
+      await tx.salesmanRoute.create({ data: { salesmanId: salesman1.id, routeId: routeNorth.id } });
 
-    await tx.party.create({
-      data: {
-        id: uid("party"),
-        tenantId,
-        name: "Apex Pharmacy Ranchi",
-        phone: "9835012345",
-        gstin: "20AAAAA0000A1Z5",
-        drugLicenseNo: "JH-RAN-22876A",
-        creditLimitPaisa: 20000000,
-        outstandingPaisa: 4500000,
-        routeId: routeNorth.id,
-      },
-    });
+      await tx.party.create({
+        data: {
+          id: uid("party"),
+          tenantId,
+          name: "Apex Pharmacy Ranchi",
+          phone: "9835012345",
+          gstin: "20AAAAA0000A1Z5",
+          drugLicenseNo: "JH-RAN-22876A",
+          creditLimitPaisa: 20000000,
+          outstandingPaisa: 4500000,
+          routeId: routeNorth.id,
+        },
+      });
 
-    await tx.party.create({
-      data: {
-        id: uid("party"),
-        tenantId,
-        name: "Lal Medical Hall",
-        phone: "9431102938",
-        gstin: "20BBBBB1111B1Z2",
-        drugLicenseNo: "JH-RAN-19283B",
-        creditLimitPaisa: 15000000,
-        outstandingPaisa: 0,
-        routeId: routeSouth.id,
-      },
+      await tx.party.create({
+        data: {
+          id: uid("party"),
+          tenantId,
+          name: "Lal Medical Hall",
+          phone: "9431102938",
+          gstin: "20BBBBB1111B1Z2",
+          drugLicenseNo: "JH-RAN-19283B",
+          creditLimitPaisa: 15000000,
+          outstandingPaisa: 0,
+          routeId: routeSouth.id,
+        },
+      });
     });
-  });
+  } catch (error) {
+    // If it fails (due to parallel seed writing), verify if data is already populated
+    const partyCount = await prisma.party.count({ where: { tenantId } }).catch(() => 0);
+    if (partyCount > 0) {
+      console.warn("Parallel B2B seeding detected. Recovered safely, B2B data already bootstrapped.");
+      return;
+    }
+    throw error;
+  }
 }

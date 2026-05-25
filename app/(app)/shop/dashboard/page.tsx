@@ -11,8 +11,11 @@ export default async function ShopDashboard() {
   const tid = user.tenantId;
   if (!tid) return <div>No tenant found</div>;
 
-  const [summary, trend, notifications] = await Promise.all([
-    getSalesSummary(tid),
+  // Await sales summary sequentially first to let the seeder write and commit,
+  // preventing SQLite database lockups during parallel queries.
+  const summary = await getSalesSummary(tid);
+
+  const [trend, notifications] = await Promise.all([
     getSalesTrend(tid),
     getNotifications(tid),
   ]);

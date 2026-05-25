@@ -14,8 +14,11 @@ export async function GET() {
   const tid = auth.ctx.tenantId;
 
   try {
-    const [summary, trend, notifications] = await Promise.all([
-      getSalesSummary(tid),
+    // Await sales summary sequentially first to let the seeder write and commit,
+    // preventing SQLite database lockups during parallel queries.
+    const summary = await getSalesSummary(tid);
+
+    const [trend, notifications] = await Promise.all([
       getSalesTrend(tid),
       getNotifications(tid),
     ]);

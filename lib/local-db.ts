@@ -203,118 +203,151 @@ function ensureDefaultData(): Promise<void> | void {
 }
 
 async function seedDefaultData() {
-  const tenantCount = await prisma.tenant.count();
-  if (tenantCount > 0) {
-    await ensureDefaultUsers();
-    return;
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await tx.tenant.create({ data: demoTenant });
-
-    await tx.user.create({
-      data: {
-        id: "user-super-admin",
-        tenantId: null,
-        name: "Super Admin",
-        email: "admin@medcare.local",
-        phone: "+91 90000 00000",
-        passwordHash: await hashPassword("Admin@12345"),
-        role: "super_admin",
-        isActive: true
-      }
-    });
-
-    await tx.user.create({
-      data: {
-        id: "user-sharma-owner",
-        tenantId: DEMO_TENANT_ID,
-        name: "Basant Kumar",
-        email: "owner@sharmamedical.local",
-        phone: "+91 98765 43210",
-        passwordHash: await hashPassword("Shop@12345"),
-        role: "shop_admin",
-        isActive: true
-      }
-    });
-
-    for (const supplier of demoSuppliers) {
-      await tx.supplier.create({ data: { ...supplier, tenantId: DEMO_TENANT_ID } });
+  try {
+    const tenantCount = await prisma.tenant.count();
+    if (tenantCount > 0) {
+      await ensureDefaultUsers();
+      return;
     }
 
-    for (const medicine of demoMedicines) {
-      const [id, name, genericName, manufacturer, category, composition, dosageForm, strength, packSize, hsnCode, gstRate, mrpPaisa, schedule, barcode, requiresPrescription] = medicine;
-      await tx.medicine.create({
-        data: { id, name, genericName, manufacturer, category, composition, dosageForm, strength, packSize, hsnCode, gstRate, mrpPaisa, schedule, barcode, requiresPrescription }
-      });
-    }
+    await prisma.$transaction(async (tx) => {
+      await tx.tenant.create({ data: demoTenant });
 
-    for (const item of demoInventory) {
-      const [invId, medicineId, batchNo, mfgDate, expiryDate, purchaseRatePaisa, mrpPaisa, saleRatePaisa, gstRate, hsnCode, quantity, reorderLevel, rackLocation, supplierId] = item;
-      await tx.inventoryItem.create({
+      await tx.user.create({
         data: {
-          id: invId, tenantId: DEMO_TENANT_ID, medicineId, batchNo,
-          mfgDate: dateOnly(mfgDate), expiryDate: dateOnly(expiryDate),
-          purchaseRatePaisa, mrpPaisa, saleRatePaisa, gstRate, hsnCode,
-          quantity, reorderLevel, rackLocation, supplierId
+          id: "user-super-admin",
+          tenantId: null,
+          name: "Super Admin",
+          email: "admin@medcare.local",
+          phone: "+91 90000 00000",
+          passwordHash: await hashPassword("Admin@12345"),
+          role: "super_admin",
+          isActive: true
         }
       });
-    }
 
-    for (const customer of demoCustomers) {
-      await tx.customer.create({ data: { ...customer, tenantId: DEMO_TENANT_ID } });
+      await tx.user.create({
+        data: {
+          id: "user-sharma-owner",
+          tenantId: DEMO_TENANT_ID,
+          name: "Basant Kumar",
+          email: "owner@sharmamedical.local",
+          phone: "+91 98765 43210",
+          passwordHash: await hashPassword("Shop@12345"),
+          role: "shop_admin",
+          isActive: true
+        }
+      });
+
+      for (const supplier of demoSuppliers) {
+        await tx.supplier.create({ data: { ...supplier, tenantId: DEMO_TENANT_ID } });
+      }
+
+      for (const medicine of demoMedicines) {
+        const [id, name, genericName, manufacturer, category, composition, dosageForm, strength, packSize, hsnCode, gstRate, mrpPaisa, schedule, barcode, requiresPrescription] = medicine;
+        await tx.medicine.create({
+          data: { id, name, genericName, manufacturer, category, composition, dosageForm, strength, packSize, hsnCode, gstRate, mrpPaisa, schedule, barcode, requiresPrescription }
+        });
+      }
+
+      for (const item of demoInventory) {
+        const [invId, medicineId, batchNo, mfgDate, expiryDate, purchaseRatePaisa, mrpPaisa, saleRatePaisa, gstRate, hsnCode, quantity, reorderLevel, rackLocation, supplierId] = item;
+        await tx.inventoryItem.create({
+          data: {
+            id: invId, tenantId: DEMO_TENANT_ID, medicineId, batchNo,
+            mfgDate: dateOnly(mfgDate), expiryDate: dateOnly(expiryDate),
+            purchaseRatePaisa, mrpPaisa, saleRatePaisa, gstRate, hsnCode,
+            quantity, reorderLevel, rackLocation, supplierId
+          }
+        });
+      }
+
+      for (const customer of demoCustomers) {
+        await tx.customer.create({ data: { ...customer, tenantId: DEMO_TENANT_ID } });
+      }
+    });
+  } catch (error) {
+    // If it fails (e.g. parallel thread already seeded the database), check if seeded data exists
+    const tenantCount = await prisma.tenant.count().catch(() => 0);
+    if (tenantCount > 0) {
+      console.warn("Parallel seeding detected. Recovered safely, checking default users next...");
+      await ensureDefaultUsers().catch(() => {});
+      return;
     }
-  });
+    throw error;
+  }
 }
 
 async function ensureDefaultUsers() {
-  const superAdmin = await prisma.user.findUnique({ where: { email: "admin@medcare.local" } });
-  if (!superAdmin) {
-    await prisma.user.create({
-      data: {
-        id: "user-super-admin", tenantId: null, name: "Super Admin",
-        email: "admin@medcare.local", phone: "+91 90000 00000",
-        passwordHash: await hashPassword("Admin@12345"), role: "super_admin", isActive: true
-      }
-    });
-  }
-
-  const tenant = await prisma.tenant.findUnique({ where: { id: DEMO_TENANT_ID } });
-  const owner = await prisma.user.findUnique({ where: { email: "owner@sharmamedical.local" } });
-  if (tenant && !owner) {
-    await prisma.tenant.update({ where: { id: DEMO_TENANT_ID }, data: { approvalStatus: "approved", isActive: true } });
-    await prisma.user.create({
-      data: {
-        id: "user-sharma-owner", tenantId: DEMO_TENANT_ID, name: "Basant Kumar",
-        email: "owner@sharmamedical.local", phone: "+91 98765 43210",
-        passwordHash: await hashPassword("Shop@12345"), role: "shop_admin", isActive: true
-      }
-    });
-  }
-
-  // 📦 Pre-seed a default demo Wholesaler / Stockist
-  const stockistTenantId = "tenant-demo-stockist";
-  const stockist = await prisma.user.findUnique({ where: { email: "stockist@medcare.local" } });
-  if (!stockist) {
-    let stockistTenant = await prisma.tenant.findUnique({ where: { id: stockistTenantId } });
-    if (!stockistTenant) {
-      await prisma.tenant.create({
+  // 1. Super Admin
+  try {
+    const superAdmin = await prisma.user.findUnique({ where: { email: "admin@medcare.local" } });
+    if (!superAdmin) {
+      await prisma.user.create({
         data: {
-          id: stockistTenantId, name: "Shankar Pharma Wholesalers", slug: "shankar-pharma",
-          ownerName: "Sanjay Mehta", phone: "+91 94311 02938", email: "stockist@medcare.local",
-          city: "Ranchi", state: "Jharkhand", gstin: "20BBBBB1111B1Z2", drugLicenseNo: "JH-RAN-19283B",
-          plan: "premium", isActive: true, approvalStatus: "approved"
+          id: "user-super-admin", tenantId: null, name: "Super Admin",
+          email: "admin@medcare.local", phone: "+91 90000 00000",
+          passwordHash: await hashPassword("Admin@12345"), role: "super_admin", isActive: true
         }
+      }).catch((e) => {
+        console.warn("Safe Warning: Parallel super admin insert resolved:", e.message);
       });
     }
+  } catch (err) {
+    console.warn("Safe Warning: Parallel super admin check caught:", err);
+  }
 
-    await prisma.user.create({
-      data: {
-        id: "user-demo-stockist", tenantId: stockistTenantId, name: "Sanjay Mehta",
-        email: "stockist@medcare.local", phone: "+91 94311 02938",
-        passwordHash: await hashPassword("Stockist@12345"), role: "stockist_admin", isActive: true
+  // 2. Demo Shopkeeper Owner
+  try {
+    const tenant = await prisma.tenant.findUnique({ where: { id: DEMO_TENANT_ID } });
+    const owner = await prisma.user.findUnique({ where: { email: "owner@sharmamedical.local" } });
+    if (tenant && !owner) {
+      await prisma.tenant.update({ where: { id: DEMO_TENANT_ID }, data: { approvalStatus: "approved", isActive: true } }).catch(() => {});
+      await prisma.user.create({
+        data: {
+          id: "user-sharma-owner", tenantId: DEMO_TENANT_ID, name: "Basant Kumar",
+          email: "owner@sharmamedical.local", phone: "+91 98765 43210",
+          passwordHash: await hashPassword("Shop@12345"), role: "shop_admin", isActive: true
+        }
+      }).catch((e) => {
+        console.warn("Safe Warning: Parallel shop owner insert resolved:", e.message);
+      });
+    }
+  } catch (err) {
+    console.warn("Safe Warning: Parallel shop owner check caught:", err);
+  }
+
+  // 3. Demo Wholesaler / Stockist
+  try {
+    const stockistTenantId = "tenant-demo-stockist";
+    const stockist = await prisma.user.findUnique({ where: { email: "stockist@medcare.local" } });
+    if (!stockist) {
+      let stockistTenant = await prisma.tenant.findUnique({ where: { id: stockistTenantId } });
+      if (!stockistTenant) {
+        await prisma.tenant.create({
+          data: {
+            id: stockistTenantId, name: "Shankar Pharma Wholesalers", slug: "shankar-pharma",
+            ownerName: "Sanjay Mehta", phone: "+91 94311 02938", email: "stockist@medcare.local",
+            city: "Ranchi", state: "Jharkhand", gstin: "20BBBBB1111B1Z2", drugLicenseNo: "JH-RAN-19283B",
+            plan: "premium", isActive: true, approvalStatus: "approved"
+          }
+        }).catch((e) => {
+          console.warn("Safe Warning: Parallel stockist tenant insert resolved:", e.message);
+        });
       }
-    });
+
+      await prisma.user.create({
+        data: {
+          id: "user-demo-stockist", tenantId: stockistTenantId, name: "Sanjay Mehta",
+          email: "stockist@medcare.local", phone: "+91 94311 02938",
+          passwordHash: await hashPassword("Stockist@12345"), role: "stockist_admin", isActive: true
+        }
+      }).catch((e) => {
+        console.warn("Safe Warning: Parallel stockist user insert resolved:", e.message);
+      });
+    }
+  } catch (err) {
+    console.warn("Safe Warning: Parallel stockist check caught:", err);
   }
 }
 

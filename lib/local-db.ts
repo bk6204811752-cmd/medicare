@@ -1278,9 +1278,31 @@ export async function getScheduleHRegister(tenantId: string) {
   return rows.map(mapScheduleHRow);
 }
 
-export async function getGstReport(tenantId: string) {
+export async function getGstReport(tenantId: string, month?: string) {
   await ensureDefaultData();
-  const items = await prisma.saleItem.findMany({ where: { tenantId } });
+  
+  let dateFilter = {};
+  if (month && /^\d{4}-\d{2}$/.test(month)) {
+    const [year, m] = month.split("-").map(Number);
+    const start = new Date(year, m - 1, 1);
+    const end = new Date(year, m, 1);
+    dateFilter = {
+      sale: {
+        createdAt: {
+          gte: start,
+          lt: end
+        }
+      }
+    };
+  }
+
+  const items = await prisma.saleItem.findMany({
+    where: {
+      tenantId,
+      ...dateFilter
+    }
+  });
+
   const grouped = new Map<string, { hsnCode: string | null; gstRate: number; taxablePaisa: number; gstPaisa: number }>();
   for (const item of items) {
     const key = `${item.hsnCode ?? ""}:${item.gstRate}`;

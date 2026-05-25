@@ -8,13 +8,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ typ
 
   try {
     const { type } = await params;
+    const { searchParams } = new URL(_request.url);
+    const month = searchParams.get("month") ?? undefined;
     const tid = auth.ctx.tenantId;
     let rows: Record<string, unknown>[] = [];
 
     if (type === "sales") {
       rows = (await getSales(tid)) as Record<string, unknown>[];
     } else if (type === "gst") {
-      rows = (await getGstReport(tid)) as Record<string, unknown>[];
+      rows = (await getGstReport(tid, month)) as Record<string, unknown>[];
     } else if (type === "inventory") {
       rows = (await getInventoryRows(tid)).map((row) => ({
         medicine: row.medicine.name, batchNo: row.batchNo, expiryDate: row.expiryDate,

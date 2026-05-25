@@ -54,7 +54,83 @@ type CustomerOption = {
 type BillingLine = SaleLine & {
   maxQuantity: number;
   medicineId?: string;
+  genericName?: string | null;
 };
+
+const SEVERE_INTERACTIONS: Record<string, Record<string, string>> = {
+  "aspirin": {
+    "warfarin": "Severe risk of major GI bleeding or systemic hemorrhages due to antiplatelet and anticoagulant synergy.",
+    "ibuprofen": "Increased risk of gastrointestinal ulceration and bleeding; NSAIDs may also decrease the cardioprotective effect of aspirin.",
+    "naproxen": "Increased risk of gastrointestinal ulceration and bleeding.",
+    "methotrexate": "Aspirin decreases methotrexate renal clearance, leading to life-threatening methotrexate toxicity (bone marrow suppression)."
+  },
+  "warfarin": {
+    "aspirin": "Severe risk of major GI bleeding or systemic hemorrhages due to antiplatelet and anticoagulant synergy.",
+    "ibuprofen": "Increased risk of gastrointestinal bleeding; NSAIDs can damage GI mucosa and have antiplatelet effects.",
+    "naproxen": "Increased risk of gastrointestinal bleeding.",
+    "amiodarone": "Amiodarone increases warfarin levels, dramatically elevating the risk of bleeding. Prothrombin time/INR must be monitored.",
+    "clarithromycin": "Clarithromycin increases warfarin levels, elevating bleeding risks.",
+    "erythromycin": "Erythromycin increases warfarin levels, elevating bleeding risks."
+  },
+  "sildenafil": {
+    "nitroglycerin": "Co-administration causes severe, life-threatening hypotension due to synergistic nitric oxide / cGMP vasodilation.",
+    "isosorbide dinitrate": "Co-administration causes severe, life-threatening hypotension.",
+    "isosorbide mononitrate": "Co-administration causes severe, life-threatening hypotension."
+  },
+  "tadalafil": {
+    "nitroglycerin": "Co-administration causes severe, life-threatening hypotension.",
+    "isosorbide dinitrate": "Co-administration causes severe, life-threatening hypotension.",
+    "isosorbide mononitrate": "Co-administration causes severe, life-threatening hypotension."
+  },
+  "amlodipine": {
+    "simvastatin": "Amlodipine increases Simvastatin exposure, elevating the risk of Simvastatin-induced myopathy and rhabdomyolysis."
+  },
+  "simvastatin": {
+    "amlodipine": "Amlodipine increases Simvastatin exposure, elevating the risk of myopathy.",
+    "clarithromycin": "Clarithromycin increases Simvastatin exposure, elevating myopathy/rhabdomyolysis risk.",
+    "erythromycin": "Erythromycin increases Simvastatin exposure, elevating myopathy/rhabdomyolysis risk."
+  },
+  "atorvastatin": {
+    "clarithromycin": "Clarithromycin increases Atorvastatin exposure, elevating rhabdomyolysis risk.",
+    "erythromycin": "Erythromycin increases Atorvastatin exposure, elevating rhabdomyolysis risk."
+  },
+  "spironolactone": {
+    "potassium chloride": "Co-administration causes severe hyperkalemia which can lead to life-threatening cardiac arrhythmias."
+  },
+  "metformin": {
+    "contrast media": "Iodinated contrast media can cause acute kidney injury, leading to Metformin accumulation and severe lactic acidosis."
+  },
+  "tramadol": {
+    "fluoxetine": "Increased risk of serotonin syndrome and seizures.",
+    "sertraline": "Increased risk of serotonin syndrome and seizures.",
+    "escitalopram": "Increased risk of serotonin syndrome and seizures."
+  },
+  "clopidogrel": {
+    "omeprazole": "Omeprazole decreases the conversion of clopidogrel to its active metabolite, significantly reducing its antiplatelet efficacy.",
+    "esomeprazole": "Esomeprazole decreases clopidogrel active metabolite levels, reducing efficacy."
+  },
+  "digoxin": {
+    "amiodarone": "Amiodarone increases Digoxin levels by reducing renal clearance, increasing risk of life-threatening Digoxin toxicity."
+  },
+  "ciprofloxacin": {
+    "tizanidine": "Ciprofloxacin inhibits tizanidine metabolism, causing severe hypotension, bradycardia, and drowsiness."
+  }
+};
+
+function extractIngredients(genericName: string | undefined | null): string[] {
+  if (!genericName) return [];
+  const cleaned = genericName
+    .toLowerCase()
+    .replace(/\(.*?\)/g, "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|iu)\b/g, "")
+    .replace(/[^a-z0-9\s+/&]/g, "");
+    
+  return cleaned
+    .split(/\s*(?:\+|\/|&|\band\b|\bwith\b)\s*/)
+    .map(i => i.trim())
+    .filter(i => i.length > 2);
+}
 
 export function BillingPos({ tenant }: { tenant: any }) {
   const [rows, setRows] = useState<InventorySearchRow[]>([]);
@@ -74,6 +150,37 @@ export function BillingPos({ tenant }: { tenant: any }) {
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [availableBatches, setAvailableBatches] = useState<Record<string, InventorySearchRow[]>>({});
+
+  // ─── Dynamic Drug-Drug Interaction Checker ───
+  const cartInteractions = useMemo(() => {
+    const interactions: { ingredientA: string; ingredientB: string; description: string; brandA: string; brandB: string }[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const lineA = lines[i];
+      const ingredientsA = extractIngredients(lineA.genericName);
+      
+      for (let j = i + 1; j < lines.length; j++) {
+        const lineB = lines[j];
+        const ingredientsB = extractIngredients(lineB.genericName);
+        
+        for (const ingA of ingredientsA) {
+          for (const ingB of ingredientsB) {
+            const desc = SEVERE_INTERACTIONS[ingA]?.[ingB] || SEVERE_INTERACTIONS[ingB]?.[ingA];
+            if (desc) {
+              interactions.push({
+                ingredientA: ingA,
+                ingredientB: ingB,
+                description: desc,
+                brandA: lineA.medicineName,
+                brandB: lineB.medicineName
+              });
+            }
+          }
+        }
+      }
+    }
+    return interactions;
+  }, [lines]);
 
   // ─── Background Alternative Batches Loader ───
   useEffect(() => {
@@ -297,7 +404,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
           hsnCode: String(item.hsnCode ?? ""),
           schedule: item.medicine.schedule,
           maxQuantity: Number(item.quantity),
-          medicineId: item.medicineId
+          medicineId: item.medicineId,
+          genericName: item.medicine.genericName
         }
       ];
     });
@@ -885,6 +993,32 @@ export function BillingPos({ tenant }: { tenant: any }) {
               onSuccess={handleQuickAddSuccess}
               onCancel={() => { setShowAddMedicine(false); setAddMedicinePrefill({}); }}
             />
+          </div>
+        )}
+
+        {/* ─── Clinical Decision Drug Interaction Banner ─── */}
+        {cartInteractions.length > 0 && (
+          <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/65 p-4.5 shadow-sm animate-pulse-slow">
+            <div className="flex gap-3">
+              <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-sm text-orange-950">⚠️ Severe Drug Interaction Alert</h4>
+                <div className="mt-2 space-y-2">
+                  {cartInteractions.map((inter, idx) => (
+                    <div key={idx} className="text-xs text-orange-850 leading-relaxed border-l-2 border-orange-300 pl-3">
+                      <span className="font-extrabold text-orange-900">{inter.brandA} ({inter.ingredientA})</span>{" "}
+                      &{" "}
+                      <span className="font-extrabold text-orange-900">{inter.brandB} ({inter.ingredientB})</span>{" "}
+                      may interact severely:
+                      <p className="mt-0.5 text-[11px] text-orange-800 italic">{inter.description}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-[10px] text-orange-600 font-bold uppercase tracking-wider">
+                  ⚠️ Clinical Decision Warning • Please consult doctor before dispensing
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

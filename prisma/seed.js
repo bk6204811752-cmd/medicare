@@ -117,6 +117,61 @@ async function main() {
     }
   });
 
+  const stockistTenantId = "tenant-demo-stockist";
+  await prisma.tenant.upsert({
+    where: { id: stockistTenantId },
+    update: {
+      name: "Shankar Pharma Wholesalers",
+      slug: "shankar-pharma",
+      ownerName: "Sanjay Mehta",
+      phone: "+91 94311 02938",
+      email: "stockist@medcare.local",
+      city: "Ranchi",
+      state: "Jharkhand",
+      gstin: "20BBBBB1111B1Z2",
+      drugLicenseNo: "JH-RAN-19283B",
+      plan: "premium",
+      isActive: true,
+      approvalStatus: "approved"
+    },
+    create: {
+      id: stockistTenantId,
+      name: "Shankar Pharma Wholesalers",
+      slug: "shankar-pharma",
+      ownerName: "Sanjay Mehta",
+      phone: "+91 94311 02938",
+      email: "stockist@medcare.local",
+      city: "Ranchi",
+      state: "Jharkhand",
+      gstin: "20BBBBB1111B1Z2",
+      drugLicenseNo: "JH-RAN-19283B",
+      plan: "premium",
+      isActive: true,
+      approvalStatus: "approved"
+    }
+  });
+
+  await prisma.user.upsert({
+    where: { email: "stockist@medcare.local" },
+    update: {
+      tenantId: stockistTenantId,
+      name: "Sanjay Mehta",
+      phone: "+91 94311 02938",
+      role: "stockist_admin",
+      isActive: true
+    },
+    create: {
+      id: "user-demo-stockist",
+      tenantId: stockistTenantId,
+      name: "Sanjay Mehta",
+      email: "stockist@medcare.local",
+      phone: "+91 94311 02938",
+      passwordHash: hashPassword("Stockist@12345"),
+      role: "stockist_admin",
+      isActive: true
+    }
+  });
+
   for (const supplier of suppliers) {
     await prisma.supplier.upsert({
       where: { id: supplier.id },

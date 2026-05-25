@@ -163,257 +163,333 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
   });
   const gstBreakdownList = Array.from(gstBreakdownMap.entries()).sort((a, b) => a[0] - b[0]);
 
-  const printStyles = printFormat === "thermal"
-    ? `
-      @media print {
-        @page {
-          size: 80mm auto;
-          margin: 0;
-        }
-        html, body {
-          width: 80mm !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: #ffffff !important;
-        }
-        .flex.h-screen {
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-        }
-        .flex-1.flex-col {
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-        }
-        main {
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-          padding: 0 !important;
-          margin: 0 !important;
-        }
-        .no-print,
-        aside,
-        header,
-        nav,
-        footer,
-        [data-sonner-toaster],
-        .sonner-toaster,
-        .toast,
-        .toaster,
-        button {
-          display: none !important;
-          visibility: hidden !important;
-        }
-        .thermal-print-container {
-          display: block !important;
-          width: 80mm !important;
-          max-width: 80mm !important;
-          margin: 0 auto !important;
-          padding: 2mm !important;
-          border: none !important;
-          box-shadow: none !important;
-          background: #ffffff !important;
-        }
-        .a4-print-container {
-          display: none !important;
-        }
-      }
-    `
-    : `
-      @media print {
-        @page {
-          size: A4 portrait;
-          margin: 0;
-        }
-        html, body {
-          width: 1024px !important;
-          min-width: 1024px !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          background: #ffffff !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        .flex.h-screen {
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-        }
-        .flex-1.flex-col {
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-        }
-        main {
-          height: auto !important;
-          overflow: visible !important;
-          display: block !important;
-          padding: 0 !important;
-          margin: 0 !important;
-        }
-        
-        /* Reset modal layout wrapper styles so it displays in full width for printing */
-        .fixed.inset-0,
-        .relative.w-full {
-          position: absolute !important;
-          left: 0 !important;
-          top: 0 !important;
-          width: 1024px !important;
-          max-width: 1024px !important;
-          height: auto !important;
-          max-height: none !important;
-          overflow: visible !important;
-          border: none !important;
-          box-shadow: none !important;
-          padding: 0 !important;
-          margin: 0 !important;
-        }
-        
-        .no-print,
-        aside,
-        header,
-        nav,
-        footer,
-        [data-sonner-toaster],
-        .sonner-toaster,
-        .toast,
-        .toaster,
-        button {
-          display: none !important;
-          visibility: hidden !important;
-        }
-        .a4-print-container {
-          display: block !important;
-          width: 1024px !important;
-          min-width: 1024px !important;
-          max-width: 1024px !important;
-          margin: 0 auto !important;
-          padding: 40px !important;
-          border: none !important;
-          box-shadow: none !important;
-          background: #ffffff !important;
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-        .thermal-print-container {
-          display: none !important;
-        }
-        
-        /* Make table headers and cells compact on print to fit 1 page and prevent horizontal cutoff */
-        .a4-print-container .overflow-x-auto {
-          overflow: visible !important;
-        }
-        .a4-print-container table {
-          min-width: 0 !important;
-          width: 100% !important;
-          table-layout: auto !important;
-        }
-        .a4-print-container table th {
-          padding-top: 8px !important;
-          padding-bottom: 8px !important;
-          padding-left: 6px !important;
-          padding-right: 6px !important;
-          font-size: 12px !important;
-        }
-        .a4-print-container table td {
-          padding-top: 8px !important;
-          padding-bottom: 8px !important;
-          padding-left: 6px !important;
-          padding-right: 6px !important;
-          font-size: 12px !important;
-        }
-        tr {
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-        /* Reduce margins between layout elements */
-        .a4-print-container .mt-6 {
-          margin-top: 16px !important;
-        }
-        .a4-print-container .mt-8 {
-          margin-top: 24px !important;
-        }
-        .a4-print-container .mt-10 {
-          margin-top: 24px !important;
-        }
-        .a4-print-container .p-4 {
-          padding: 16px !important;
-        }
-        .a4-print-container .p-6 {
-          padding: 24px !important;
-        }
-        /* Force banner contents to align in a single row without wrapping/stacking in print */
-        .a4-print-container .a4-header-banner {
-          margin-left: -40px !important;
-          margin-right: -40px !important;
-          margin-top: -40px !important;
-          padding: 24px !important;
-          border-radius: 0 !important;
-          display: flex !important;
-          flex-direction: row !important;
-          justify-content: space-between !important;
-          align-items: center !important;
-          background: #ffffff !important;
-          border-bottom: 2px solid #e2e8f0 !important;
-          color: #1e293b !important;
-        }
-        /* Force Grid layout cells (Customer block, Totals summary, Footer columns) to stay side-by-side */
-        .a4-print-container .grid {
-          display: grid !important;
-          grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-          gap: 24px !important;
-        }
-        /* Reduce signature blank height */
-        .a4-print-container .h-10 {
-          height: 32px !important;
-        }
-      }
+  const printStyles = `
+    /* ==================== COMMON HIGH-CONTRAST & LIGHT-MODE OVERRIDES ==================== */
+    /* Force light color scheme to block browser dark-mode inversions on screen, print, and PDF generation */
+    html, body, .a4-print-container, .thermal-print-container, .force-desktop-A4 {
+      color-scheme: light !important;
+      background-color: #ffffff !important;
+      background: #ffffff !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
 
-      /* ==================== SCREEN SIMULATOR FOR MOBILE HTML2CANVAS ==================== */
-      .force-desktop-A4 {
-        width: 1024px !important;
-        min-width: 1024px !important;
-        max-width: 1024px !important;
-        padding: 40px !important;
-        border: 1px solid #e2e8f0 !important;
-        box-shadow: none !important;
-        background: #ffffff !important;
-      }
-      .force-desktop-A4 .overflow-x-auto {
-        overflow: visible !important;
-      }
-      .force-desktop-A4 table {
-        width: 100% !important;
-        table-layout: auto !important;
-      }
-      .force-desktop-A4 .a4-header-banner {
-        margin-left: -40px !important;
-        margin-right: -40px !important;
-        margin-top: -40px !important;
-        padding: 24px !important;
-        border-radius: 0 !important;
-        display: flex !important;
-        flex-direction: row !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        background: #ffffff !important;
-        border-bottom: 2px solid #e2e8f0 !important;
-        color: #1e293b !important;
-      }
-      .force-desktop-A4 .grid {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 24px !important;
-      }
-      .force-desktop-A4 .md\\:ml-auto {
-        margin-left: auto !important;
-      }
-      .force-desktop-A4 .max-w-sm {
-        max-width: 384px !important;
-      }
-    `;
+    /* Prevent transparent captures and animations during PDF generations */
+    .a4-print-container,
+    .thermal-print-container,
+    .force-desktop-A4 {
+      color: #0f172a !important;
+      opacity: 1 !important;
+      filter: none !important;
+      animation: none !important;
+    }
+    .a4-print-container *,
+    .thermal-print-container *,
+    .force-desktop-A4 * {
+      opacity: 1 !important;
+      filter: none !important;
+      animation: none !important;
+    }
+
+    /* Force dark, highly-readable text colors (essential for low-ink / high-contrast clarity) */
+    .a4-print-container .text-slate-950,
+    .thermal-print-container .text-slate-950,
+    .force-desktop-A4 .text-slate-950,
+    .a4-print-container .text-slate-900,
+    .thermal-print-container .text-slate-900,
+    .force-desktop-A4 .text-slate-900,
+    .a4-print-container .text-slate-800,
+    .thermal-print-container .text-slate-800,
+    .force-desktop-A4 .text-slate-800,
+    .a4-print-container h2,
+    .thermal-print-container h2,
+    .force-desktop-A4 h2,
+    .a4-print-container .text-med-navy,
+    .thermal-print-container .text-med-navy,
+    .force-desktop-A4 .text-med-navy {
+      color: #020617 !important;
+    }
+
+    .a4-print-container .text-slate-700,
+    .thermal-print-container .text-slate-700,
+    .force-desktop-A4 .text-slate-700,
+    .a4-print-container .text-slate-600,
+    .thermal-print-container .text-slate-600,
+    .force-desktop-A4 .text-slate-600,
+    .a4-print-container p,
+    .thermal-print-container p,
+    .force-desktop-A4 p,
+    .a4-print-container td,
+    .thermal-print-container td,
+    .force-desktop-A4 td,
+    .a4-print-container th,
+    .thermal-print-container th,
+    .force-desktop-A4 th {
+      color: #0f172a !important;
+    }
+
+    .a4-print-container .text-slate-500,
+    .thermal-print-container .text-slate-500,
+    .force-desktop-A4 .text-slate-500,
+    .a4-print-container .text-slate-400,
+    .thermal-print-container .text-slate-400,
+    .force-desktop-A4 .text-slate-400,
+    .a4-print-container span:not(.text-med-green):not(.text-red-600),
+    .thermal-print-container span:not(.text-med-green):not(.text-red-700),
+    .force-desktop-A4 span:not(.text-med-green) {
+      color: #334155 !important;
+    }
+
+    /* Force clean, crisp, visible borders */
+    .a4-print-container .border,
+    .thermal-print-container .border,
+    .force-desktop-A4 .border,
+    .a4-print-container .border-b,
+    .thermal-print-container .border-b,
+    .force-desktop-A4 .border-b,
+    .a4-print-container .border-b-2,
+    .thermal-print-container .border-b-2,
+    .force-desktop-A4 .border-b-2,
+    .a4-print-container .border-t,
+    .thermal-print-container .border-t,
+    .force-desktop-A4 .border-t,
+    .a4-print-container .border-slate-200,
+    .thermal-print-container .border-slate-200,
+    .force-desktop-A4 .border-slate-200,
+    .a4-print-container .border-slate-350,
+    .thermal-print-container .border-slate-350,
+    .force-desktop-A4 .border-slate-350 {
+      border-color: #cbd5e1 !important;
+    }
+    
+    .a4-print-container .border-b-2,
+    .thermal-print-container .border-b-2,
+    .force-desktop-A4 .border-b-2 {
+      border-bottom-width: 2px !important;
+    }
+
+    /* Hide no-print elements inside the capture containers on screen preview or PDF generation */
+    .a4-print-container .no-print,
+    .thermal-print-container .no-print,
+    .force-desktop-A4 .no-print {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    /* ==================== FORMAT-SPECIFIC PRINT MEDIA QUERIES ==================== */
+    ${
+      printFormat === "thermal"
+        ? `
+        @media print {
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          html, body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          .flex.h-screen, .flex-1.flex-col, main {
+            height: auto !important;
+            overflow: visible !important;
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .no-print,
+          aside,
+          header,
+          nav,
+          footer,
+          [data-sonner-toaster],
+          .sonner-toaster,
+          .toast,
+          .toaster,
+          button {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          .thermal-print-container {
+            display: block !important;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            margin: 0 auto !important;
+            padding: 2mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+          }
+          .a4-print-container {
+            display: none !important;
+          }
+        }
+        `
+        : `
+        @media print {
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+          html, body {
+            width: 1024px !important;
+            min-width: 1024px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+          .flex.h-screen, .flex-1.flex-col, main {
+            height: auto !important;
+            overflow: visible !important;
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          
+          /* Reset modal layout wrapper styles so it displays in full width for printing */
+          .fixed.inset-0,
+          .relative.w-full {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 1024px !important;
+            max-width: 1024px !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          
+          .no-print,
+          aside,
+          header,
+          nav,
+          footer,
+          [data-sonner-toaster],
+          .sonner-toaster,
+          .toast,
+          .toaster,
+          button {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          .a4-print-container {
+            display: block !important;
+            width: 1024px !important;
+            min-width: 1024px !important;
+            max-width: 1024px !important;
+            margin: 0 auto !important;
+            padding: 40px !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .thermal-print-container {
+            display: none !important;
+          }
+          
+          /* Compact table layouts */
+          .a4-print-container .overflow-x-auto {
+            overflow: visible !important;
+          }
+          .a4-print-container table {
+            min-width: 0 !important;
+            width: 100% !important;
+            table-layout: auto !important;
+          }
+          .a4-print-container table th,
+          .a4-print-container table td {
+            padding-top: 8px !important;
+            padding-bottom: 8px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+            font-size: 12px !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          .a4-print-container .mt-6 { margin-top: 16px !important; }
+          .a4-print-container .mt-8 { margin-top: 24px !important; }
+          .a4-print-container .mt-10 { margin-top: 24px !important; }
+          .a4-print-container .p-4 { padding: 16px !important; }
+          .a4-print-container .p-6 { padding: 24px !important; }
+          
+          .a4-print-container .a4-header-banner {
+            margin-left: -40px !important;
+            margin-right: -40px !important;
+            margin-top: -40px !important;
+            padding: 24px !important;
+            border-radius: 0 !important;
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            background: #ffffff !important;
+            border-bottom: 2px solid #cbd5e1 !important;
+            color: #1e293b !important;
+          }
+          .a4-print-container .grid {
+            display: grid !important;
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            gap: 24px !important;
+          }
+          .a4-print-container .h-10 {
+            height: 32px !important;
+          }
+        }
+        `
+    }
+
+    /* ==================== SCREEN SIMULATOR FOR MOBILE HTML2CANVAS ==================== */
+    .force-desktop-A4 {
+      width: 1024px !important;
+      min-width: 1024px !important;
+      max-width: 1024px !important;
+      padding: 40px !important;
+      border: 1px solid #cbd5e1 !important;
+      box-shadow: none !important;
+      background: #ffffff !important;
+    }
+    .force-desktop-A4 .overflow-x-auto {
+      overflow: visible !important;
+    }
+    .force-desktop-A4 table {
+      width: 100% !important;
+      table-layout: auto !important;
+    }
+    .force-desktop-A4 .a4-header-banner {
+      margin-left: -40px !important;
+      margin-right: -40px !important;
+      margin-top: -40px !important;
+      padding: 24px !important;
+      border-radius: 0 !important;
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      background: #ffffff !important;
+      border-bottom: 2px solid #cbd5e1 !important;
+      color: #1e293b !important;
+    }
+    .force-desktop-A4 .grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 24px !important;
+    }
+    .force-desktop-A4 .md\\:ml-auto {
+      margin-left: auto !important;
+    }
+    .force-desktop-A4 .max-w-sm {
+      max-width: 384px !important;
+    }
+  `;
 
   return (
     <div className="space-y-6 print:space-y-0 print:p-0">
@@ -512,7 +588,8 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
       {/* Render active template */}
       {printFormat === "a4" ? (
         /* ==================== A4 TAX INVOICE FORMAT ==================== */
-        <section className="a4-print-container mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none font-sans animate-fade-in">
+        <>
+          <section className="a4-print-container mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none font-sans animate-fade-in">
           {/* Header Banner */}
           <div className="a4-header-banner bg-white text-slate-800 p-6 border-b-2 border-slate-200 rounded-t-xl -mx-6 -mt-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 print:bg-white print:text-slate-800 print:rounded-t-none">
             <div>
@@ -708,16 +785,17 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
             </div>
           </div>
 
-          <div className="mt-8 flex justify-center items-center gap-1.5 text-xs text-med-green/80 font-bold tracking-wide uppercase no-print animate-pulse">
-            <Heart className="h-3.5 w-3.5 fill-med-green" />
+          <div className="mt-8 flex flex-col items-center justify-center gap-1.5 text-xs text-med-green font-bold tracking-wide uppercase animate-pulse">
+            <Heart className="h-5 w-5 fill-med-green animate-bounce shrink-0" />
             <span>Get well soon!</span>
           </div>
-
-          <p className="no-print mt-6 text-center text-xs text-slate-400">
-            Use the print button at the top or press <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600 shadow-sm">Ctrl + P</kbd> to print this invoice.
-          </p>
         </section>
-      ) : (
+
+        <p className="no-print mt-6 text-center text-xs text-slate-400">
+          Use the print button at the top or press <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600 shadow-sm">Ctrl + P</kbd> to print this invoice.
+        </p>
+      </>
+    ) : (
         /* ==================== THERMAL ROLL INVOICE FORMAT ==================== */
         <section className="thermal-print-container mx-auto w-[80mm] max-w-[80mm] p-4 bg-white text-xs border border-dashed border-slate-300 font-mono tracking-tight text-slate-800 rounded-lg shadow-sm print:border-0 print:p-0 print:shadow-none print:w-[80mm] print:mx-0 animate-fade-in">
           {/* Header Store */}
@@ -825,8 +903,8 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           <div className="text-[8px] text-slate-400 text-center space-y-0.5">
             <p>Medicines once sold cannot be returned.</p>
             <p>Subject to local state jurisdiction.</p>
-            <div className="pt-2 flex justify-center items-center gap-1 font-bold text-med-green uppercase text-[9px] tracking-wider animate-pulse">
-              <Heart className="h-3 w-3 fill-med-green" />
+            <div className="pt-2 flex flex-col items-center justify-center gap-1 font-bold text-med-green uppercase text-[9px] tracking-wider animate-pulse">
+              <Heart className="h-4 w-4 fill-med-green animate-bounce shrink-0" />
               <span>GET WELL SOON!</span>
             </div>
           </div>

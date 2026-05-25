@@ -1425,7 +1425,7 @@ export async function getPlatformSummary() {
   return {
     totalShops, activeShops, pendingShops, rejectedShops,
     users, bills: salesAgg._count,
-    gmvPaisa: salesAgg._sum.totalPaisa ?? 0,
+    gmvPaisa: salesAgg._sum?.totalPaisa ?? 0,
   };
 }
 

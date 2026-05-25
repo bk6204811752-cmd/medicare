@@ -25,7 +25,7 @@ export default async function AdminDashboardPage() {
               <tr>{["Shop", "City", "Plan", "Owner", "Status"].map((head) => <th key={head} className="px-4 py-3 font-medium">{head}</th>)}</tr>
             </thead>
             <tbody>
-              {tenants.map((shop) => (
+              {tenants.map((shop: any) => (
                 <tr key={shop.id} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-semibold text-med-navy">{shop.name}</td>
                   <td className="px-4 py-3">{shop.city || "Not set"}</td>

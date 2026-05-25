@@ -1229,7 +1229,7 @@ export async function createSale(tenantId: string, input: unknown) {
     }
 
     // Map and bulk insert Schedule H register records if any controlled drugs exist
-    const scheduleHData = [];
+    const scheduleHData: any[] = [];
     for (const [index, line] of saleLines.entries()) {
       if (["H", "H1", "X"].includes(line.schedule)) {
         const saleItemId = saleItemData[index].id;

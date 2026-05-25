@@ -6,7 +6,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 export default async function SalesReportPage() {
   const user = await getCurrentUser();
   const sales = await getSales(user?.tenantId ?? "");
-  const total = sales.reduce((sum, sale) => sum + Number((sale as Record<string, unknown>).total_paisa), 0);
+  const total = sales.reduce((sum: number, sale: any) => sum + Number((sale as Record<string, unknown>).total_paisa), 0);
 
   return (
     <>
@@ -17,7 +17,7 @@ export default async function SalesReportPage() {
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
             <tbody>
-              {sales.map((sale) => {
+              {sales.map((sale: any) => {
                 const row = sale as Record<string, unknown>;
                 return (
                   <tr key={String(row.id)} className="border-t border-slate-100">

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const results = [];
+    const results: any[] = [];
     for (const tenant of await getApprovedTenantsWithOwners()) {
       const to = tenant.ownerEmail || tenant.email;
       if (!to) continue;

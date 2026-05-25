@@ -19,7 +19,7 @@ type MailInput = {
 };
 
 // Cache from address at module level — no need to read process.env every call
-const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || "Medicare <hojai4828@gmail.com>";
+const fromAddress = (process.env.SMTP_FROM || process.env.SMTP_USER || "Medicare <hojai4828@gmail.com>").trim();
 
 // ─── DNS Pre-resolution ─────────────────────────────────────
 // Vercel serverless DNS resolver throws `EBUSY` for SMTP hostnames.
@@ -273,7 +273,7 @@ export async function sendApprovalRequestMail(input: {
   phone: string;
   isStockist?: boolean;
 }) {
-  const adminEmail = process.env.ADMIN_EMAIL || "hojai4828@gmail.com";
+  const adminEmail = (process.env.ADMIN_EMAIL || "hojai4828@gmail.com").trim();
   const template = newShopApprovalRequestTemplate(
     input.shopName,
     input.ownerName,

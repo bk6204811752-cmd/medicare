@@ -238,7 +238,7 @@ export async function createB2BSale(tenantId: string, input: {
   if (!party) throw new Error("Invalid party");
 
   return await prisma.$transaction(async (tx) => {
-    const saleItemsData = [];
+    const saleItemsData: any[] = [];
 
     for (const item of input.items) {
       const inv = await tx.inventoryItem.findFirst({
@@ -461,7 +461,7 @@ export async function getPartyLedger(tenantId: string, partyId: string) {
     }),
   ]);
 
-  const ledgerEntries = [];
+  const ledgerEntries: any[] = [];
 
   for (const sale of sales) {
     ledgerEntries.push({
@@ -586,7 +586,7 @@ export async function getB2BSalesSummary(tenantId: string) {
 }
 
 export async function getB2BSalesTrend(tenantId: string) {
-  const trendData = [];
+  const trendData: { day: string; sales: number; bills: number }[] = [];
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   for (let i = 6; i >= 0; i--) {

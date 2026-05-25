@@ -19,7 +19,7 @@ export default async function ScheduleHPage() {
               </tr>
             </thead>
             <tbody>
-              {controlled.map((row) => (
+              {controlled.map((row: any) => (
                 <tr key={String(row.id)} className="border-t border-slate-100">
                   <td className="px-4 py-3 font-semibold text-med-navy">{String(row.medicine_name)}</td>
                   <td className="px-4 py-3">{String(row.schedule ?? "H")}</td>

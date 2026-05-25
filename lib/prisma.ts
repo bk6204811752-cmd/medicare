@@ -11,45 +11,6 @@ function cleanEnv(value: string | undefined): string {
   return (value ?? "").replace(/[\r\n]+/g, "").trim();
 }
 
-const provider = cleanEnv(process.env.DATABASE_PROVIDER);
-const useAzureSql = provider === "sqlserver";
-
-function createPrismaClient() {
-  if (useAzureSql) {
-    let url = cleanEnv(process.env.AZURE_DATABASE_URL);
-    if (!url) {
-      throw new Error(
-        "AZURE_DATABASE_URL is required when DATABASE_PROVIDER=sqlserver.\n" +
-          "Format: sqlserver://HOST:1433;database=DB;user=USER;password={PASS};encrypt=true"
-      );
-    }
-
-    // Ensure connection timeout is set for Azure SQL cold starts
-    if (!url.toLowerCase().includes("connectiontimeout")) {
-      url += ";connectionTimeout=30000";
-    }
-
-    // Dynamic import avoids bundling mssql when using SQLite
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaMssql } = require("@prisma/adapter-mssql");
-
-    return new PrismaClient({
-      adapter: new PrismaMssql(url),
-      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
-    });
-  }
-
-  return new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
-  });
-}
-
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
-
 // ─── Retry helper for transient DB failures ──────────────────
 // Azure SQL free-tier cold starts can take 3–10s.
 // A single TCP timeout kills the request. This retries with backoff.
@@ -97,3 +58,56 @@ export async function withRetry<T>(
   }
   throw lastError;
 }
+
+const provider = cleanEnv(process.env.DATABASE_PROVIDER);
+const useAzureSql = provider === "sqlserver";
+
+function createPrismaClient() {
+  if (useAzureSql) {
+    let url = cleanEnv(process.env.AZURE_DATABASE_URL);
+    if (!url) {
+      throw new Error(
+        "AZURE_DATABASE_URL is required when DATABASE_PROVIDER=sqlserver.\n" +
+          "Format: sqlserver://HOST:1433;database=DB;user=USER;password={PASS};encrypt=true"
+      );
+    }
+
+    // Ensure connection timeout is set for Azure SQL cold starts
+    if (!url.toLowerCase().includes("connectiontimeout")) {
+      url += ";connectionTimeout=30000";
+    }
+
+    // Optimize connection pooling for serverless environments to avoid Azure pool exhaustion
+    if (!url.toLowerCase().includes("connectionlimit")) {
+      url += ";connectionLimit=5";
+    }
+
+    // Dynamic import avoids bundling mssql when using SQLite
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaMssql } = require("@prisma/adapter-mssql");
+
+    return new PrismaClient({
+      adapter: new PrismaMssql(url),
+      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+    });
+  }
+
+  return new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
+  });
+}
+
+const basePrisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = basePrisma;
+}
+
+export const prisma = basePrisma.$extends({
+  query: {
+    $allOperations({ model, operation, args, query }) {
+      return withRetry(() => query(args));
+    },
+  },
+}) as unknown as PrismaClient;
+

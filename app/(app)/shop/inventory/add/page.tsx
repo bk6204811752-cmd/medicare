@@ -6,7 +6,7 @@ import { getMedicines, getSuppliers } from "@/lib/local-db";
 export default async function AddInventoryPage() {
   const user = await getCurrentUser();
   const [medicineRows, supplierRows] = await Promise.all([getMedicines(), getSuppliers(user?.tenantId ?? "")]);
-  const medicines = medicineRows.map((medicine) => ({
+  const medicines = medicineRows.map((medicine: any) => ({
     id: String(medicine.id),
     name: String(medicine.name),
     genericName: String(medicine.genericName ?? ""),
@@ -15,7 +15,7 @@ export default async function AddInventoryPage() {
     mrpPaisa: Number(medicine.mrpPaisa),
     packSize: String(medicine.packSize ?? "")
   }));
-  const suppliers = supplierRows.map((supplier) => ({
+  const suppliers = supplierRows.map((supplier: any) => ({
     id: String(supplier.id),
     name: String(supplier.name)
   }));

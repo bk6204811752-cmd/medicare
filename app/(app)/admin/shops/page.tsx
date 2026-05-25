@@ -17,7 +17,7 @@ export default async function AdminShopsPage({
       <PageHeader title="Shop Management" description="Approve, reject, and monitor registered shopkeepers." />
       {params.success ? <p className="mb-4 rounded-md bg-emerald-50 p-3 text-sm font-medium text-emerald-700">{params.success}</p> : null}
       <section className="grid gap-3 lg:hidden">
-        {tenants.map((tenant) => {
+        {tenants.map((tenant: any) => {
           const status = tenant.approvalStatus;
           const isStockist = tenant.ownerRole === "stockist_admin";
           return (
@@ -81,7 +81,7 @@ export default async function AdminShopsPage({
               </tr>
             </thead>
             <tbody>
-              {tenants.map((tenant) => {
+              {tenants.map((tenant: any) => {
                 const status = tenant.approvalStatus;
                 const isStockist = tenant.ownerRole === "stockist_admin";
                 return (

@@ -1120,43 +1120,67 @@ export async function createSale(tenantId: string, input: unknown) {
       }
     });
 
-    const operations: Promise<any>[] = [];
-
-    for (const [index, line] of saleLines.entries()) {
+    // Map sale item records for bulk batch insertion
+    const saleItemData = inventoryRows.map(({ row, line }, index) => {
       const lineTotal = totals.lineTotals[index];
-      const saleItemId = uid("item");
-      
-      operations.push(tx.saleItem.create({
-        data: {
-          id: saleItemId, saleId, tenantId, inventoryId: line.inventoryId,
-          medicineName: line.medicineName, batchNo: line.batchNo,
-          expiryDate: dateOnly(line.expiryDate), quantity: line.quantity,
-          mrpPaisa: line.mrpPaisa, saleRatePaisa: line.saleRatePaisa,
-          discountPercent: line.discountPercent, discountPaisa: lineTotal.discountPaisa,
-          hsnCode: line.hsnCode, gstRate: line.gstRate, gstPaisa: lineTotal.gstPaisa,
-          cgstPaisa: lineTotal.cgstPaisa, sgstPaisa: lineTotal.sgstPaisa,
-          igstPaisa: lineTotal.igstPaisa, taxablePaisa: lineTotal.taxablePaisa,
-          totalPaisa: lineTotal.totalPaisa, schedule: line.schedule
-        }
-      }));
+      return {
+        id: uid("item"),
+        saleId,
+        tenantId,
+        inventoryId: row.id,
+        medicineName: row.medicine.name,
+        batchNo: row.batchNo,
+        expiryDate: dateOnly(row.expiryDate),
+        quantity: line.quantity,
+        mrpPaisa: row.mrpPaisa,
+        saleRatePaisa: line.saleRatePaisa,
+        discountPercent: line.discountPercent,
+        discountPaisa: lineTotal.discountPaisa,
+        hsnCode: String(row.hsnCode || row.medicine.hsnCode || ""),
+        gstRate: row.gstRate,
+        gstPaisa: lineTotal.gstPaisa,
+        cgstPaisa: lineTotal.cgstPaisa,
+        sgstPaisa: lineTotal.sgstPaisa,
+        igstPaisa: lineTotal.igstPaisa,
+        taxablePaisa: lineTotal.taxablePaisa,
+        totalPaisa: lineTotal.totalPaisa,
+        schedule: row.medicine.schedule
+      };
+    });
 
-      operations.push(tx.inventoryItem.update({
+    // Execute bulk insertion in a single high-performance query
+    await tx.saleItem.createMany({ data: saleItemData });
+
+    // Update inventory stock levels sequentially to avoid transactional locks
+    for (const line of saleLines) {
+      await tx.inventoryItem.update({
         where: { id: line.inventoryId },
         data: { quantity: { decrement: line.quantity } }
-      }));
+      });
+    }
 
+    // Map and bulk insert Schedule H register records if any controlled drugs exist
+    const scheduleHData = [];
+    for (const [index, line] of saleLines.entries()) {
       if (["H", "H1", "X"].includes(line.schedule)) {
-        operations.push(tx.scheduleHRegister.create({
-          data: {
-            id: uid("sch"), tenantId, saleItemId, medicineName: line.medicineName,
-            quantity: line.quantity, customerName, customerPhone: data.customerPhone || null,
-            doctorName: data.doctorName || null, prescriptionNo: data.prescriptionNo || null
-          }
-        }));
+        const saleItemId = saleItemData[index].id;
+        scheduleHData.push({
+          id: uid("sch"),
+          tenantId,
+          saleItemId,
+          medicineName: line.medicineName,
+          quantity: line.quantity,
+          customerName,
+          customerPhone: data.customerPhone || null,
+          doctorName: data.doctorName || null,
+          prescriptionNo: data.prescriptionNo || null
+        });
       }
     }
 
-    await Promise.all(operations);
+    if (scheduleHData.length > 0) {
+      await tx.scheduleHRegister.createMany({ data: scheduleHData });
+    }
 
     if (data.paymentMode === "credit" && customerId) {
       await tx.customer.update({ where: { id: customerId }, data: { outstandingPaisa: { increment: totals.totalPaisa } } });

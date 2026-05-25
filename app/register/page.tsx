@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useEffect, useCallback } from "react";
 import { useFormStatus } from "react-dom";
-import { Eye, EyeOff, Loader2, Mail, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, ShieldCheck, ArrowLeft, Store } from "lucide-react";
 import { sendVerificationOtpAction, registerShopAction } from "@/app/auth-actions";
 
 // ─── Storage helpers for persisting form across redirect ─────
@@ -84,7 +84,8 @@ function RegisterForm() {
   const [formData, setFormData] = useState({
     shopName: "", ownerName: "", phone: "", email: "",
     password: "", confirmPassword: "",
-    city: "", state: "", gstin: "", drugLicenseNo: ""
+    city: "", state: "", gstin: "", drugLicenseNo: "",
+    role: "shop_admin"
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -94,11 +95,15 @@ function RegisterForm() {
     if (saved) {
       setFormData(prev => ({ ...prev, ...saved }));
     }
+    const roleFromUrl = searchParams.get("role") || "";
     if (isVerifyStep && emailFromUrl) {
       setFormData(prev => ({ ...prev, email: emailFromUrl }));
     }
+    if (roleFromUrl) {
+      setFormData(prev => ({ ...prev, role: roleFromUrl }));
+    }
     setLoaded(true);
-  }, [isVerifyStep, emailFromUrl]);
+  }, [isVerifyStep, emailFromUrl, searchParams]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -148,6 +153,7 @@ function RegisterForm() {
           <input type="hidden" name="state" value={formData.state} />
           <input type="hidden" name="gstin" value={formData.gstin} />
           <input type="hidden" name="drugLicenseNo" value={formData.drugLicenseNo} />
+          <input type="hidden" name="role" value={formData.role} />
 
           <label className="mt-5 block text-sm font-semibold text-med-navy" htmlFor="otp">Verification Code</label>
           <input
@@ -178,6 +184,7 @@ function RegisterForm() {
               <input type="hidden" name="state" value={formData.state} />
               <input type="hidden" name="gstin" value={formData.gstin} />
               <input type="hidden" name="drugLicenseNo" value={formData.drugLicenseNo} />
+              <input type="hidden" name="role" value={formData.role} />
               <button type="submit" className="font-semibold text-med-greenDark hover:underline">
                 Resend code
               </button>
@@ -197,52 +204,196 @@ function RegisterForm() {
         className="w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-5 shadow-soft sm:p-6"
       >
         <Link href="/" className="font-display text-2xl font-bold text-med-navy">Medicare</Link>
-        <h1 className="mt-6 font-display text-2xl font-semibold text-med-navy">Register pharmacy</h1>
-        <p className="mt-1 text-sm text-slate-500">Fill in your details. We&apos;ll verify your email before submitting for admin approval.</p>
+        <h1 className="mt-6 font-display text-2xl font-semibold text-med-navy">Register on Medicare</h1>
+        <p className="mt-1 text-sm text-slate-500">Select your role and fill in your details. We&apos;ll verify your email before submitting for admin approval.</p>
         {error ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm font-medium text-red-700">{error}</p> : null}
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">Shop name</span>
-            <input name="shopName" value={formData.shopName} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="Shop name" autoComplete="organization" required />
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">Owner name</span>
-            <input name="ownerName" value={formData.ownerName} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="Owner name" autoComplete="name" required />
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">Email</span>
-            <input name="email" type="email" value={formData.email} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="Email for login" autoComplete="email" required />
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">Phone</span>
-            <input name="phone" value={formData.phone} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="Phone" autoComplete="tel" required />
-          </label>
-          <div className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">Password</span>
-            <PasswordInput name="password" id="password" placeholder="Set password" autoComplete="new-password" value={formData.password} onChange={handleChange} />
-            <p className="text-xs text-slate-400">Min 8 chars, 1 uppercase, 1 lowercase, 1 number</p>
+        
+        {/* Visual Role Selector Card Toggle */}
+        <div className="mt-5 space-y-2">
+          <span className="text-sm font-semibold text-med-navy block">Register Business As</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Retail Chemist Option */}
+            <button
+              type="button"
+              onClick={() => setFormData(prev => {
+                const updated = { ...prev, role: "shop_admin" };
+                saveFormData(updated);
+                return updated;
+              })}
+              className={`flex flex-col items-start p-4 rounded-xl border-2 transition-all duration-300 text-left cursor-pointer hover:shadow-md ${
+                formData.role === "shop_admin"
+                  ? "border-med-green bg-emerald-50/50 ring-2 ring-emerald-500/10"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center font-bold text-lg leading-none ${formData.role === "shop_admin" ? "bg-med-green text-white" : "bg-slate-100 text-slate-500"}`}>
+                  +
+                </div>
+                <span className="font-display font-bold text-med-navy text-sm sm:text-base">Retail Chemist</span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">Fast POS, patient records, Schedule H register compliance, barcodes, retail shop inventory.</p>
+              <input type="radio" name="role" value="shop_admin" checked={formData.role === "shop_admin"} readOnly className="sr-only" />
+            </button>
+
+            {/* B2B Stockist Option */}
+            <button
+              type="button"
+              onClick={() => setFormData(prev => {
+                const updated = { ...prev, role: "stockist_admin" };
+                saveFormData(updated);
+                return updated;
+              })}
+              className={`flex flex-col items-start p-4 rounded-xl border-2 transition-all duration-300 text-left cursor-pointer hover:shadow-md ${
+                formData.role === "stockist_admin"
+                  ? "border-med-green bg-emerald-50/50 ring-2 ring-emerald-500/10"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${formData.role === "stockist_admin" ? "bg-med-green text-white" : "bg-slate-100 text-slate-500"}`}>
+                  <Store className="h-4.5 w-4.5" />
+                </div>
+                <span className="font-display font-bold text-med-navy text-sm sm:text-base">B2B Stockist</span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">Retailer credit limits, beat route planning, salesman tracking, B2B POS billing & indents.</p>
+              <input type="radio" name="role" value="stockist_admin" checked={formData.role === "stockist_admin"} readOnly className="sr-only" />
+            </button>
           </div>
-          <div className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">Confirm password</span>
-            <PasswordInput name="confirmPassword" id="confirmPassword" placeholder="Confirm password" autoComplete="new-password" value={formData.confirmPassword} onChange={handleChange} />
-          </div>
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">City</span>
-            <input name="city" value={formData.city} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="City" />
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">State</span>
-            <input name="state" value={formData.state} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="State" />
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">GSTIN</span>
-            <input name="gstin" value={formData.gstin} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="GSTIN" />
-          </label>
-          <label className="space-y-1">
-            <span className="text-sm font-medium text-med-navy">Drug license no.</span>
-            <input name="drugLicenseNo" value={formData.drugLicenseNo} onChange={handleChange} className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green" placeholder="Drug license no." />
-          </label>
         </div>
+
+        {/* Dynamic Fields Section */}
+        {(() => {
+          const isStockist = formData.role === "stockist_admin";
+          return (
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">
+                  {isStockist ? "Wholesale Firm Name *" : "Pharmacy Name *"}
+                </span>
+                <input
+                  name="shopName"
+                  value={formData.shopName}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder={isStockist ? "e.g. Shankar Pharma Wholesalers" : "e.g. Apex Pharmacy"}
+                  autoComplete="organization"
+                  required
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">
+                  {isStockist ? "Proprietor / Distributor Name *" : "Pharmacist / Owner Name *"}
+                </span>
+                <input
+                  name="ownerName"
+                  value={formData.ownerName}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder={isStockist ? "e.g. Sanjay Mehta" : "e.g. Rahul Sharma"}
+                  autoComplete="name"
+                  required
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">Email Address *</span>
+                <input
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder="e.g. billing@medicare.in"
+                  autoComplete="email"
+                  required
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">Mobile Number *</span>
+                <input
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder="e.g. +91 9876543210"
+                  autoComplete="tel"
+                  required
+                />
+              </label>
+              <div className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">Password *</span>
+                <PasswordInput
+                  name="password"
+                  id="password"
+                  placeholder="Set account password"
+                  autoComplete="new-password"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+                <p className="text-xs text-slate-400">Min 8 chars, 1 uppercase, 1 lowercase, 1 number</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">Confirm Password *</span>
+                <PasswordInput
+                  name="confirmPassword"
+                  id="confirmPassword"
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                />
+              </div>
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">City *</span>
+                <input
+                  name="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder="e.g. Mumbai"
+                  required
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">State *</span>
+                <input
+                  name="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder="e.g. Maharashtra"
+                  required
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">
+                  {isStockist ? "GSTIN *" : "GSTIN (Optional)"}
+                </span>
+                <input
+                  name="gstin"
+                  value={formData.gstin}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder="e.g. 22AAAAA0000A1Z5"
+                  required={isStockist}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-sm font-semibold text-med-navy">
+                  {isStockist ? "Wholesale Drug License No. (Form 20B/21B) *" : "Retail Drug License No. (Form 20) *"}
+                </span>
+                <input
+                  name="drugLicenseNo"
+                  value={formData.drugLicenseNo}
+                  onChange={handleChange}
+                  className="h-12 w-full rounded-md border border-slate-300 px-3 text-base outline-med-green bg-white shadow-sm focus:ring-2 focus:ring-emerald-500/25 focus:border-med-green transition-all"
+                  placeholder={isStockist ? "e.g. MH-Z12-987654" : "e.g. MH-Z11-123456"}
+                  required
+                />
+              </label>
+            </div>
+          );
+        })()}
         <div className="mt-3 flex items-start gap-2 rounded-md bg-emerald-50 p-3">
           <Mail className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
           <p className="text-xs leading-5 text-emerald-800">

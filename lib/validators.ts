@@ -81,7 +81,8 @@ export const registerShopSchema = z
     city: z.string().trim().optional(),
     state: z.string().trim().optional(),
     gstin: z.string().trim().optional(),
-    drugLicenseNo: z.string().trim().optional()
+    drugLicenseNo: z.string().trim().optional(),
+    role: z.enum(["shop_admin", "stockist_admin"]).default("shop_admin")
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -119,7 +120,8 @@ export const sendVerificationOtpSchema = z.object({
   city: z.string().trim().optional(),
   state: z.string().trim().optional(),
   gstin: z.string().trim().optional(),
-  drugLicenseNo: z.string().trim().optional()
+  drugLicenseNo: z.string().trim().optional(),
+  role: z.enum(["shop_admin", "stockist_admin"]).default("shop_admin")
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match",
   path: ["confirmPassword"]

@@ -102,9 +102,7 @@ export function emailVerificationTemplate(
   ownerName: string
 ): { subject: string; text: string; html: string } {
   const subject = `${BRAND} — Verify Your Email Address`;
-
   const text = `Hi ${ownerName}, your email verification code is ${otp}. Valid for 10 minutes.`;
-
   const html = wrapLayout(`
     ${greeting(ownerName)}
     ${paragraph("Welcome to Medicare! To complete your registration, please verify your email address using the code below.")}
@@ -113,21 +111,19 @@ export function emailVerificationTemplate(
     ${divider()}
     ${smallNote("If you did not create a Medicare account, you can safely ignore this email.")}
   `);
-
   return { subject, text, html };
 }
 
-// ---------------------------------------------------------------------------
-// 2. Registration Successful
-// ---------------------------------------------------------------------------
-
 export function registrationSuccessTemplate(
   shopName: string,
-  ownerName: string
+  ownerName: string,
+  isStockist = false
 ): { subject: string; text: string; html: string } {
+  const businessType = isStockist ? "wholesale firm" : "pharmacy";
+  const portalType = isStockist ? "wholesaler" : "pharmacy";
   const subject = `${BRAND} — Registration Successful`;
 
-  const text = `Hi ${ownerName}, congratulations! Your pharmacy "${shopName}" has been registered successfully on Medicare. Your account is pending admin approval. You will receive an email once the admin approves your account. After approval, you can login to Medicare.`;
+  const text = `Hi ${ownerName}, congratulations! Your ${businessType} "${shopName}" has been registered successfully on Medicare. Your account is pending admin approval. You will receive an email once the admin approves your account. After approval, you can login to Medicare.`;
 
   const statusRow = (icon: string, label: string, detail: string, bgColor: string) => `
     <tr>
@@ -147,11 +143,11 @@ export function registrationSuccessTemplate(
 
   const html = wrapLayout(`
     ${greeting(ownerName)}
-    ${paragraph(`Congratulations! Your pharmacy "<strong>${shopName}</strong>" has been registered successfully on Medicare.`)}
-    ${paragraph("Your account is now pending admin approval. You will receive an email once the admin approves your account. After approval, you can login to Medicare and start managing your pharmacy.")}
+    ${paragraph(`Congratulations! Your ${businessType} "<strong>${shopName}</strong>" has been registered successfully on Medicare.`)}
+    ${paragraph(`Your account is now pending admin approval. You will receive an email once the admin approves your account. After approval, you can login to Medicare and start managing your ${portalType}.`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;border:1px solid ${BORDER_COLOR};border-radius:10px;overflow:hidden;">
-      ${statusRow("✅", "Registration Complete", "Your pharmacy has been registered", "#ecfdf5")}
+      ${statusRow("✅", "Registration Complete", `Your ${businessType} has been registered`, "#ecfdf5")}
       ${statusRow("⏳", "Admin Approval Pending", "Waiting for admin review", "#fffbeb")}
       ${statusRow("🔒", "Login Access", "Available after approval", "#f1f5f9")}
     </table>
@@ -169,11 +165,13 @@ export function registrationSuccessTemplate(
 
 export function adminApprovalTemplate(
   shopName: string,
-  ownerName: string
+  ownerName: string,
+  isStockist = false
 ): { subject: string; text: string; html: string } {
+  const businessType = isStockist ? "wholesale firm" : "pharmacy";
   const subject = `${BRAND} — Your Account Has Been Approved! ✅`;
 
-  const text = `Hi ${ownerName}, great news! The admin has approved your pharmacy "${shopName}". You can now login to Medicare and start managing your pharmacy.`;
+  const text = `Hi ${ownerName}, great news! The admin has approved your ${businessType} "${shopName}". You can now login to Medicare and start managing your business.`;
 
   const html = wrapLayout(`
     ${greeting(ownerName)}
@@ -187,7 +185,7 @@ export function adminApprovalTemplate(
       </tr>
     </table>
 
-    ${paragraph(`Great news! The admin has approved your pharmacy "<strong>${shopName}</strong>". You can now login to Medicare and start managing your pharmacy.`)}
+    ${paragraph(`Great news! The admin has approved your ${businessType} "<strong>${shopName}</strong>". You can now login to Medicare and start managing your business.`)}
 
     <!-- CTA-style box -->
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;">
@@ -217,11 +215,13 @@ export function adminApprovalTemplate(
 
 export function adminRejectionTemplate(
   shopName: string,
-  ownerName: string
+  ownerName: string,
+  isStockist = false
 ): { subject: string; text: string; html: string } {
+  const businessType = isStockist ? "wholesale firm" : "pharmacy";
   const subject = `${BRAND} — Account Update`;
 
-  const text = `Hi ${ownerName}, your pharmacy "${shopName}" registration was not approved. Please contact the Medicare admin for more details.`;
+  const text = `Hi ${ownerName}, your ${businessType} "${shopName}" registration was not approved. Please contact the Medicare admin for more details.`;
 
   const html = wrapLayout(`
     ${greeting(ownerName)}
@@ -235,7 +235,7 @@ export function adminRejectionTemplate(
       </tr>
     </table>
 
-    ${paragraph(`We regret to inform you that your pharmacy "<strong>${shopName}</strong>" registration was not approved at this time.`)}
+    ${paragraph(`We regret to inform you that your ${businessType} "<strong>${shopName}</strong>" registration was not approved at this time.`)}
     ${paragraph("Please contact the Medicare admin for more details or to discuss next steps.")}
 
     ${divider()}
@@ -277,11 +277,13 @@ export function newShopApprovalRequestTemplate(
   shopName: string,
   ownerName: string,
   email: string,
-  phone: string
+  phone: string,
+  isStockist = false
 ): { subject: string; text: string; html: string } {
-  const subject = `${BRAND} Admin — New Shop Registration: ${shopName}`;
+  const businessType = isStockist ? "Wholesale Stockist" : "Retail Pharmacy";
+  const subject = `${BRAND} Admin — New ${businessType} Registration: ${shopName}`;
 
-  const text = `New pharmacy registration: ${shopName} by ${ownerName}. Email: ${email}. Phone: ${phone}. Go to /admin/shops to approve or reject.`;
+  const text = `New ${businessType.toLowerCase()} registration: ${shopName} by ${ownerName}. Email: ${email}. Phone: ${phone}. Go to /admin/shops to approve or reject.`;
 
   const detailRow = (label: string, value: string) => `
     <tr>
@@ -291,18 +293,19 @@ export function newShopApprovalRequestTemplate(
 
   const html = wrapLayout(`
     <p style="margin:0 0 20px 0;font-size:16px;color:${TEXT_COLOR};font-family:${FONT_STACK};line-height:1.6;">Hello <strong>Admin</strong>,</p>
-    ${paragraph("A new pharmacy has registered on Medicare and is waiting for your approval.")}
+    ${paragraph(`A new ${businessType.toLowerCase()} has registered on Medicare and is waiting for your approval.`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;border:1px solid ${BORDER_COLOR};border-radius:10px;overflow:hidden;">
       <tr>
         <td colspan="2" style="padding:14px 16px;background-color:${PRIMARY};font-size:14px;font-weight:700;color:#ffffff;font-family:${FONT_STACK};letter-spacing:0.5px;">
-          📋 &nbsp;Shop Registration Details
+          📋 &nbsp;Registration Details
         </td>
       </tr>
-      ${detailRow("Shop Name", shopName)}
-      ${detailRow("Owner", ownerName)}
+      ${detailRow("Business Name", shopName)}
+      ${detailRow("Proprietor", ownerName)}
       ${detailRow("Email", email)}
       ${detailRow("Phone", phone)}
+      ${detailRow("Role Type", businessType)}
     </table>
 
     <!-- Admin action reminder -->

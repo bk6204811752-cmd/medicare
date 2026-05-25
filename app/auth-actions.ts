@@ -3,7 +3,7 @@
 import crypto from "node:crypto";
 import { redirect } from "next/navigation";
 import { clearAuthSession, requireSuperAdmin, setAuthSession } from "@/lib/auth";
-import { withRetry } from "@/lib/prisma";
+import { prisma, withRetry } from "@/lib/prisma";
 import {
   createEmailVerificationOtp,
   createPasswordResetOtp,
@@ -55,7 +55,8 @@ export async function sendVerificationOtpAction(formData: FormData) {
     city: formValue(formData, "city"),
     state: formValue(formData, "state"),
     gstin: formValue(formData, "gstin"),
-    drugLicenseNo: formValue(formData, "drugLicenseNo")
+    drugLicenseNo: formValue(formData, "drugLicenseNo"),
+    role: formValue(formData, "role")
   });
 
   if (!parsed.success) {
@@ -85,7 +86,7 @@ export async function sendVerificationOtpAction(formData: FormData) {
   }
 
   // Redirect back to register with verification step
-  redirect(`/register?step=verify&email=${encodeURIComponent(data.email)}&success=${encodeURIComponent("Verification code sent to your email. Please check your inbox.")}`);
+  redirect(`/register?step=verify&email=${encodeURIComponent(data.email)}&role=${encodeURIComponent(data.role)}&success=${encodeURIComponent("Verification code sent to your email. Please check your inbox.")}`);
 }
 
 // ─── Step 2: Verify OTP & Complete Registration ──────────────
@@ -93,17 +94,18 @@ export async function sendVerificationOtpAction(formData: FormData) {
 export async function registerShopAction(formData: FormData) {
   const email = formValue(formData, "email");
   const otp = formValue(formData, "otp");
+  const role = formValue(formData, "role");
 
   // Validate the OTP first
   const otpParsed = verifyEmailOtpSchema.safeParse({ email, otp });
   if (!otpParsed.success) {
-    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&error=${encodeURIComponent(otpParsed.error.issues[0]?.message || "Invalid OTP")}`);
+    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}&error=${encodeURIComponent(otpParsed.error.issues[0]?.message || "Invalid OTP")}`);
   }
 
   // Verify the OTP
   const otpValid = await withRetry(() => verifyEmailOtp(email, otp));
   if (!otpValid) {
-    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&error=${encodeURIComponent("Invalid or expired verification code. Please request a new one.")}`);
+    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}&error=${encodeURIComponent("Invalid or expired verification code. Please request a new one.")}`);
   }
 
   // Now parse full registration data
@@ -117,7 +119,8 @@ export async function registerShopAction(formData: FormData) {
     city: formValue(formData, "city"),
     state: formValue(formData, "state"),
     gstin: formValue(formData, "gstin"),
-    drugLicenseNo: formValue(formData, "drugLicenseNo")
+    drugLicenseNo: formValue(formData, "drugLicenseNo"),
+    role: role || "shop_admin"
   });
 
   if (!parsed.success) {
@@ -128,15 +131,17 @@ export async function registerShopAction(formData: FormData) {
   try {
     await withRetry(() => registerPendingShop(data));
 
+    const isStockist = data.role === "stockist_admin";
     // Await both emails before redirecting — on Vercel serverless,
     // unawaited promises are killed when redirect() terminates the function.
     await Promise.allSettled([
-      sendRegistrationSuccessMail(data.email, data.shopName, data.ownerName),
+      sendRegistrationSuccessMail(data.email, data.shopName, data.ownerName, isStockist),
       sendApprovalRequestMail({
         shopName: data.shopName,
         ownerName: data.ownerName,
         email: data.email,
-        phone: data.phone
+        phone: data.phone,
+        isStockist
       })
     ]);
   } catch (error) {
@@ -175,7 +180,13 @@ export async function loginAction(formData: FormData) {
     }
 
     await withRetry(() => setAuthSession(String(validUser.id)));
-    redirect(role === "super_admin" ? "/admin/dashboard" : "/shop/dashboard");
+    if (role === "super_admin") {
+      redirect("/admin/dashboard");
+    } else if (role === "stockist_admin" || role === "stockist_staff") {
+      redirect("/stockist/dashboard");
+    } else {
+      redirect("/shop/dashboard");
+    }
   } catch (error: unknown) {
     if (error && typeof error === "object" && "digest" in error) throw error;
     console.error("loginAction error:", error);
@@ -250,11 +261,14 @@ export async function approveTenantAction(formData: FormData) {
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
     try {
+      const owner = await withRetry(() => prisma.user.findFirst({ where: { tenantId } }));
+      const isStockist = owner?.role === "stockist_admin";
       await sendShopApprovalStatusMail({
         to: tenant.email,
         shopName: tenant.name,
         ownerName: tenant.ownerName || "Shop Owner",
-        approved: true
+        approved: true,
+        isStockist
       });
     } catch (e) {
       console.error("Failed to send approval email:", e);
@@ -273,11 +287,14 @@ export async function rejectTenantAction(formData: FormData) {
   const tenant = await getTenantById(tenantId);
   if (tenant?.email) {
     try {
+      const owner = await withRetry(() => prisma.user.findFirst({ where: { tenantId } }));
+      const isStockist = owner?.role === "stockist_admin";
       await sendShopApprovalStatusMail({
         to: tenant.email,
         shopName: tenant.name,
         ownerName: tenant.ownerName || "Shop Owner",
-        approved: false
+        approved: false,
+        isStockist
       });
     } catch (e) {
       console.error("Failed to send rejection email:", e);

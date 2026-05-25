@@ -38,6 +38,13 @@ model Tenant {
   saleReturns     SaleReturn[]
   purchaseReturns PurchaseReturn[]
   prescriptionImages PrescriptionImage[]
+  parties         Party[]
+  routes          Route[]
+  salesmen        Salesman[]
+  b2bSalesOrders  B2BSalesOrder[]
+  b2bSales        B2BSale[]
+  receipts        Receipt[]
+  b2bIndents      B2BIndent[]
 }
 
 model User {
@@ -115,6 +122,9 @@ model Medicine {
   hsnCode              String?         @db.NVarChar(32)
   gstRate              Int             @default(12)
   mrpPaisa             Int
+  ptrPaisa             Int             @default(0)
+  ptsPaisa             Int             @default(0)
+  specialRatePaisa     Int             @default(0)
   schedule             String          @default("OTC") @db.NVarChar(16)
   barcode              String?         @db.NVarChar(100)
   requiresPrescription Boolean         @default(false)
@@ -150,9 +160,13 @@ model InventoryItem {
   stockMovements    StockMovement[]
   supplier          Supplier?           @relation(fields: [supplierId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  purchaseItems     PurchaseOrderItem[]
-  saleReturnItems   SaleReturnItem[]
+  purchaseItems       PurchaseOrderItem[]
+  saleReturnItems     SaleReturnItem[]
   purchaseReturnItems PurchaseReturnItem[]
+  ptrPaisa            Int                 @default(0)
+  ptsPaisa            Int                 @default(0)
+  specialRatePaisa    Int                 @default(0)
+  b2bSaleItems        B2BSaleItem[]
 
   @@index([tenantId])
   @@index([medicineId])
@@ -425,4 +439,206 @@ model PrescriptionImage {
   @@index([tenantId])
   @@index([saleId])
 }
+
+// ─── Wholesaler / Stockist B2B Models ─────────────────────────
+
+model Route {
+  id          String   @id @default(cuid()) @db.NVarChar(64)
+  tenantId    String   @db.NVarChar(64)
+  name        String   @db.NVarChar(255)
+  code        String?  @db.NVarChar(32)
+  description String?  @db.NVarChar(500)
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  parties     Party[]
+  salesmen    SalesmanRoute[]
+
+  @@index([tenantId])
+}
+
+model Salesman {
+  id                String          @id @default(cuid()) @db.NVarChar(64)
+  tenantId          String          @db.NVarChar(64)
+  name              String          @db.NVarChar(255)
+  phone             String?         @db.NVarChar(32)
+  email             String?         @db.NVarChar(320)
+  targetPaisa       Int             @default(0)
+  commissionPercent Float           @default(0.0)
+  commissionOn      String          @default("sales") @db.NVarChar(32) // "sales" or "collection"
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  routes            SalesmanRoute[]
+  salesOrders       B2BSalesOrder[]
+  receipts          Receipt[]
+
+  @@index([tenantId])
+}
+
+model SalesmanRoute {
+  salesmanId String @db.NVarChar(64)
+  routeId    String @db.NVarChar(64)
+  salesman   Salesman @relation(fields: [salesmanId], references: [id], onDelete: Cascade)
+  route      Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@id([salesmanId, routeId])
+}
+
+model Party {
+  id               String          @id @default(cuid()) @db.NVarChar(64)
+  tenantId         String          @db.NVarChar(64)
+  name             String          @db.NVarChar(255)
+  phone            String?         @db.NVarChar(32)
+  email            String?         @db.NVarChar(320)
+  address          String?         @db.NVarChar(1000)
+  gstin            String?         @db.NVarChar(32)
+  drugLicenseNo    String?         @db.NVarChar(64)
+  creditLimitPaisa Int             @default(0)
+  outstandingPaisa Int             @default(0)
+  routeId          String?         @db.NVarChar(64)
+  createdAt        DateTime        @default(now())
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  route            Route?          @relation(fields: [routeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesOrders      B2BSalesOrder[]
+  b2bSales         B2BSale[]
+  receipts         Receipt[]
+
+  @@index([tenantId])
+}
+
+model B2BSalesOrder {
+  id            String             @id @default(cuid()) @db.NVarChar(64)
+  tenantId      String             @db.NVarChar(64)
+  orderNo       String             @unique @db.NVarChar(100)
+  orderDate     DateTime           @default(now())
+  partyId       String             @db.NVarChar(64)
+  salesmanId    String?            @db.NVarChar(64)
+  status        String             @default("pending") @db.NVarChar(32) // "pending", "billed", "cancelled"
+  subtotalPaisa Int
+  discountPaisa Int                @default(0)
+  taxablePaisa  Int
+  gstPaisa      Int
+  totalPaisa    Int
+  notes         String?            @db.NVarChar(1000)
+  createdAt     DateTime           @default(now())
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  party         Party              @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesman      Salesman?          @relation(fields: [salesmanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items         B2BSalesOrderItem[]
+  b2bSales      B2BSale[]
+
+  @@index([tenantId])
+}
+
+model B2BSalesOrderItem {
+  id           String        @id @default(cuid()) @db.NVarChar(64)
+  orderId      String        @db.NVarChar(64)
+  medicineId   String        @db.NVarChar(64)
+  medicineName String        @db.NVarChar(255)
+  quantity     Int
+  freeQuantity Int           @default(0)
+  ratePaisa    Int
+  totalPaisa   Int
+  order        B2BSalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model B2BSale {
+  id              String        @id @default(cuid()) @db.NVarChar(64)
+  tenantId        String        @db.NVarChar(64)
+  invoiceNo       String        @unique @db.NVarChar(100)
+  invoiceDate     DateTime      @default(now())
+  partyId         String        @db.NVarChar(64)
+  salesmanId      String?       @db.NVarChar(64)
+  orderId         String?       @db.NVarChar(64)
+  paymentMode     String        @default("credit") @db.NVarChar(32) // "credit", "cash", "upi", "cheque"
+  subtotalPaisa   Int
+  discountPaisa   Int           @default(0)
+  taxablePaisa    Int
+  gstPaisa        Int
+  roundOffPaisa   Int           @default(0)
+  totalPaisa      Int
+  amountPaidPaisa Int           @default(0)
+  amountDuePaisa  Int           @default(0)
+  status          String        @default("unpaid") @db.NVarChar(32) // "unpaid", "paid", "partial"
+  invoiceType     String        @default("invoice") @db.NVarChar(32) // "invoice" | "challan"
+  notes           String?       @db.NVarChar(1000)
+  createdAt       DateTime      @default(now())
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  party           Party         @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order           B2BSalesOrder? @relation(fields: [orderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items           B2BSaleItem[]
+
+  @@index([tenantId])
+}
+
+model B2BSaleItem {
+  id              String        @id @default(cuid()) @db.NVarChar(64)
+  saleId          String        @db.NVarChar(64)
+  inventoryId     String        @db.NVarChar(64)
+  medicineName    String        @db.NVarChar(255)
+  batchNo         String        @db.NVarChar(100)
+  expiryDate      DateTime
+  quantity        Int
+  freeQuantity    Int           @default(0)
+  mrpPaisa        Int
+  saleRatePaisa   Int
+  discountPercent Int           @default(0)
+  gstRate         Int
+  gstPaisa        Int
+  taxablePaisa    Int
+  totalPaisa      Int
+  schemeDetails   String?       @db.NVarChar(255)
+  sale            B2BSale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  inventory       InventoryItem @relation(fields: [inventoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([saleId])
+}
+
+model Receipt {
+  id          String    @id @default(cuid()) @db.NVarChar(64)
+  tenantId    String    @db.NVarChar(64)
+  partyId     String    @db.NVarChar(64)
+  salesmanId  String?   @db.NVarChar(64)
+  receiptNo   String    @unique @db.NVarChar(100)
+  receiptDate DateTime  @default(now())
+  amountPaisa Int
+  paymentMode String    @db.NVarChar(32) // "cash", "cheque", "upi", "neft"
+  referenceNo String?   @db.NVarChar(100)
+  notes       String?   @db.NVarChar(1000)
+  createdAt   DateTime  @default(now())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  party       Party     @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesman    Salesman? @relation(fields: [salesmanId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tenantId])
+}
+
+model B2BIndent {
+  id           String           @id @default(cuid()) @db.NVarChar(64)
+  tenantId     String           @db.NVarChar(64)
+  indentNo     String           @unique @db.NVarChar(100)
+  indentDate   DateTime         @default(now())
+  chemistName  String           @db.NVarChar(255)
+  phone        String?          @db.NVarChar(32)
+  status       String           @default("pending") @db.NVarChar(32) // "pending", "processed", "cancelled"
+  totalPaisa   Int              @default(0)
+  createdAt    DateTime         @default(now())
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  items        B2BIndentItem[]
+
+  @@index([tenantId])
+}
+
+model B2BIndentItem {
+  id           String    @id @default(cuid()) @db.NVarChar(64)
+  indentId     String    @db.NVarChar(64)
+  medicineName String    @db.NVarChar(255)
+  quantity     Int
+  indent       B2BIndent @relation(fields: [indentId], references: [id], onDelete: Cascade)
+
+  @@index([indentId])
+}
+
 

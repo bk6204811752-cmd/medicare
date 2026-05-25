@@ -38,6 +38,18 @@ const adminNav: NavItem[] = [
   { label: "Settings", href: "/admin/settings", icon: <Settings className="h-5 w-5" /> },
 ];
 
+const stockistNav: NavItem[] = [
+  { label: "Dashboard", href: "/stockist/dashboard", icon: <Home className="h-5 w-5" /> },
+  { label: "B2B Sales & POS", href: "/stockist/sales", icon: <ShoppingCart className="h-5 w-5" /> },
+  { label: "Inventory", href: "/stockist/inventory", icon: <Package className="h-5 w-5" /> },
+  { label: "Parties (Retailers)", href: "/stockist/parties", icon: <Users className="h-5 w-5" /> },
+  { label: "Credit & Collection", href: "/stockist/collection", icon: <CreditCard className="h-5 w-5" /> },
+  { label: "Sales Team", href: "/stockist/salesmen", icon: <Store className="h-5 w-5" /> },
+  { label: "Purchase & Indent", href: "/stockist/purchases", icon: <Truck className="h-5 w-5" /> },
+  { label: "Reports & GST", href: "/stockist/reports", icon: <BarChart3 className="h-5 w-5" /> },
+  { label: "Settings", href: "/stockist/settings", icon: <Settings className="h-5 w-5" /> },
+];
+
 // ─── Isolated Search Modal — its state changes don't re-render sidebar/content ───
 function SearchModal() {
   const [open, setOpen] = useState(false);
@@ -124,7 +136,8 @@ function SearchModal() {
 export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; profilePicUrl?: string | null; children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = user.role === "super_admin";
-  const nav = isAdmin ? adminNav : shopNav;
+  const isStockist = user.role === "stockist_admin" || user.role === "stockist_staff";
+  const nav = isAdmin ? adminNav : (isStockist ? stockistNav : shopNav);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
@@ -180,7 +193,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-slate-100 px-4">
           {!collapsed && (
-            <Link href={isAdmin ? "/admin/dashboard" : "/shop/dashboard"} className="flex items-center gap-2">
+            <Link href={isAdmin ? "/admin/dashboard" : (isStockist ? "/stockist/dashboard" : "/shop/dashboard")} className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-med-green text-white font-extrabold text-xl leading-none">+</div>
               <span className="font-display text-lg font-bold text-med-navy">Medicare</span>
             </Link>
@@ -240,7 +253,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
             <button onClick={openMobile} className="flex lg:hidden h-9 w-9 items-center justify-center rounded-md hover:bg-slate-100">
               <Menu className="h-5 w-5" />
             </button>
-            <Link href={isAdmin ? "/admin/dashboard" : "/shop/dashboard"} className="flex lg:hidden items-center gap-2 mr-2 hover:opacity-90 active:scale-95 transition-all">
+            <Link href={isAdmin ? "/admin/dashboard" : (isStockist ? "/stockist/dashboard" : "/shop/dashboard")} className="flex lg:hidden items-center gap-2 mr-2 hover:opacity-90 active:scale-95 transition-all">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-med-green text-white font-extrabold text-lg leading-none">+</div>
               <span className="font-display text-sm font-bold text-med-navy">Medicare</span>
             </Link>
@@ -272,12 +285,17 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
       {/* Mobile bottom nav */}
       {!isAdmin && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden h-16 no-print">
-          {[
+          {(isStockist ? [
+            { label: "Dashboard", href: "/stockist/dashboard", icon: <Home className="h-5 w-5" /> },
+            { label: "B2B Sales", href: "/stockist/sales", icon: <ShoppingCart className="h-5 w-5" /> },
+            { label: "Inventory", href: "/stockist/inventory", icon: <Package className="h-5 w-5" /> },
+            { label: "Parties", href: "/stockist/parties", icon: <Users className="h-5 w-5" /> },
+          ] : [
             { label: "Dashboard", href: "/shop/dashboard", icon: <Home className="h-5 w-5" /> },
             { label: "Billing", href: "/shop/billing", icon: <ShoppingCart className="h-5 w-5" /> },
             { label: "Inventory", href: "/shop/inventory", icon: <Package className="h-5 w-5" /> },
             { label: "Customers", href: "/shop/customers", icon: <Users className="h-5 w-5" /> },
-          ].map((item) => (
+          ]).map((item) => (
             <Link
               key={item.href}
               href={item.href}

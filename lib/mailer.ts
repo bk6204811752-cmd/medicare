@@ -237,8 +237,13 @@ export async function sendEmailVerificationOtp(to: string, otp: string, ownerNam
 
 // ─── Registration Success ────────────────────────────────────
 
-export async function sendRegistrationSuccessMail(to: string, shopName: string, ownerName: string) {
-  const template = registrationSuccessTemplate(shopName, ownerName);
+export async function sendRegistrationSuccessMail(
+  to: string,
+  shopName: string,
+  ownerName: string,
+  isStockist = false
+) {
+  const template = registrationSuccessTemplate(shopName, ownerName, isStockist);
   return sendMail({
     to,
     subject: template.subject,
@@ -261,9 +266,21 @@ export async function sendPasswordResetOtp(to: string, otp: string, userName?: s
 
 // ─── Admin Notification: New Shop Registered ─────────────────
 
-export async function sendApprovalRequestMail(input: { shopName: string; ownerName: string; email: string; phone: string }) {
+export async function sendApprovalRequestMail(input: {
+  shopName: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  isStockist?: boolean;
+}) {
   const adminEmail = process.env.ADMIN_EMAIL || "hojai4828@gmail.com";
-  const template = newShopApprovalRequestTemplate(input.shopName, input.ownerName, input.email, input.phone);
+  const template = newShopApprovalRequestTemplate(
+    input.shopName,
+    input.ownerName,
+    input.email,
+    input.phone,
+    input.isStockist
+  );
   return sendMail({
     to: adminEmail,
     subject: template.subject,
@@ -274,10 +291,16 @@ export async function sendApprovalRequestMail(input: { shopName: string; ownerNa
 
 // ─── Shop Approval / Rejection ───────────────────────────────
 
-export async function sendShopApprovalStatusMail(input: { to: string; shopName: string; ownerName: string; approved: boolean }) {
+export async function sendShopApprovalStatusMail(input: {
+  to: string;
+  shopName: string;
+  ownerName: string;
+  approved: boolean;
+  isStockist?: boolean;
+}) {
   const template = input.approved
-    ? adminApprovalTemplate(input.shopName, input.ownerName)
-    : adminRejectionTemplate(input.shopName, input.ownerName);
+    ? adminApprovalTemplate(input.shopName, input.ownerName, input.isStockist)
+    : adminRejectionTemplate(input.shopName, input.ownerName, input.isStockist);
   return sendMail({
     to: input.to,
     subject: template.subject,

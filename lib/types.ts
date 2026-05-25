@@ -1,4 +1,4 @@
-export type Role = "super_admin" | "shop_admin" | "staff" | "pharmacist";
+export type Role = "super_admin" | "shop_admin" | "stockist_admin" | "staff" | "pharmacist" | "stockist_staff";
 
 export type Medicine = {
   id: string;

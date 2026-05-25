@@ -112,7 +112,7 @@ export type LocalUser = {
   name: string;
   email: string;
   phone: string | null;
-  role: "super_admin" | "shop_admin" | "staff" | "pharmacist";
+  role: "super_admin" | "shop_admin" | "stockist_admin" | "staff" | "pharmacist" | "stockist_staff";
   isActive: boolean;
   tenantName: string | null;
   tenantApprovalStatus: "pending" | "approved" | "rejected" | null;
@@ -546,6 +546,7 @@ export async function getUserById(userId: string) {
 export async function registerPendingShop(input: {
   shopName: string; ownerName: string; phone: string; email: string;
   password: string; city?: string; state?: string; gstin?: string; drugLicenseNo?: string;
+  role?: string;
 }) {
   await ensureDefaultData();
   const tenantId = uid("tenant");
@@ -568,7 +569,7 @@ export async function registerPendingShop(input: {
       data: {
         id: userId, tenantId, name: input.ownerName, email: input.email,
         phone: input.phone, passwordHash: await hashPassword(input.password),
-        role: "shop_admin", isActive: false
+        role: input.role || "shop_admin", isActive: false
       }
     });
   });
@@ -578,16 +579,22 @@ export async function registerPendingShop(input: {
 
 export async function getAllTenants() {
   await ensureDefaultData();
-  const tenants = await prisma.tenant.findMany({ orderBy: { createdAt: "desc" } });
+  const tenants = await prisma.tenant.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { users: { where: { role: { in: ["shop_admin", "stockist_admin"] } }, take: 1 } }
+  });
   const priority = { pending: 0, approved: 1, rejected: 2 } as Record<string, number>;
-  return tenants.map(mapTenant).sort((a, b) => (priority[a.approvalStatus] ?? 9) - (priority[b.approvalStatus] ?? 9));
+  return tenants.map((t) => ({
+    ...mapTenant(t),
+    ownerRole: t.users[0]?.role || "shop_admin"
+  })).sort((a, b) => (priority[a.approvalStatus] ?? 9) - (priority[b.approvalStatus] ?? 9));
 }
 
 export async function getApprovedTenantsWithOwners() {
   await ensureDefaultData();
   const tenants = await prisma.tenant.findMany({
     where: { approvalStatus: "approved", isActive: true },
-    include: { users: { where: { role: "shop_admin" }, take: 1 } }
+    include: { users: { where: { role: { in: ["shop_admin", "stockist_admin"] } }, take: 1 } }
   });
   return tenants.map((tenant) => ({
     id: tenant.id, name: tenant.name, email: tenant.email,
@@ -599,7 +606,7 @@ export async function updateTenantApproval(tenantId: string, status: "approved" 
   const active = status === "approved";
   await prisma.$transaction([
     prisma.tenant.update({ where: { id: tenantId }, data: { approvalStatus: status, isActive: active } }),
-    prisma.user.updateMany({ where: { tenantId, role: "shop_admin" }, data: { isActive: active } })
+    prisma.user.updateMany({ where: { tenantId }, data: { isActive: active } })
   ]);
 }
 

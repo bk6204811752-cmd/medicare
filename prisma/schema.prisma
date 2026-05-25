@@ -38,6 +38,13 @@ model Tenant {
   saleReturns     SaleReturn[]
   purchaseReturns PurchaseReturn[]
   prescriptionImages PrescriptionImage[]
+  parties         Party[]
+  routes          Route[]
+  salesmen        Salesman[]
+  b2bSalesOrders  B2BSalesOrder[]
+  b2bSales        B2BSale[]
+  receipts        Receipt[]
+  b2bIndents      B2BIndent[]
 }
 
 model User {
@@ -115,6 +122,9 @@ model Medicine {
   hsnCode              String?
   gstRate              Int      @default(12)
   mrpPaisa             Int
+  ptrPaisa             Int      @default(0)
+  ptsPaisa             Int      @default(0)
+  specialRatePaisa     Int      @default(0)
   schedule             String   @default("OTC")
   barcode              String?
   requiresPrescription Boolean  @default(false)
@@ -153,6 +163,10 @@ model InventoryItem {
   purchaseItems       PurchaseOrderItem[]
   saleReturnItems     SaleReturnItem[]
   purchaseReturnItems PurchaseReturnItem[]
+  ptrPaisa            Int      @default(0)
+  ptsPaisa            Int      @default(0)
+  specialRatePaisa    Int      @default(0)
+  b2bSaleItems        B2BSaleItem[]
 
   @@index([tenantId])
   @@index([medicineId])
@@ -425,3 +439,205 @@ model PrescriptionImage {
   @@index([tenantId])
   @@index([saleId])
 }
+
+// ─── Wholesaler / Stockist B2B Models ─────────────────────────
+
+model Route {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  code        String?
+  description String?
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  parties     Party[]
+  salesmen    SalesmanRoute[]
+
+  @@index([tenantId])
+}
+
+model Salesman {
+  id                String          @id @default(cuid())
+  tenantId          String
+  name              String
+  phone             String?
+  email             String?
+  targetPaisa       Int             @default(0)
+  commissionPercent Float           @default(0.0)
+  commissionOn      String          @default("sales") // "sales" or "collection"
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  tenant            Tenant          @relation(fields: [tenantId], references: [id])
+  routes            SalesmanRoute[]
+  salesOrders       B2BSalesOrder[]
+  receipts          Receipt[]
+
+  @@index([tenantId])
+}
+
+model SalesmanRoute {
+  salesmanId String
+  routeId    String
+  salesman   Salesman @relation(fields: [salesmanId], references: [id], onDelete: Cascade)
+  route      Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@id([salesmanId, routeId])
+}
+
+model Party {
+  id               String          @id @default(cuid())
+  tenantId         String
+  name             String
+  phone            String?
+  email            String?
+  address          String?
+  gstin            String?
+  drugLicenseNo    String?
+  creditLimitPaisa Int             @default(0)
+  outstandingPaisa Int             @default(0)
+  routeId          String?
+  createdAt        DateTime        @default(now())
+  tenant           Tenant          @relation(fields: [tenantId], references: [id])
+  route            Route?          @relation(fields: [routeId], references: [id])
+  salesOrders      B2BSalesOrder[]
+  b2bSales         B2BSale[]
+  receipts         Receipt[]
+
+  @@index([tenantId])
+}
+
+model B2BSalesOrder {
+  id            String             @id @default(cuid())
+  tenantId      String
+  orderNo       String             @unique
+  orderDate     DateTime           @default(now())
+  partyId       String
+  salesmanId    String?
+  status        String             @default("pending") // "pending", "billed", "cancelled"
+  subtotalPaisa Int
+  discountPaisa Int                @default(0)
+  taxablePaisa  Int
+  gstPaisa      Int
+  totalPaisa    Int
+  notes         String?
+  createdAt     DateTime           @default(now())
+  tenant        Tenant             @relation(fields: [tenantId], references: [id])
+  party         Party              @relation(fields: [partyId], references: [id])
+  salesman      Salesman?          @relation(fields: [salesmanId], references: [id])
+  items         B2BSalesOrderItem[]
+  b2bSales      B2BSale[]
+
+  @@index([tenantId])
+}
+
+model B2BSalesOrderItem {
+  id           String        @id @default(cuid())
+  orderId      String
+  medicineId   String
+  medicineName String
+  quantity     Int
+  freeQuantity Int           @default(0)
+  ratePaisa    Int
+  totalPaisa   Int
+  order        B2BSalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model B2BSale {
+  id              String        @id @default(cuid())
+  tenantId        String
+  invoiceNo       String        @unique
+  invoiceDate     DateTime      @default(now())
+  partyId         String
+  salesmanId      String?
+  orderId         String?
+  paymentMode     String        @default("credit") // "credit", "cash", "upi", "cheque"
+  subtotalPaisa   Int
+  discountPaisa   Int           @default(0)
+  taxablePaisa    Int
+  gstPaisa        Int
+  roundOffPaisa   Int           @default(0)
+  totalPaisa      Int
+  amountPaidPaisa Int           @default(0)
+  amountDuePaisa  Int           @default(0)
+  status          String        @default("unpaid") // "unpaid", "paid", "partial"
+  invoiceType     String        @default("invoice") // "invoice" | "challan"
+  notes           String?
+  createdAt       DateTime      @default(now())
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  party           Party         @relation(fields: [partyId], references: [id])
+  order           B2BSalesOrder? @relation(fields: [orderId], references: [id])
+  items           B2BSaleItem[]
+
+  @@index([tenantId])
+}
+
+model B2BSaleItem {
+  id              String        @id @default(cuid())
+  saleId          String
+  inventoryId     String
+  medicineName    String
+  batchNo         String
+  expiryDate      DateTime
+  quantity        Int
+  freeQuantity    Int           @default(0)
+  mrpPaisa        Int
+  saleRatePaisa   Int
+  discountPercent Int           @default(0)
+  gstRate         Int
+  gstPaisa        Int
+  taxablePaisa    Int
+  totalPaisa      Int
+  schemeDetails   String?
+  sale            B2BSale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  inventory       InventoryItem @relation(fields: [inventoryId], references: [id])
+
+  @@index([saleId])
+}
+
+model Receipt {
+  id          String    @id @default(cuid())
+  tenantId    String
+  partyId     String
+  salesmanId  String?
+  receiptNo   String    @unique
+  receiptDate DateTime  @default(now())
+  amountPaisa Int
+  paymentMode String    // "cash", "cheque", "upi", "neft"
+  referenceNo String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  party       Party     @relation(fields: [partyId], references: [id])
+  salesman    Salesman? @relation(fields: [salesmanId], references: [id])
+
+  @@index([tenantId])
+}
+
+model B2BIndent {
+  id           String           @id @default(cuid())
+  tenantId     String
+  indentNo     String           @unique
+  indentDate   DateTime         @default(now())
+  chemistName  String
+  phone        String?
+  status       String           @default("pending") // "pending", "processed", "cancelled"
+  totalPaisa   Int              @default(0)
+  createdAt    DateTime         @default(now())
+  tenant       Tenant           @relation(fields: [tenantId], references: [id])
+  items        B2BIndentItem[]
+
+  @@index([tenantId])
+}
+
+model B2BIndentItem {
+  id           String    @id @default(cuid())
+  indentId     String
+  medicineName String
+  quantity     Int
+  indent       B2BIndent @relation(fields: [indentId], references: [id], onDelete: Cascade)
+
+  @@index([indentId])
+}
+

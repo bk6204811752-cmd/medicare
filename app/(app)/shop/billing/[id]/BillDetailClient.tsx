@@ -58,14 +58,25 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         return;
       }
 
+      // Temporarily force desktop A4 layout if in A4 mode
+      const isA4 = printFormat === "a4";
+      if (isA4) {
+        element.classList.add("force-desktop-A4");
+      }
+
       // Render the invoice to high-resolution canvas
       const canvas = await html2canvas(element as HTMLElement, {
         scale: 2, // Ultra-clear text scaling
         useCORS: true,
         allowTaint: true,
         logging: false,
-        backgroundColor: "#ffffff"
+        backgroundColor: "#ffffff",
+        windowWidth: isA4 ? 1024 : undefined
       });
+
+      if (isA4) {
+        element.classList.remove("force-desktop-A4");
+      }
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
       let pdf;
@@ -334,7 +345,7 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           padding: 24px !important;
         }
         /* Force banner contents to align in a single row without wrapping/stacking in print */
-        .a4-print-container .bg-slate-900 {
+        .a4-print-container .a4-header-banner {
           margin-left: -40px !important;
           margin-right: -40px !important;
           margin-top: -40px !important;
@@ -344,6 +355,9 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           flex-direction: row !important;
           justify-content: space-between !important;
           align-items: center !important;
+          background: #ffffff !important;
+          border-bottom: 2px solid #e2e8f0 !important;
+          color: #1e293b !important;
         }
         /* Force Grid layout cells (Customer block, Totals summary, Footer columns) to stay side-by-side */
         .a4-print-container .grid {
@@ -355,6 +369,49 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         .a4-print-container .h-10 {
           height: 32px !important;
         }
+      }
+
+      /* ==================== SCREEN SIMULATOR FOR MOBILE HTML2CANVAS ==================== */
+      .force-desktop-A4 {
+        width: 1024px !important;
+        min-width: 1024px !important;
+        max-width: 1024px !important;
+        padding: 40px !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+      }
+      .force-desktop-A4 .overflow-x-auto {
+        overflow: visible !important;
+      }
+      .force-desktop-A4 table {
+        width: 100% !important;
+        table-layout: auto !important;
+      }
+      .force-desktop-A4 .a4-header-banner {
+        margin-left: -40px !important;
+        margin-right: -40px !important;
+        margin-top: -40px !important;
+        padding: 24px !important;
+        border-radius: 0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        background: #ffffff !important;
+        border-bottom: 2px solid #e2e8f0 !important;
+        color: #1e293b !important;
+      }
+      .force-desktop-A4 .grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 24px !important;
+      }
+      .force-desktop-A4 .md\\:ml-auto {
+        margin-left: auto !important;
+      }
+      .force-desktop-A4 .max-w-sm {
+        max-width: 384px !important;
       }
     `;
 
@@ -457,22 +514,22 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
         /* ==================== A4 TAX INVOICE FORMAT ==================== */
         <section className="a4-print-container mx-auto max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm print:border-0 print:p-0 print:shadow-none font-sans animate-fade-in">
           {/* Header Banner */}
-          <div className="bg-slate-900 text-white p-6 rounded-t-xl -mx-6 -mt-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 print:bg-slate-900 print:text-white print:rounded-t-none">
+          <div className="a4-header-banner bg-white text-slate-800 p-6 border-b-2 border-slate-200 rounded-t-xl -mx-6 -mt-6 flex flex-col md:flex-row md:justify-between items-start md:items-center gap-4 print:bg-white print:text-slate-800 print:rounded-t-none">
             <div>
-              <span className="inline-block bg-med-green text-white text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-md">
+              <span className="inline-block border border-med-green text-med-green text-[10px] font-extrabold tracking-widest uppercase px-2.5 py-1 rounded-md bg-white">
                 TAX INVOICE
               </span>
-              <h2 className="font-display text-2xl font-bold mt-2 tracking-tight">{tenant.name}</h2>
-              <p className="text-xs text-slate-300 mt-1">{tenant.city}, {tenant.state} | Phone: {tenant.phone}</p>
-              <p className="text-[11px] text-slate-400 mt-1 font-mono">
+              <h2 className="font-display text-2xl font-extrabold text-slate-900 mt-2 tracking-tight">{tenant.name}</h2>
+              <p className="text-xs text-slate-600 mt-1 font-medium">{tenant.city}, {tenant.state} | Phone: {tenant.phone}</p>
+              <p className="text-[11px] text-slate-500 mt-1 font-mono">
                 GSTIN: {tenant.gstin} | Drug License: {tenant.drugLicenseNo}
               </p>
             </div>
-            <div className="text-left md:text-right border-l md:border-l-0 md:border-r border-slate-800 pl-4 md:pl-0 md:pr-4">
-              <p className="text-xs text-slate-400 font-medium">Invoice Number</p>
-              <p className="font-mono font-bold text-lg text-med-green">{String(sale.invoice_no)}</p>
-              <p className="text-xs text-slate-300 mt-1">{formatDate(String(sale.invoice_date))}</p>
-              <span className="inline-block bg-slate-800 text-[10px] font-semibold tracking-wider text-slate-300 px-2.5 py-0.5 rounded mt-2 uppercase">
+            <div className="text-left md:text-right border-l border-slate-200 md:border-l-0 md:border-r md:pr-4 pl-4 md:pl-0">
+              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Invoice Number</p>
+              <p className="font-mono font-black text-lg text-med-green">{String(sale.invoice_no)}</p>
+              <p className="text-xs text-slate-600 font-semibold mt-1">{formatDate(String(sale.invoice_date))}</p>
+              <span className="inline-block border border-slate-350 text-[10px] font-bold tracking-wider text-slate-700 px-2.5 py-0.5 rounded mt-2 uppercase bg-white">
                 Mode: {String(sale.payment_mode)}
               </span>
             </div>
@@ -480,30 +537,30 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
 
           {/* Customer & Doctor Block */}
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Billed To (Customer)</p>
-              <p className="font-bold text-med-navy text-base">{String(sale.customer_name ?? "Walk-in Customer")}</p>
+              <p className="font-extrabold text-med-navy text-base">{String(sale.customer_name ?? "Walk-in Customer")}</p>
               {!!sale.customer_phone && (
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-slate-600 mt-1 font-medium">
                   Phone: <span className="font-semibold text-slate-700">{String(sale.customer_phone)}</span>
                 </p>
               )}
             </div>
             <div className="grid gap-4">
-              <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Prescription & Doctor</p>
                 <div className="space-y-1">
                   <p className="text-xs text-slate-600">
-                    Doctor: <span className="font-bold text-slate-900">{String(sale.doctor_name ?? "Self-prescribed")}</span>
+                    Doctor: <span className="font-extrabold text-slate-900">{String(sale.doctor_name ?? "Self-prescribed")}</span>
                   </p>
-                  <p className="text-xs text-slate-500">
-                    Prescription No: <span className="font-mono font-semibold text-slate-700">{String(sale.prescription_no ?? "N/A")}</span>
+                  <p className="text-xs text-slate-600">
+                    Prescription No: <span className="font-mono font-semibold text-slate-800">{String(sale.prescription_no ?? "N/A")}</span>
                   </p>
                 </div>
               </div>
 
               {sale.prescriptionImages && sale.prescriptionImages.length > 0 && (
-                <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 no-print">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 no-print shadow-xs">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Uploaded Prescription</p>
                   <div className="flex flex-wrap gap-2">
                     {sale.prescriptionImages.map((img: any) => (
@@ -528,17 +585,17 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           <div className="mt-6 overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500 font-semibold">
-                  <th className="px-3 py-3 text-center w-12">#</th>
-                  <th className="px-3 py-3">Medicine Name</th>
-                  <th className="px-3 py-3 text-center">HSN</th>
-                  <th className="px-3 py-3 text-center">Batch</th>
-                  <th className="px-3 py-3 text-center">Expiry</th>
-                  <th className="px-3 py-3 text-center w-16">Qty</th>
-                  <th className="px-3 py-3 text-right">MRP</th>
-                  <th className="px-3 py-3 text-center">Disc %</th>
-                  <th className="px-3 py-3 text-center">GST</th>
-                  <th className="px-3 py-3 text-right w-28">Amount</th>
+                <tr className="border-b-2 border-slate-300 bg-white text-left text-slate-700 font-bold">
+                  <th className="px-3 py-2.5 text-center w-12">#</th>
+                  <th className="px-3 py-2.5">Medicine Name</th>
+                  <th className="px-3 py-2.5 text-center">HSN</th>
+                  <th className="px-3 py-2.5 text-center">Batch</th>
+                  <th className="px-3 py-2.5 text-center">Expiry</th>
+                  <th className="px-3 py-2.5 text-center w-16">Qty</th>
+                  <th className="px-3 py-2.5 text-right">MRP</th>
+                  <th className="px-3 py-2.5 text-center">Disc %</th>
+                  <th className="px-3 py-2.5 text-center">GST</th>
+                  <th className="px-3 py-2.5 text-right w-28">Amount</th>
                 </tr>
               </thead>
               <tbody>
@@ -549,9 +606,9 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
                       <td className="px-3 py-3 text-center text-slate-400 font-mono">{idx + 1}</td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-med-navy">{String(item.medicine_name)}</span>
+                          <span className="font-bold text-slate-800">{String(item.medicine_name)}</span>
                           {requiresPresc && (
-                            <span className="inline-flex items-center rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold text-red-600 border border-red-100 uppercase">
+                            <span className="inline-flex items-center rounded border border-red-200 bg-white px-1.5 py-0.5 text-[9px] font-bold text-red-600 uppercase">
                               Sch {String(item.schedule)}
                             </span>
                           )}
@@ -560,11 +617,11 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
                       <td className="px-3 py-3 text-center font-mono text-xs text-slate-500">{String(item.hsn_code ?? "-")}</td>
                       <td className="px-3 py-3 text-center font-mono text-xs text-slate-600 font-medium">{String(item.batch_no)}</td>
                       <td className="px-3 py-3 text-center font-mono text-xs text-slate-600 font-medium">{String(item.expiry_date)}</td>
-                      <td className="px-3 py-3 text-center font-semibold text-slate-800">{Number(item.quantity)}</td>
+                      <td className="px-3 py-3 text-center font-bold text-slate-800">{Number(item.quantity)}</td>
                       <td className="px-3 py-3 text-right font-mono text-slate-600">{formatCurrency(Number(item.mrp_paisa))}</td>
                       <td className="px-3 py-3 text-center text-slate-500">{Number(item.discount_percent) > 0 ? `${item.discount_percent}%` : "-"}</td>
                       <td className="px-3 py-3 text-center font-mono text-xs text-slate-600">{Number(item.gst_rate)}%</td>
-                      <td className="px-3 py-3 text-right font-semibold font-mono text-slate-900">{formatCurrency(Number(item.total_paisa))}</td>
+                      <td className="px-3 py-3 text-right font-bold font-mono text-slate-900">{formatCurrency(Number(item.total_paisa))}</td>
                     </tr>
                   );
                 })}
@@ -574,13 +631,13 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
 
           {/* GST Slabs & Total Summary */}
           <div className="mt-8 grid gap-6 md:grid-cols-2 items-start">
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <div className="bg-slate-50 border-b border-slate-200 px-4 py-2">
-                <p className="text-xs font-bold text-med-navy uppercase tracking-wider">GST Slab Summary</p>
+            <div className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-xs">
+              <div className="bg-white border-b-2 border-slate-200 px-4 py-2.5">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">GST Slab Summary</p>
               </div>
               <table className="w-full text-xs text-left">
                 <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100 text-slate-500 font-semibold">
+                  <tr className="bg-white border-b border-slate-200 text-slate-600 font-bold">
                     <th className="px-3 py-2 text-center">GST Rate</th>
                     <th className="px-3 py-2 text-right">Taxable Amt</th>
                     <th className="px-3 py-2 text-right">CGST</th>
@@ -591,25 +648,25 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
                 <tbody>
                   {gstBreakdownList.map(([rate, value]) => (
                     <tr key={rate} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/30">
-                      <td className="px-3 py-2 text-center font-semibold text-slate-700">{rate}%</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatCurrency(value.taxable)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatCurrency(value.cgst)}</td>
-                      <td className="px-3 py-2 text-right font-mono">{formatCurrency(value.sgst)}</td>
-                      <td className="px-3 py-2 text-right font-mono font-semibold text-slate-900">{formatCurrency(value.totalTax)}</td>
+                      <td className="px-3 py-2 text-center font-bold text-slate-700">{rate}%</td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-600">{formatCurrency(value.taxable)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-600">{formatCurrency(value.cgst)}</td>
+                      <td className="px-3 py-2 text-right font-mono text-slate-600">{formatCurrency(value.sgst)}</td>
+                      <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">{formatCurrency(value.totalTax)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="space-y-2 rounded-xl bg-slate-50/50 border border-slate-100 p-4 md:ml-auto w-full max-w-sm">
+            <div className="space-y-2 rounded-xl bg-white border border-slate-200 p-4 md:ml-auto w-full max-w-sm shadow-xs">
               <InvoiceLine label="Subtotal" value={Number(sale.subtotal_paisa)} />
               <InvoiceLine label="Discount" value={-Number(sale.discount_paisa)} />
               <InvoiceLine label="Taxable Amount" value={Number(sale.taxable_paisa)} />
               <InvoiceLine label="CGST Total" value={Number(sale.cgst_paisa)} />
               <InvoiceLine label="SGST Total" value={Number(sale.sgst_paisa)} />
               <InvoiceLine label="Round Off" value={Number(sale.round_off_paisa)} />
-              <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black text-med-navy">
+              <div className="flex justify-between border-t border-slate-200 pt-3 text-lg font-black text-slate-900">
                 <span>Grand Total</span>
                 <span className="font-mono text-med-green">{formatCurrency(Number(sale.total_paisa))}</span>
               </div>
@@ -621,18 +678,18 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
             <div className="flex gap-4 items-start">
               {/* UPI Payment QR Code */}
               {upiId && (
-                <div className="flex flex-col items-center text-center p-1.5 bg-slate-50 rounded-lg border border-slate-200 shrink-0">
+                <div className="flex flex-col items-center text-center p-1.5 bg-white rounded-lg border border-slate-200 shrink-0 shadow-xs">
                   <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(upiUrl)}`}
                     alt="UPI Payment QR"
                     className="h-16 w-16 bg-white"
                   />
-                  <span className="text-[8px] font-bold text-slate-600 mt-1 font-mono tracking-tighter">SCAN TO PAY (UPI)</span>
+                  <span className="text-[8px] font-bold text-slate-500 mt-1 font-mono tracking-tighter">SCAN TO PAY (UPI)</span>
                 </div>
               )}
               
-              <div className="space-y-1 text-slate-400">
-                <div className="flex items-center gap-1.5 text-slate-500 font-semibold mb-1">
+              <div className="space-y-1 text-slate-500">
+                <div className="flex items-center gap-1.5 text-slate-600 font-semibold mb-1">
                   <ShieldCheck className="h-4 w-4 text-med-green shrink-0" />
                   <span>Terms & Conditions</span>
                 </div>
@@ -643,9 +700,9 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
               </div>
             </div>
             <div className="text-right space-y-4">
-              <p className="text-slate-400 font-medium">For {tenant.name}</p>
+              <p className="text-slate-500 font-medium">For {tenant.name}</p>
               <div className="h-10"></div>
-              <div className="inline-block border-t border-slate-300 pt-1.5 w-44 text-center">
+              <div className="inline-block border-t border-slate-350 pt-1.5 w-44 text-center">
                 <p className="font-semibold text-slate-700">Authorized Signatory</p>
               </div>
             </div>
@@ -657,7 +714,7 @@ export function BillDetailClient({ sale, items, tenant, initialFormat, autoShare
           </div>
 
           <p className="no-print mt-6 text-center text-xs text-slate-400">
-            Use the print button at the top or press <kbd className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-600 shadow-sm">Ctrl + P</kbd> to print this invoice.
+            Use the print button at the top or press <kbd className="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-600 shadow-sm">Ctrl + P</kbd> to print this invoice.
           </p>
         </section>
       ) : (

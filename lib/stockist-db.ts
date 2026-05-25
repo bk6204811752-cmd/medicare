@@ -608,7 +608,7 @@ export async function getB2BSalesTrend(tenantId: string) {
 
     trendData.push({
       day: dayName,
-      sales: Math.round((daySales._sum.totalPaisa || 0) / 100),
+      sales: Math.round((daySales._sum?.totalPaisa || 0) / 100),
       bills: daySales._count.id || 0,
     });
   }

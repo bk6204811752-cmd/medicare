@@ -116,8 +116,8 @@ export async function POST(request: NextRequest) {
     let resolvedNotes = notes;
 
     if (saleId && (!resolvedDoctorName || !resolvedPatientName)) {
-      const associatedSale = await prisma.sale.findUnique({
-        where: { id: saleId },
+      const associatedSale = await prisma.sale.findFirst({
+        where: { id: saleId, tenantId: user.tenantId },
         select: {
           doctorName: true,
           customerName: true,

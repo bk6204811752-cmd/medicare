@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
 
@@ -39,3 +40,4 @@ if (fs.existsSync(srcCoreDir)) {
 }
 
 console.log('Local Tesseract.js assets copying completed successfully! 📴');
+

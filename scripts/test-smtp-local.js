@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const dns = require("node:dns/promises");
 const fs = require("node:fs/promises");
 const path = require("node:path");
@@ -160,3 +161,4 @@ async function run() {
 }
 
 run().catch(console.error);
+

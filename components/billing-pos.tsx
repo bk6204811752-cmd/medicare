@@ -577,10 +577,16 @@ export function BillingPos({ tenant }: { tenant: any }) {
       toast.error("Add at least one medicine before saving.");
       return;
     }
-    if (lines.some((line) => line.quantity <= 0)) {
-      toast.error("Quantity must be greater than 0 for all items.");
-      return;
+    const validLines = lines.filter((line) => line.quantity > 0);
+    if (validLines.length !== lines.length) {
+      setLines(validLines);
+      if (!validLines.length) {
+        toast.error("Add at least one medicine with a quantity greater than 0 before saving.");
+        return;
+      }
+      toast.info("Removed items with zero quantity from the bill.");
     }
+    
     if (controlled.length && (!doctorName || !prescriptionNo)) {
       toast.error("Prescription and doctor details are required for Schedule H/H1/X items.");
       return;
@@ -599,7 +605,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
           doctorName,
           prescriptionNo,
           paymentMode,
-          lines: lines.map((line) => ({
+          lines: validLines.map((line) => ({
             inventoryId: line.inventoryId,
             quantity: line.quantity,
             saleRatePaisa: line.saleRatePaisa,

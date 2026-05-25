@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * build-medicine-index.js
  *
@@ -903,3 +904,4 @@ function main() {
 }
 
 main();
+

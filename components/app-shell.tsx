@@ -228,7 +228,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
               {currentProfilePic ? (
                 <img src={currentProfilePic} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 shrink-0" />
               ) : (
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-med-greenSoft text-med-green text-sm font-bold border border-med-green/15">{user.name.charAt(0)}</div>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-med-greenSoft text-med-green text-sm font-bold border border-med-green/15">{(user.name || "U").charAt(0)}</div>
               )}
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-med-navy truncate group-hover:text-med-green transition-colors">{user.name}</p>
@@ -270,7 +270,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
               {currentProfilePic ? (
                 <img src={currentProfilePic} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 hover:border-med-green transition-colors" />
               ) : (
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-med-green text-white text-sm font-bold hover:bg-med-greenDark transition-colors">{user.name.charAt(0)}</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-med-green text-white text-sm font-bold hover:bg-med-greenDark transition-colors">{(user.name || "U").charAt(0)}</span>
               )}
             </Link>
           </div>

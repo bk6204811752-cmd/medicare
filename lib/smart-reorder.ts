@@ -42,15 +42,15 @@ export async function getReorderSuggestions(tenantId: string): Promise<ReorderSu
       },
     },
     include: {
-      inventoryItem: true,
+      inventory: true,
     },
   });
 
   // Calculate sales by medicineId
   const salesMap = new Map<string, number>();
   for (const item of saleItems) {
-    if (item.inventoryItem) {
-      const medId = item.inventoryItem.medicineId;
+    if (item.inventory) {
+      const medId = item.inventory.medicineId;
       salesMap.set(medId, (salesMap.get(medId) || 0) + item.quantity);
     }
   }

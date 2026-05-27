@@ -305,7 +305,9 @@ export default function OrderStockistPage() {
               <option value="med-azithral">Azithral 500 Tablet (Azithromycin)</option>
               <option value="med-glycomet">Glycomet GP 1 Tablet (Metformin)</option>
             </select>
-          </div>        {/* Comparison grid columns */}
+          </div>
+        </div>
+        {/* Comparison grid columns */}
         {(() => {
           const compData: Record<string, { name: string; rates: { stockist: string; price: number; margin: number; discount: number; gst: number; cheapest?: boolean }[] }> = {
             "med-dolo": {

@@ -27,7 +27,7 @@ export async function getRefillReminders(tenantId: string): Promise<RefillRemind
       customer: true,
       items: {
         include: {
-          inventoryItem: {
+          inventory: {
             include: {
               medicine: true,
             },
@@ -53,8 +53,8 @@ export async function getRefillReminders(tenantId: string): Promise<RefillRemind
     customerMap.set(sale.customerId!, sale.customer);
 
     for (const item of sale.items) {
-      if (!item.inventoryItem) continue;
-      const medName = item.inventoryItem.medicine.name;
+      if (!item.inventory) continue;
+      const medName = item.inventory.medicine.name;
       const key = `${sale.customerId!}_${medName}`;
 
       const list = purchaseGroups.get(key) || [];

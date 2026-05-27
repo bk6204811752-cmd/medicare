@@ -726,7 +726,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
           },
           items: validLines.map((line) => ({
             id: `item-${line.inventoryId}`,
-            medicineName: line.medicine.name,
+            medicineName: line.medicineName,
             quantity: line.quantity,
             saleRatePaisa: line.saleRatePaisa,
             discountPercent: line.discountPercent,

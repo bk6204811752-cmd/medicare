@@ -1,8 +1,42 @@
+# Env files — use Vercel Dashboard env vars instead
 .env
 .env.local
 .env.*.local
+
+# Local SQLite databases
 dev.db
 dev.db-journal
+prisma/dev.db
+
+# Dev data artifacts — exclude logs and SQLite, but KEEP medicine-index
+data/*.log
+data/medcare.db
+data/medcare.db-shm
+data/medcare.db-wal
+data/mail-outbox/
+data/next-dev.out.log
+data/next-dev.err.log
+
+# Build cache
 node_modules
 .next
+
+# Large CSV files (30MB — not needed on Vercel, index is pre-built)
 Indian_Medicine_Database_246k.csv
+
+# One-off dev scripts
+scripts/add-clean-envs.js
+scripts/test-request.js
+scripts/test-smtp-local.js
+scripts/download-ocr.js
+scripts/copy-ocr.js
+scripts/seed-supabase.ts
+scripts/verify-supabase.ts
+
+# Junk files
+errors.txt
+lint-errors.txt
+tsc-errors.txt
+tsc-output.txt
+*.tsbuildinfo
+implementplan.md

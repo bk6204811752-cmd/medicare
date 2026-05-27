@@ -1,27 +1,50 @@
 .next
 node_modules
+
+# SQLite local dev databases
 dev.db
 dev.db-journal
+prisma/dev.db
+prisma/dev.db-journal
+
+# Environment secrets — NEVER commit
 .env
 .env.*
 !.env.example
+
+# Build cache
 *.tsbuildinfo
 
+# Vercel
 .vercel
 .env.vercel*
 
-# Data artifacts (keep medicine-index tracked)
+# Data artifacts
 Indian_Medicine_Database_246k.csv
 data/medcare.db*
 data/*.log
 data/mail-outbox/
-prisma/dev.db
 
 # Build/error logs
 errors.txt
 lint-errors.txt
 tsc-errors.txt
 tsc-output.txt
+
+# Planning docs
+implementplan.md
+
+# Prisma CLI config (redundant)
+prisma.config.js
+
+# One-off dev/setup scripts
+scripts/add-clean-envs.js
+scripts/test-request.js
+scripts/test-smtp-local.js
+scripts/download-ocr.js
+scripts/copy-ocr.js
+scripts/seed-supabase.ts
+scripts/verify-supabase.ts
 
 # IDE / misc
 .kiro/

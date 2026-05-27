@@ -4,10 +4,8 @@ const { execSync } = require("child_process");
 console.log("[build] Generating Prisma Client...");
 try {
   execSync("npx prisma generate --schema=prisma/schema.prisma", { stdio: "inherit" });
-  console.log("[build] Synchronizing database schema...");
-  execSync("npx prisma db push", { stdio: "inherit" });
 } catch (error) {
-  console.error("[build] Failed to generate Prisma Client / sync database:", error.message || error);
+  console.error("[build] Failed to generate Prisma Client:", error.message || error);
   process.exit(1);
 }
 

@@ -34,8 +34,6 @@ tsc-output.txt
 # Planning docs
 implementplan.md
 
-# Prisma CLI config (redundant)
-prisma.config.js
 
 # One-off dev/setup scripts
 scripts/add-clean-envs.js

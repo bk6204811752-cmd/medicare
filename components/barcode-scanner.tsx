@@ -13,6 +13,7 @@ import {
   Zap,
   ScanLine,
   RotateCcw,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -412,6 +413,25 @@ export function BarcodeScanner({
           autoPlay
           playsInline
         />
+
+        {/* ─── High-Fidelity B2B Barcode Scan Simulator (Developer Panel) ─── */}
+        <div className="absolute top-16 left-3 right-3 z-30 flex flex-wrap gap-1.5 justify-center pointer-events-auto bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 shadow-lg">
+          <span className="text-[9px] text-emerald-400 font-extrabold uppercase tracking-widest w-full text-center flex items-center justify-center gap-1">
+            <Sparkles className="h-3 w-3 text-emerald-400 animate-pulse" /> Barcode Scanner Simulator
+          </span>
+          <button
+            onClick={() => handleDecode("8901234500028", "EAN_13")}
+            className="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-[10px] px-3 py-1.5 rounded-lg transition-all shadow-xs border border-emerald-500/20"
+          >
+            Scan Dolo 650 (8901234500028)
+          </button>
+          <button
+            onClick={() => handleDecode("8901234500035", "EAN_13")}
+            className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-extrabold text-[10px] px-3 py-1.5 rounded-lg transition-all shadow-xs border border-blue-500/20"
+          >
+            Scan Glycomet GP1 (8901234500035)
+          </button>
+        </div>
 
         {/* Scanning overlay with animated viewfinder */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

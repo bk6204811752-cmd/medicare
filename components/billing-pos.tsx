@@ -243,6 +243,70 @@ export function BillingPos({ tenant }: { tenant: any }) {
     }
   }, [tenant?.id]);
 
+  // ─── Online Prescription Draft Loader ───
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("draft") === "true") {
+        const draft = localStorage.getItem("pos_draft_bill");
+        if (draft) {
+          try {
+            const parsed = JSON.parse(draft);
+            if (parsed.customerName) setCustomerName(parsed.customerName);
+            if (parsed.customerPhone) {
+              setCustomerPhone(parsed.customerPhone);
+              setCustomerSearch(parsed.customerPhone);
+            }
+            if (parsed.doctorName) setDoctorName(parsed.doctorName);
+
+            // Fetch inventory items sequentially
+            const loadItems = async () => {
+              const loadedLines: BillingLine[] = [];
+              for (const item of parsed.items) {
+                try {
+                  const res = await fetch(`/api/medicines/search?q=${encodeURIComponent(item.medicineName)}`);
+                  const json = await res.json();
+                  const matched = json.data?.[0] as InventorySearchRow | undefined;
+                  if (matched) {
+                    loadedLines.push({
+                      inventoryId: matched.id,
+                      medicineName: matched.medicine.name,
+                      batchNo: matched.batchNo,
+                      expiryDate: matched.expiryDate,
+                      quantity: item.quantity,
+                      mrpPaisa: Number(matched.mrpPaisa),
+                      saleRatePaisa: Number(matched.saleRatePaisa),
+                      discountPercent: 0,
+                      gstRate: matched.gstRate,
+                      hsnCode: String(matched.hsnCode ?? ""),
+                      schedule: matched.medicine.schedule,
+                      maxQuantity: Number(matched.quantity),
+                      medicineId: matched.medicineId,
+                      genericName: matched.medicine.genericName
+                    });
+                  }
+                } catch (e) {
+                  console.error("Failed to map draft item:", item.medicineName, e);
+                }
+              }
+
+              if (loadedLines.length > 0) {
+                setLines(loadedLines);
+                toast.success(`✅ Mapped ${loadedLines.length} drug(s) from online prescription!`, {
+                  description: "Customer info and doctor details prefilled."
+                });
+              }
+            };
+            loadItems();
+            localStorage.removeItem("pos_draft_bill");
+          } catch (err) {
+            console.error("Failed to parse pos draft:", err);
+          }
+        }
+      }
+    }
+  }, []);
+
   const [showManualBarcode, setShowManualBarcode] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
   const [addMedicinePrefill, setAddMedicinePrefill] = useState<{ barcode?: string; name?: string }>({});
@@ -596,6 +660,94 @@ export function BillingPos({ tenant }: { tenant: any }) {
     setSaving(true);
     const savedTotalPaisa = totals.totalPaisa;
     const savedPhone = customerPhone;
+    
+    // Check simulated or real offline status
+    const isOffline = typeof window !== "undefined" && (!navigator.onLine || localStorage.getItem("medicare_offline_mode") === "true");
+
+    if (isOffline) {
+      setTimeout(() => {
+        const localInvoiceNo = `OFFLINE-POS-${Date.now().toString().slice(-6)}`;
+        const payload = {
+          customerName: customerName.trim() || "Walk-in Customer",
+          customerPhone,
+          doctorName,
+          prescriptionNo,
+          paymentMode,
+          lines: validLines.map((line) => ({
+            inventoryId: line.inventoryId,
+            quantity: line.quantity,
+            saleRatePaisa: line.saleRatePaisa,
+            discountPercent: Math.round(line.discountPercent)
+          }))
+        };
+
+        const newAction = {
+          id: `act-pos-${Date.now()}`,
+          action: "POS Retail Invoice",
+          details: `${payload.customerName} - ${formatCurrency(savedTotalPaisa)}`,
+          timestamp: new Date().toTimeString().slice(0, 8),
+          status: "pending" as const,
+          payload,
+          endpoint: "/api/sales"
+        };
+
+        const queue = JSON.parse(localStorage.getItem("medicare_offline_queue") || "[]");
+        queue.unshift(newAction);
+        localStorage.setItem("medicare_offline_queue", JSON.stringify(queue));
+        
+        // Notify badge
+        window.dispatchEvent(new CustomEvent("medicare-sync-push"));
+
+        setLastInvoice({
+          id: newAction.id,
+          invoiceNo: localInvoiceNo,
+          totalPaisa: savedTotalPaisa,
+          phone: savedPhone
+        });
+
+        const format = actionAfterSave === "print-thermal" ? "thermal" : "a4";
+        setModalPrintFormat(format);
+
+        setSavedSaleDetails({
+          sale: {
+            id: newAction.id,
+            invoiceNo: localInvoiceNo,
+            customerName: payload.customerName,
+            customerPhone: customerPhone,
+            doctorName: doctorName,
+            prescriptionNo: prescriptionNo,
+            paymentMode: paymentMode,
+            totalPaisa: savedTotalPaisa,
+            discountPaisa: totals.discountPaisa,
+            gstPaisa: totals.gstPaisa,
+            netPaisa: totals.netPaisa,
+            createdAt: new Date().toISOString(),
+            isOfflinePending: true
+          },
+          items: validLines.map((line) => ({
+            id: `item-${line.inventoryId}`,
+            medicineName: line.medicine.name,
+            quantity: line.quantity,
+            saleRatePaisa: line.saleRatePaisa,
+            discountPercent: line.discountPercent,
+            totalPaisa: (line.quantity * line.saleRatePaisa) * (1 - line.discountPercent/100)
+          }))
+        });
+
+        setLines([]);
+        setCustomerName("");
+        setCustomerPhone("");
+        setDoctorName("");
+        setPrescriptionNo("");
+        setSaving(false);
+
+        toast.warning("📴 Saved Offline! Bill added to Marg sync queue.", {
+          description: `Offline ID: ${localInvoiceNo}`
+        });
+      }, 500);
+      return;
+    }
+
     try {
       const response = await fetch("/api/sales", {
         method: "POST",
@@ -618,6 +770,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
 
       if (!response.ok) {
         toast.error(result.error ?? "Unable to save bill");
+        setSaving(false);
         return;
       }
 
@@ -1233,6 +1386,91 @@ export function BillingPos({ tenant }: { tenant: any }) {
             );
           })}
         </div>
+
+        {/* EMedStore Alternate Formulation Generic Substitution Engine Banners */}
+        {lines.some(l => l.medicineName.toLowerCase().includes("dolo")) && !lines.some(l => l.medicineName.toLowerCase().includes("paracetamol 650mg er")) && (
+          <div className="mt-4 rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs animate-fade-in no-print">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 shrink-0 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center border border-blue-200">
+                <Sparkles className="h-5 w-5 text-blue-600 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                  EMedStore Formulation Substitution Engine <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[8px] font-extrabold text-blue-700 uppercase tracking-wide">💡 Margin Booster</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                  Cheaper generic available for **Dolo 650 Tablet**: **Paracetamol 650mg ER** (MRP ₹14.50 instead of ₹19.50) — Saves **₹5.00 (25%) per unit**!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setLines((current) => 
+                  current.map((line) => {
+                    if (line.medicineName.toLowerCase().includes("dolo")) {
+                      return {
+                        ...line,
+                        medicineName: "Paracetamol 650mg ER (Composition Match)",
+                        mrpPaisa: 1450,
+                        saleRatePaisa: 1450,
+                        discountPercent: 5
+                      };
+                    }
+                    return line;
+                  })
+                );
+                toast.success("💡 Substituted Dolo 650 with Paracetamol 650mg ER (Generic Composition Match)!", {
+                  description: "Boosted customer affordability & checkout speed!"
+                });
+              }}
+              className="w-full sm:w-auto shrink-0 inline-flex justify-center items-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-3.5 py-2 transition-all shadow-sm active:scale-95 duration-100"
+            >
+              Substitute Brand (Save 25%)
+            </button>
+          </div>
+        )}
+
+        {lines.some(l => l.medicineName.toLowerCase().includes("glycomet")) && !lines.some(l => l.medicineName.toLowerCase().includes("metformin 500mg er")) && (
+          <div className="mt-4 rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs animate-fade-in no-print">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 shrink-0 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center border border-blue-200">
+                <Sparkles className="h-5 w-5 text-blue-600 animate-pulse" />
+              </div>
+              <div>
+                <h4 className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                  EMedStore Formulation Substitution Engine <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[8px] font-extrabold text-blue-700 uppercase tracking-wide">💡 Margin Booster</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                  Cheaper generic available for **Glycomet GP 1**: **Metformin 500mg ER** (MRP ₹8.40 instead of ₹14.50) — Saves **₹6.10 (42%) per unit**!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setLines((current) => 
+                  current.map((line) => {
+                    if (line.medicineName.toLowerCase().includes("glycomet")) {
+                      return {
+                        ...line,
+                        medicineName: "Metformin 500mg ER (Composition Match)",
+                        mrpPaisa: 840,
+                        saleRatePaisa: 840,
+                        discountPercent: 5
+                      };
+                    }
+                    return line;
+                  })
+                );
+                toast.success("💡 Substituted Glycomet GP 1 with Metformin 500mg ER (Generic Composition Match)!", {
+                  description: "Boosted customer affordability & checkout speed!"
+                });
+              }}
+              className="w-full sm:w-auto shrink-0 inline-flex justify-center items-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-3.5 py-2 transition-all shadow-sm active:scale-95 duration-100"
+            >
+              Substitute Brand (Save 42%)
+            </button>
+          </div>
+        )}
 
         {/* ─── Empty State ─── */}
         {!lines.length && (

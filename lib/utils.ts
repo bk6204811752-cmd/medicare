@@ -78,3 +78,8 @@ export function parseUnitsPerPack(packSize: string | null | undefined): number {
   
   return 1;
 }
+
+export function t(key: string): string {
+  return key;
+}
+

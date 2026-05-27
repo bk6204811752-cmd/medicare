@@ -6,10 +6,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3, Bell, Box, ChevronLeft, ClipboardList, CreditCard, FileImage,
   Home, LogOut, Menu, Package, PackageCheck, PackageMinus, PackageX,
-  Search, Settings, ShoppingCart, Store, Truck, Users, X
+  Search, Settings, ShoppingCart, Store, Truck, Users, X, ShoppingBag,
+  TrendingUp, Camera, RotateCcw
 } from "lucide-react";
 import { logoutAction } from "@/app/auth-actions";
 import type { LocalUser } from "@/lib/local-db";
+import { OfflineSyncBadge } from "@/components/offline-sync-badge";
 
 type NavItem = { label: string; href: string; icon: React.ReactNode };
 
@@ -17,14 +19,22 @@ const shopNav: NavItem[] = [
   { label: "Dashboard", href: "/shop/dashboard", icon: <Home className="h-5 w-5" /> },
   { label: "Billing / POS", href: "/shop/billing", icon: <ShoppingCart className="h-5 w-5" /> },
   { label: "Inventory", href: "/shop/inventory", icon: <Package className="h-5 w-5" /> },
+  { label: "Smart Reorder", href: "/shop/inventory/reorder", icon: <TrendingUp className="h-5 w-5" /> },
+  { label: "Order Stockist", href: "/shop/order-stockist", icon: <ShoppingBag className="h-5 w-5" /> },
   { label: "Purchases", href: "/shop/purchases", icon: <Truck className="h-5 w-5" /> },
+  { label: "AI Scan Invoice", href: "/shop/purchases/scan", icon: <Camera className="h-5 w-5" /> },
   { label: "Sale Returns", href: "/shop/sale-returns", icon: <PackageMinus className="h-5 w-5" /> },
   { label: "Purchase Returns", href: "/shop/purchase-returns", icon: <PackageX className="h-5 w-5" /> },
+  { label: "Dead Stock Return", href: "/shop/purchase-returns/dead-stock", icon: <RotateCcw className="h-5 w-5" /> },
+  { label: "Expiry Auto-Return", href: "/shop/purchase-returns/expiry", icon: <PackageX className="h-5 w-5" /> },
   { label: "Customers", href: "/shop/customers", icon: <Users className="h-5 w-5" /> },
+  { label: "Patient Refills", href: "/shop/customers/refills", icon: <Bell className="h-5 w-5" /> },
   { label: "Suppliers", href: "/shop/suppliers", icon: <Box className="h-5 w-5" /> },
+  { label: "Credit Ageing", href: "/shop/suppliers/credit-ageing", icon: <CreditCard className="h-5 w-5" /> },
   { label: "Reports", href: "/shop/reports", icon: <BarChart3 className="h-5 w-5" /> },
   { label: "Schedule H", href: "/shop/schedule-h", icon: <ClipboardList className="h-5 w-5" /> },
   { label: "Prescriptions", href: "/shop/prescriptions", icon: <FileImage className="h-5 w-5" /> },
+  { label: "Online Orders", href: "/shop/prescriptions/online-orders", icon: <ClipboardList className="h-5 w-5" /> },
   { label: "Notifications", href: "/shop/notifications", icon: <Bell className="h-5 w-5" /> },
   { label: "Settings", href: "/shop/settings", icon: <Settings className="h-5 w-5" /> },
 ];
@@ -41,11 +51,13 @@ const adminNav: NavItem[] = [
 const stockistNav: NavItem[] = [
   { label: "Dashboard", href: "/stockist/dashboard", icon: <Home className="h-5 w-5" /> },
   { label: "B2B Sales & POS", href: "/stockist/sales", icon: <ShoppingCart className="h-5 w-5" /> },
+  { label: "Chemist Orders", href: "/stockist/orders", icon: <ClipboardList className="h-5 w-5" /> },
   { label: "Inventory", href: "/stockist/inventory", icon: <Package className="h-5 w-5" /> },
   { label: "Parties (Retailers)", href: "/stockist/parties", icon: <Users className="h-5 w-5" /> },
   { label: "Credit & Collection", href: "/stockist/collection", icon: <CreditCard className="h-5 w-5" /> },
   { label: "Sales Team", href: "/stockist/salesmen", icon: <Store className="h-5 w-5" /> },
   { label: "Purchase & Indent", href: "/stockist/purchases", icon: <Truck className="h-5 w-5" /> },
+  { label: "Manufacturers (Suppliers)", href: "/stockist/suppliers", icon: <Box className="h-5 w-5" /> },
   { label: "Reports & GST", href: "/stockist/reports", icon: <BarChart3 className="h-5 w-5" /> },
   { label: "Settings", href: "/stockist/settings", icon: <Settings className="h-5 w-5" /> },
 ];
@@ -141,6 +153,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [currentProfilePic, setCurrentProfilePic] = useState(profilePicUrl);
 
   // Keep internal state in sync with prop changes
@@ -163,9 +176,29 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
   // Fetch notification count once (not on every navigation)
   useEffect(() => {
     if (!isAdmin) {
-      fetch("/api/notifications").then((r) => r.json()).then((d) => setNotifCount(d.data?.length ?? 0)).catch(() => {});
+      Promise.all([
+        fetch("/api/notifications").then((r) => r.json()).catch(() => ({ data: [] })),
+        fetch("/api/in-app-notifications").then((r) => r.json()).catch(() => ({ data: [] }))
+      ]).then(([sys, inApp]) => {
+        const sysCount = sys.data?.length ?? 0;
+        const inAppUnreadCount = inApp.data?.filter((n: any) => !n.isRead).length ?? 0;
+        setNotifCount(sysCount + inAppUnreadCount);
+      }).catch(() => {});
     }
   }, [isAdmin]);
+
+  // Fetch pending stockist orders count if stockist
+  useEffect(() => {
+    if (isStockist) {
+      fetch("/api/stockist-orders/incoming")
+        .then((r) => r.json())
+        .then((d) => {
+          const pending = d.data?.filter((o: any) => o.status === "pending").length ?? 0;
+          setPendingOrdersCount(pending);
+        })
+        .catch(() => {});
+    }
+  }, [isStockist]);
 
   // Close mobile nav on route change
   useEffect(() => { setMobileOpen(false); }, [pathname]);
@@ -217,6 +250,9 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
               {!collapsed && item.href === "/shop/notifications" && notifCount > 0 && (
                 <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">{notifCount}</span>
               )}
+              {!collapsed && item.href === "/stockist/orders" && pendingOrdersCount > 0 && (
+                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 px-1.5 text-[10px] font-bold text-white">{pendingOrdersCount}</span>
+              )}
             </Link>
           ))}
         </nav>
@@ -260,6 +296,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
             <SearchModal />
           </div>
           <div className="flex items-center gap-2">
+            {!isAdmin && <OfflineSyncBadge />}
             {!isAdmin && (
               <Link href="/shop/notifications" className="relative flex h-9 w-9 items-center justify-center rounded-md hover:bg-slate-100">
                 <Bell className="h-5 w-5 text-slate-500" />

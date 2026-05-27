@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Truck, PackageCheck, X } from "lucide-react";
+import Link from "next/link";
+import { Plus, Truck, PackageCheck, X, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -95,9 +96,14 @@ export default function PurchasesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Purchase Orders" description="Manage stock purchases from suppliers" action={
-        <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-med-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-med-greenDark transition-colors">
-          <Plus className="h-4 w-4" /> Create PO
-        </button>
+        <div className="flex gap-2">
+          <Link href="/shop/purchases/scan" className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
+            <Camera className="h-4 w-4 text-slate-500" /> AI Scan Invoice
+          </Link>
+          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-lg bg-med-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-med-greenDark transition-colors shadow-sm">
+            <Plus className="h-4 w-4" /> Create PO
+          </button>
+        </div>
       } />
 
       {/* Create PO Modal */}

@@ -6,6 +6,7 @@ import {
   createRoute,
   createSalesman,
   createParty,
+  updateParty,
   createReceipt,
   createB2BSalesOrder,
   createB2BSale,
@@ -123,6 +124,46 @@ export async function createPartyAction(formData: FormData) {
   redirectWith("/stockist/parties", "success", "Retail chemist party registered successfully!");
 }
 
+export async function updatePartyAction(formData: FormData) {
+  const user = await requireUser();
+  const tid = user.tenantId;
+  if (!tid) redirect("/login");
+
+  const id = formValue(formData, "id");
+  const name = formValue(formData, "name");
+  const phone = formValue(formData, "phone");
+  const email = formValue(formData, "email");
+  const address = formValue(formData, "address");
+  const gstin = formValue(formData, "gstin");
+  const drugLicenseNo = formValue(formData, "drugLicenseNo");
+  const creditLimitPaisa = Math.round(Number(formValue(formData, "creditLimit") || 0) * 100);
+  const routeId = formValue(formData, "routeId");
+  const outstandingPaisa = Math.round(Number(formValue(formData, "outstanding") || 0) * 100);
+
+  if (!id || !name) {
+    redirectWith("/stockist/parties", "error", "Chemist ID and name are required");
+  }
+
+  try {
+    await updateParty(tid, id, {
+      name,
+      phone,
+      email,
+      address,
+      gstin,
+      drugLicenseNo,
+      creditLimitPaisa,
+      routeId: routeId || undefined,
+      outstandingPaisa,
+    });
+  } catch (error) {
+    console.error("updatePartyAction error:", error);
+    redirectWith("/stockist/parties", "error", "Failed to update Chemist details");
+  }
+
+  redirectWith("/stockist/parties", "success", "Chemist party details and credit metrics updated successfully!");
+}
+
 // ─── Receipt Actions ──────────────────────────────────────────
 
 export async function createReceiptAction(formData: FormData) {
@@ -207,4 +248,46 @@ export async function createB2BSalesOrderAction(input: {
     console.error("createB2BSalesOrderAction error:", e);
     return { success: false, error: e.message || "Failed to book B2B Sales Order" };
   }
+}
+
+export async function createStockistSupplierAction(formData: FormData) {
+  const user = await requireUser();
+  const tid = user.tenantId;
+  if (!tid) redirect("/login");
+
+  const name = formValue(formData, "name");
+  const phone = formValue(formData, "phone");
+  const email = formValue(formData, "email");
+  const address = formValue(formData, "address");
+  const gstin = formValue(formData, "gstin");
+  const creditDays = Number(formValue(formData, "creditDays") || 30);
+
+  if (!name) {
+    redirectWith("/stockist/suppliers", "error", "Manufacturer name is required");
+  }
+
+  try {
+    const prismaModule = await import("@/lib/prisma");
+    const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    
+    await prismaModule.prisma.supplier.create({
+      data: {
+        id: uid("sup"),
+        tenantId: tid,
+        name,
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
+        gstin: gstin || null,
+        creditDays,
+        balancePaisa: 0,
+        isActive: true,
+      },
+    });
+  } catch (error) {
+    console.error("createStockistSupplierAction error:", error);
+    redirectWith("/stockist/suppliers", "error", "Failed to register Manufacturer");
+  }
+
+  redirectWith("/stockist/suppliers", "success", "Manufacturer / CFA registered successfully!");
 }

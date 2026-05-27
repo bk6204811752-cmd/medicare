@@ -23,6 +23,7 @@ export default async function SalesPage() {
     drugLicenseNo: p.drugLicenseNo,
     creditLimitPaisa: p.creditLimitPaisa,
     outstandingPaisa: p.outstandingPaisa,
+    routeId: p.routeId,
   }));
 
   const uiInventory = inventory.map((i) => ({
@@ -45,6 +46,7 @@ export default async function SalesPage() {
   const uiSalesmen = salesmen.map((s) => ({
     id: s.id,
     name: s.name,
+    routeIds: s.routes.map((r) => r.routeId),
   }));
 
   return (

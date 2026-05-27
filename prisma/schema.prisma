@@ -40,10 +40,13 @@ model Tenant {
   parties         Party[]
   routes          Route[]
   salesmen        Salesman[]
-  b2bSalesOrders  B2BSalesOrder[]
-  b2bSales        B2BSale[]
-  receipts        Receipt[]
-  b2bIndents      B2BIndent[]
+  b2bSalesOrders       B2BSalesOrder[]
+  b2bSales             B2BSale[]
+  receipts             Receipt[]
+  b2bIndents           B2BIndent[]
+  chemistOrders        StockistOrder[]     @relation("ChemistOrders")
+  receivedOrders       StockistOrder[]     @relation("StockistReceivedOrders")
+  inAppNotifications   InAppNotification[]
 }
 
 model User {
@@ -641,5 +644,64 @@ model B2BIndentItem {
   indent       B2BIndent @relation(fields: [indentId], references: [id], onDelete: Cascade)
 
   @@index([indentId])
+}
+
+// ─── Chemist ↔ Stockist Integration ─────────────────────────────
+
+model StockistOrder {
+  id                 String               @id @default(cuid())
+  orderNo            String               @unique
+  chemistTenantId    String
+  stockistTenantId   String
+  chemistName        String
+  chemistPhone       String?
+  status             String               @default("pending")
+  // status: "pending" | "accepted" | "otp_sent" | "delivered" | "cancelled"
+  notes              String?
+  totalPaisa         Int                  @default(0)
+  orderDate          DateTime             @default(now())
+  otp                String?
+  otpExpiresAt       DateTime?
+  otpVerifiedAt      DateTime?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  chemistTenant      Tenant               @relation("ChemistOrders", fields: [chemistTenantId], references: [id])
+  stockistTenant     Tenant               @relation("StockistReceivedOrders", fields: [stockistTenantId], references: [id])
+  items              StockistOrderItem[]
+
+  @@index([chemistTenantId])
+  @@index([stockistTenantId])
+  @@index([chemistTenantId, status])
+  @@index([stockistTenantId, status])
+}
+
+model StockistOrderItem {
+  id           String        @id @default(cuid())
+  orderId      String
+  medicineName String
+  quantity     Int
+  ratePaisa    Int           @default(0)
+  batchNo      String?
+  totalPaisa   Int           @default(0)
+  order        StockistOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model InAppNotification {
+  id        String   @id @default(cuid())
+  tenantId  String
+  type      String
+  // type: "stockist_order_placed" | "order_accepted" | "order_rejected" | "otp_ready" | "purchase_auto_created"
+  title     String
+  message   String
+  payload   String?  // JSON string for extra data (OTP, PO number, orderId, etc.)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, isRead])
+  @@index([tenantId, createdAt])
 }
 

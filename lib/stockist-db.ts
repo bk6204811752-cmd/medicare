@@ -129,6 +129,35 @@ export async function createParty(tenantId: string, input: {
   );
 }
 
+export async function updateParty(tenantId: string, partyId: string, input: {
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  gstin?: string;
+  drugLicenseNo?: string;
+  creditLimitPaisa?: number;
+  routeId?: string;
+  outstandingPaisa?: number;
+}) {
+  return await withRetry(() =>
+    prisma.party.update({
+      where: { id: partyId, tenantId },
+      data: {
+        name: input.name,
+        phone: input.phone || null,
+        email: input.email || null,
+        address: input.address || null,
+        gstin: input.gstin || null,
+        drugLicenseNo: input.drugLicenseNo || null,
+        creditLimitPaisa: input.creditLimitPaisa !== undefined ? input.creditLimitPaisa : undefined,
+        outstandingPaisa: input.outstandingPaisa !== undefined ? input.outstandingPaisa : undefined,
+        routeId: input.routeId || null,
+      },
+    })
+  );
+}
+
 // ─── B2B Sales & Order Management ──────────────────────────────
 
 export async function getB2BSalesOrders(tenantId: string) {

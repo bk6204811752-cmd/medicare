@@ -1,14 +1,15 @@
 import { BarChart3, Clock, CreditCard, DollarSign, FileText, Plus, Receipt as ReceiptIcon, Search, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, t } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { getParties, getReceipts, getSalesmen } from "@/lib/stockist-db";
 import { createReceiptAction } from "@/app/stockist-actions";
+import { CollectionReceiptForm } from "@/components/collection-receipt-form";
 
 export default async function CollectionPage({ searchParams }: { searchParams: Promise<{ success?: string; error?: string }> }) {
   const user = await requireUser();
   const tid = user.tenantId;
-  if (!tid) return <div className="p-8 text-center text-red-600 font-semibold">No tenant found</div>;
+  if (!tid) return <div className="p-8 text-center text-red-600 font-semibold">{t("No tenant found")}</div>;
 
   const [parties, receipts, salesmen] = await Promise.all([
     getParties(tid),
@@ -83,18 +84,18 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
 
           {receipts.length === 0 ? (
             <div className="p-8 text-center text-slate-400 bg-slate-50/50 border border-dashed border-slate-200 rounded-xl">
-              No collection logs entered yet. Add payments from the right panel.
+              {t("No collection logs entered yet. Add payments from the right panel.")}
             </div>
           ) : (
             <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-xs">
               <table className="w-full text-left text-sm border-collapse bg-white">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 font-display font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                    <th className="px-4 py-3">Receipt No / Date</th>
-                    <th className="px-4 py-3">Retail Chemist (Party)</th>
-                    <th className="px-4 py-3">Logged By (Salesman)</th>
-                    <th className="px-4 py-3 text-center">Payment Mode</th>
-                    <th className="px-4 py-3 text-right">Amount Received</th>
+                    <th className="px-4 py-3">{t("Receipt No / Date")}</th>
+                    <th className="px-4 py-3">{t("Retail Chemist (Party)")}</th>
+                    <th className="px-4 py-3">{t("Logged By (Salesman)")}</th>
+                    <th className="px-4 py-3 text-center">{t("Payment Mode")}</th>
+                    <th className="px-4 py-3 text-right">{t("Amount Received")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -114,7 +115,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                             {rec.salesman.name}
                           </span>
                         ) : (
-                          <span className="text-slate-400">Direct Entry</span>
+                          <span className="text-slate-400">{t("Direct Entry")}</span>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-center">
@@ -127,7 +128,7 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
                         }`}>
                           {rec.paymentMode}
                         </span>
-                        {rec.referenceNo ? <p className="text-[9px] text-slate-400 font-bold font-mono mt-1">Ref: {rec.referenceNo}</p> : null}
+                        {rec.referenceNo ? <p className="text-[9px] text-slate-400 font-bold font-mono mt-1">{t("Ref: ")}{rec.referenceNo}</p> : null}
                       </td>
                       <td className="px-4 py-3.5 text-right font-mono font-bold text-emerald-600 text-sm sm:text-base">
                         {formatCurrency(rec.amountPaisa)}
@@ -140,68 +141,8 @@ export default async function CollectionPage({ searchParams }: { searchParams: P
           )}
         </div>
 
-        {/* Record Receipt Sidebar Form */}
-        <div className="glass-card p-4 sm:p-5 h-fit">
-          <h2 className="font-display text-base sm:text-lg font-semibold text-med-navy flex items-center gap-2 mb-4">
-            <Plus className="h-5 w-5 text-med-green" /> Record Chemist Payment
-          </h2>
-
-          <form action={createReceiptAction} className="space-y-4">
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Retail Chemist (Party) *</span>
-              <select name="partyId" required className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors bg-white font-medium text-slate-800">
-                <option value="">Select Party</option>
-                {parties.map((party) => (
-                  <option key={party.id} value={party.id}>
-                    {party.name} (Bal: {formatCurrency(party.outstandingPaisa)})
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Field Executive (Salesman)</span>
-              <select name="salesmanId" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors bg-white font-medium text-slate-800">
-                <option value="">Office Direct Collection</option>
-                {salesmen.map((sm) => (
-                  <option key={sm.id} value={sm.id}>{sm.name}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Amount Received (₹) *</span>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
-                <input name="amount" type="number" min="1" step="any" required className="h-10 w-full rounded-lg border border-slate-300 pl-7 pr-3 text-sm focus:outline-none focus:border-med-green transition-colors font-bold text-slate-800" placeholder="0.00" />
-              </div>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Payment Mode *</span>
-              <select name="paymentMode" required className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors bg-white font-semibold text-slate-800">
-                <option value="upi">UPI / QR Scan</option>
-                <option value="cash">Cash</option>
-                <option value="cheque">Cheque</option>
-                <option value="neft">NEFT / Bank Transfer</option>
-              </select>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Txn / Reference No.</span>
-              <input name="referenceNo" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors font-mono" placeholder="Cheque number / UPI Txn ID" />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Remarks / Collection Notes</span>
-              <textarea name="notes" rows={2} className="w-full rounded-lg border border-slate-300 p-3 text-sm focus:outline-none focus:border-med-green transition-colors" placeholder="Optional comments..." />
-            </label>
-
-            <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-med-green font-semibold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all mt-6 text-sm">
-              <CreditCard className="h-4.5 w-4.5" /> Save Collection Receipt
-            </button>
-          </form>
-        </div>
+        {/* Searchable Record Receipt Sidebar Form */}
+        <CollectionReceiptForm parties={parties} salesmen={salesmen} action={createReceiptAction} />
       </div>
     </div>
   );

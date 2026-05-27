@@ -1,10 +1,12 @@
 "use script";
 "use client";
 
-import { useState, useTransition, useMemo, useEffect, useCallback } from "react";
-import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2 } from "lucide-react";
+import { useState, useTransition, useMemo, useEffect, useCallback, useRef } from "react";
+import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search } from "lucide-react";
 import { createB2BSaleAction } from "@/app/stockist-actions";
 import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
+import { useSearchParams } from "next/navigation";
 
 type Party = {
   id: string;
@@ -14,11 +16,13 @@ type Party = {
   drugLicenseNo: string | null;
   creditLimitPaisa: number;
   outstandingPaisa: number;
+  routeId?: string | null;
 };
 
 type Salesman = {
   id: string;
   name: string;
+  routeIds?: string[];
 };
 
 type InventoryItem = {
@@ -67,29 +71,180 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
   const [lines, setLines] = useState<InvoiceLine[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<InventoryItem[]>([]);
+  const [drugMasterHits, setDrugMasterHits] = useState<any[]>([]);
+  const [loadingDrugMaster, setLoadingDrugMaster] = useState(false);
+
+  // Searchable party autocomplete combobox states
+  const [partySearchQuery, setPartySearchQuery] = useState("");
+  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+  const [showAllPartiesOverride, setShowAllPartiesOverride] = useState(false);
+  const partyDropdownRef = useRef<HTMLDivElement>(null);
   
   const [isPending, startTransition] = useTransition();
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingSuccess, setBillingSuccess] = useState<string | null>(null);
   const [generatedInvoiceNo, setGeneratedInvoiceNo] = useState<string | null>(null);
 
+  // Find routes assigned to the selected Salesman
+  const selectedSalesman = useMemo(() => {
+    return salesmen.find((s) => s.id === selectedSalesmanId) || null;
+  }, [salesmen, selectedSalesmanId]);
+
   // Load selected party outstanding/credit
   const selectedParty = useMemo(() => {
     return parties.find((p) => p.id === selectedPartyId) || null;
   }, [parties, selectedPartyId]);
 
-  // Product Autocomplete
+  // Load indent if present in search params
+  const searchParams = useSearchParams();
+  const indentId = searchParams?.get("indentId") || "";
+
+  useEffect(() => {
+    if (!indentId) return;
+
+    const loadIndent = async () => {
+      try {
+        const res = await fetch(`/api/stockist/indents?indentId=${encodeURIComponent(indentId)}`);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to load indent");
+
+        const indent = json.data;
+        if (!indent) return;
+
+        // 1. Try to find a matching retailer party in our parties list by name similarity
+        const matchingParty = parties.find((p) => 
+          p.name.toLowerCase().includes(indent.chemistName.toLowerCase()) ||
+          indent.chemistName.toLowerCase().includes(p.name.toLowerCase())
+        );
+
+        if (matchingParty) {
+          setSelectedPartyId(matchingParty.id);
+          setPartySearchQuery(matchingParty.name);
+          toast.success(`🎉 Auto-selected retailer party: ${matchingParty.name}`);
+        } else {
+          toast.warning(`Indent loaded! Retailer "${indent.chemistName}" was not found in your registered Parties list. Please choose or register them.`);
+        }
+
+        // 2. Map indent medicines to current inventory batches
+        const newLines: InvoiceLine[] = [];
+        indent.items.forEach((item: any) => {
+          // Find first inventory item that matches medicine name (inventory is sorted FEFO!)
+          const matchedInv = inventory.find((inv) => 
+            inv.medicine.name.toLowerCase() === item.medicineName.toLowerCase()
+          );
+
+          if (matchedInv) {
+            newLines.push({
+              inventoryId: matchedInv.id,
+              medicineName: matchedInv.medicine.name,
+              batchNo: matchedInv.batchNo,
+              expiryDate: matchedInv.expiryDate,
+              quantity: item.quantity,
+              freeQuantity: 0,
+              ptrPaisa: matchedInv.ptrPaisa > 0 ? matchedInv.ptrPaisa : matchedInv.saleRatePaisa,
+              mrpPaisa: matchedInv.mrpPaisa,
+              discountPercent: 0,
+              gstRate: matchedInv.medicine.gstRate,
+              schemeDetails: "",
+              availableStock: matchedInv.quantity,
+            });
+          } else {
+            toast.error(`❌ Out of Stock: "${item.medicineName}" (Requested qty: ${item.quantity}) is not in your warehouse.`);
+          }
+        });
+
+        if (newLines.length > 0) {
+          setLines(newLines);
+          toast.success(`✅ Mapped ${newLines.length} medicines to B2B POS lines using FEFO sequences!`);
+        }
+      } catch (err: any) {
+        console.error("Auto-indent bridge error:", err);
+        toast.error(err.message || "Failed to parse chemist B2B indent.");
+      }
+    };
+
+    loadIndent();
+  }, [indentId, parties, inventory]);
+
+  // Close party dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (partyDropdownRef.current && !partyDropdownRef.current.contains(e.target as Node)) {
+        setShowPartyDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Reset party selection search input if cleared or synced
+  useEffect(() => {
+    if (selectedParty) {
+      setPartySearchQuery(selectedParty.name);
+    } else {
+      setPartySearchQuery("");
+    }
+  }, [selectedPartyId, selectedParty]);
+
+  // Dynamic filter: route-wise filtering with optional override
+  const filteredParties = useMemo(() => {
+    let list = [...parties];
+
+    // Filter by salesman beats if a salesman is selected and override is not active
+    if (selectedSalesman && selectedSalesman.routeIds && selectedSalesman.routeIds.length > 0 && !showAllPartiesOverride) {
+      list = list.filter((p) => p.routeId && selectedSalesman.routeIds?.includes(p.routeId));
+    }
+
+    // Filter by text search query
+    if (partySearchQuery.trim()) {
+      const q = partySearchQuery.toLowerCase();
+      // Keep selected party in list, otherwise apply filter
+      list = list.filter((p) => 
+        p.id === selectedPartyId ||
+        p.name.toLowerCase().includes(q) || 
+        (p.phone && p.phone.toLowerCase().includes(q)) || 
+        (p.gstin && p.gstin.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }, [parties, selectedSalesman, showAllPartiesOverride, partySearchQuery, selectedPartyId]);
+
+  // Product Autocomplete (Local Stocks + Drug Master suggestions fallback)
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
       setSearchResults([]);
+      setDrugMasterHits([]);
       return;
     }
     const q = searchQuery.toLowerCase();
     const filtered = inventory.filter((item) => 
       item.medicine.name.toLowerCase().includes(q) || 
-      item.batchNo.toLowerCase().includes(q)
+      item.batchNo.toLowerCase().includes(q) ||
+      (item.medicine.composition || "").toLowerCase().includes(q)
     ).slice(0, 8);
     setSearchResults(filtered);
+
+    // Fetch from central drug master for suggestions if query is at least 2 chars
+    setLoadingDrugMaster(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`/api/drug-master/search?q=${encodeURIComponent(searchQuery)}`, { signal: controller.signal })
+        .then((res) => res.json())
+        .then((json) => {
+          // Filter out items already matched locally in searchResults
+          const existingNames = new Set(filtered.map(item => item.medicine.name.toLowerCase()));
+          const hits = (json.data || []).filter((h: any) => !existingNames.has(h.name.toLowerCase())).slice(0, 5);
+          setDrugMasterHits(hits);
+          setLoadingDrugMaster(false);
+        })
+        .catch(() => setLoadingDrugMaster(false));
+    }, 250);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [searchQuery, inventory]);
 
   const addLine = useCallback((item: InventoryItem) => {
@@ -229,6 +384,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         // Clear Pos
         setLines([]);
         setSelectedPartyId("");
+        setPartySearchQuery("");
         setSelectedSalesmanId("");
         setNotes("");
       } else {
@@ -244,29 +400,100 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       <div className="glass-card p-4 sm:p-5 space-y-5">
         <div className="flex flex-col sm:flex-row gap-4">
           
-          {/* Party selector */}
-          <label className="flex-1 block space-y-1">
+          {/* Party selector (Searchable Autocomplete Combobox) */}
+          <div className="flex-1 block space-y-1 relative" ref={partyDropdownRef}>
             <span className="text-xs font-semibold text-slate-500">Retail Chemist (Party) *</span>
-            <select
-              value={selectedPartyId}
-              onChange={(e) => setSelectedPartyId(e.target.value)}
-              className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green bg-white font-semibold text-slate-800"
-            >
-              <option value="">Choose Retailer Party</option>
-              {parties.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} {p.gstin ? `(GST: ${p.gstin})` : "(Unregistered)"}
-                </option>
-              ))}
-            </select>
-          </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search chemist party name or phone..."
+                value={partySearchQuery}
+                onFocus={() => setShowPartyDropdown(true)}
+                onChange={(e) => {
+                  setPartySearchQuery(e.target.value);
+                  setShowPartyDropdown(true);
+                  if (!e.target.value.trim()) {
+                    setSelectedPartyId("");
+                  }
+                }}
+                className="h-11 w-full rounded-lg border border-slate-300 px-3 pr-10 text-sm focus:outline-none focus:border-med-green bg-white font-semibold text-slate-800 shadow-sm"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-slate-400">
+                {selectedParty ? (
+                  <span className="text-emerald-600 font-extrabold text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">Selected</span>
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </div>
+            </div>
+
+            {/* Autocomplete Dropdown List */}
+            {showPartyDropdown && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg space-y-0.5 animate-scale-in">
+                {filteredParties.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPartyId(p.id);
+                      setPartySearchQuery(p.name);
+                      setShowPartyDropdown(false);
+                    }}
+                    className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs hover:bg-slate-50 transition-colors ${
+                      selectedPartyId === p.id ? "bg-slate-100/70 font-bold" : ""
+                    }`}
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-800 text-sm">{p.name}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {p.phone ? `📞 ${p.phone}` : "No phone"} • {p.gstin ? `GST: ${p.gstin}` : "Unregistered"}
+                      </p>
+                    </div>
+                    <div className="text-right text-[10px] text-slate-500 font-mono">
+                      <p>Limit: {p.creditLimitPaisa > 0 ? formatCurrency(p.creditLimitPaisa) : "Unlimited"}</p>
+                      <p className={p.outstandingPaisa > 0 ? "text-amber-600 font-bold" : ""}>
+                        Due: {formatCurrency(p.outstandingPaisa)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+
+                {filteredParties.length === 0 && (
+                  <div className="p-3 text-center text-slate-400 text-xs">
+                    No matching Retailer Parties found.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Dynamic Beat/Route Filter Indicator */}
+            {selectedSalesman && (
+              <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 mt-1">
+                <span className="text-slate-400 flex items-center gap-0.5">
+                  📍 Showing {selectedSalesman.name}'s Beats ({selectedSalesman.routeIds?.length || 0})
+                </span>
+                <label className="flex items-center gap-1 cursor-pointer text-med-green hover:underline">
+                  <input
+                    type="checkbox"
+                    checked={showAllPartiesOverride}
+                    onChange={(e) => setShowAllPartiesOverride(e.target.checked)}
+                    className="rounded border-slate-300 text-med-green focus:ring-med-green h-3 w-3"
+                  />
+                  Show all routes
+                </label>
+              </div>
+            )}
+          </div>
 
           {/* Salesman selector */}
           <label className="flex-1 block space-y-1">
             <span className="text-xs font-semibold text-slate-500">Booking Executive (Salesman)</span>
             <select
               value={selectedSalesmanId}
-              onChange={(e) => setSelectedSalesmanId(e.target.value)}
+              onChange={(e) => {
+                setSelectedSalesmanId(e.target.value);
+                setShowAllPartiesOverride(false); // Reset override on salesman change to prioritize route filter
+              }}
               className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green bg-white font-medium text-slate-800"
             >
               <option value="">Office Direct Billing</option>
@@ -287,25 +514,79 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
             placeholder="Search and add batches e.g. Azithral,GP1251..."
           />
 
-          {searchResults.length > 0 && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg space-y-0.5 animate-scale-in">
-              {searchResults.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => addLine(item)}
-                  disabled={item.quantity <= 0}
-                  className="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-xs hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent"
-                >
-                  <div>
-                    <p className="font-semibold text-slate-800 text-sm">{item.medicine.name}</p>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">Batch: {item.batchNo} • Exp: {item.expiryDate}</p>
+          {(searchResults.length > 0 || drugMasterHits.length > 0) && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg space-y-3 animate-scale-in">
+              {/* Local Warehouse Inventory Stocks */}
+              {searchResults.length > 0 && (
+                <div className="space-y-1">
+                  <div className="px-2 py-0.5 text-[9px] font-extrabold text-slate-400 bg-slate-50 rounded uppercase tracking-wider">
+                    In-Stock Batches
                   </div>
-                  <div className="text-right font-mono font-semibold">
-                    <p className="text-slate-700 text-sm">PTR: {formatCurrency(item.ptrPaisa > 0 ? item.ptrPaisa : item.saleRatePaisa)}</p>
-                    <p className={`text-[10px] ${item.quantity <= 10 ? "text-orange-500 font-bold" : "text-slate-400"}`}>Stock: {item.quantity}</p>
+                  {searchResults.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => addLine(item)}
+                      disabled={item.quantity <= 0}
+                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-emerald-50/50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                    >
+                      <div>
+                        <p className="font-bold text-slate-850 text-xs">{item.medicine.name}</p>
+                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">Batch: {item.batchNo} • Exp: {item.expiryDate}</p>
+                      </div>
+                      <div className="text-right font-mono font-semibold">
+                        <p className="text-slate-700 text-xs">PTR: {formatCurrency(item.ptrPaisa > 0 ? item.ptrPaisa : item.saleRatePaisa)}</p>
+                        <p className={`text-[9px] ${item.quantity <= 10 ? "text-orange-500 font-bold" : "text-slate-400"}`}>Stock: {item.quantity}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Central Database suggestions fallback for out-of-stock items */}
+              {drugMasterHits.length > 0 && (
+                <div className="space-y-1 border-t border-slate-100 pt-2">
+                  <div className="px-2 py-0.5 text-[9px] font-extrabold text-slate-400 bg-slate-50 rounded uppercase tracking-wider flex items-center justify-between">
+                    <span>Central Drug Suggestions</span>
+                    <span className="text-[8px] text-orange-600 bg-orange-50 px-1 rounded font-bold border border-orange-100/30">Out of Stock</span>
                   </div>
-                </button>
-              ))}
+                  {drugMasterHits.map((hit) => (
+                    <button
+                      key={hit.id}
+                      onClick={() => {
+                        toast.warning(
+                          <div className="space-y-2 p-1 text-xs text-slate-800">
+                            <p className="font-extrabold text-slate-900">⚠️ Medicine Out of Stock / Unregistered</p>
+                            <p className="text-slate-500 font-medium leading-relaxed">
+                              <strong>{hit.name}</strong> is not present in your wholesale stock. To bill this item to a retailer, please record a Purchase Entry first.
+                            </p>
+                            <div className="pt-1">
+                              <a
+                                href="/stockist/inventory/add"
+                                className="inline-flex items-center gap-1 rounded bg-med-green px-3 py-1 text-[10px] font-bold text-white shadow-xs hover:bg-med-greenDark transition-all no-underline"
+                              >
+                                ➕ Go to Purchase Entry / Add Stock
+                              </a>
+                            </div>
+                          </div>,
+                          { duration: 8000 }
+                        );
+                        setSearchQuery("");
+                        setDrugMasterHits([]);
+                      }}
+                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="font-bold text-slate-700 text-xs truncate">{hit.name}</p>
+                        <p className="text-[9px] text-slate-400 truncate">Composition: {hit.composition || "Generic composition unknown"}</p>
+                      </div>
+                      <div className="text-right text-[9px] font-mono font-semibold text-slate-400 shrink-0">
+                        <p>MRP: {formatCurrency(hit.mrpPaisa || 0)}</p>
+                        <p className="text-red-500 font-bold">Qty: 0</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

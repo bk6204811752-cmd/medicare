@@ -1,6 +1,6 @@
 import { Box, CheckCircle2, ClipboardList, Download, FileText, ArrowRight, Package, Plus, Receipt, Truck } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, t } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { getB2BIndents } from "@/lib/stockist-db";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import Link from "next/link";
 export default async function PurchasesPage() {
   const user = await requireUser();
   const tid = user.tenantId;
-  if (!tid) return <div className="p-8 text-center text-red-600 font-semibold">No tenant found</div>;
+  if (!tid) return <div className="p-8 text-center text-red-600 font-semibold">{t("No tenant found")}</div>;
 
   const indents = await getB2BIndents(tid);
 
@@ -35,7 +35,7 @@ export default async function PurchasesPage() {
           </div>
 
           <div className="p-8 text-center text-slate-400 bg-slate-50/50 border border-dashed border-slate-200 rounded-xl">
-            No bulk purchase orders recorded. Book your incoming inventory batches from manufacturing units.
+            {t("No bulk purchase orders recorded. Book your incoming inventory batches from manufacturing units.")}
           </div>
         </div>
 
@@ -52,7 +52,7 @@ export default async function PurchasesPage() {
 
           {indents.length === 0 ? (
             <div className="p-8 text-center text-slate-400 bg-slate-50/50 border border-dashed border-slate-200 rounded-xl">
-              No indents received. Retailers can sync their stock shortages to send indents automatically.
+              {t("No indents received. Retailers can sync their stock shortages to send indents automatically.")}
             </div>
           ) : (
             <div className="space-y-4">
@@ -61,29 +61,32 @@ export default async function PurchasesPage() {
                   <div className="flex items-center justify-between pb-3 border-b border-slate-50">
                     <div>
                       <p className="font-mono font-bold text-slate-800 text-sm">{indent.indentNo}</p>
-                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Date: {new Date(indent.indentDate).toLocaleString().slice(0, 10)}</p>
+                      <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{t("Date: ")}{new Date(indent.indentDate).toLocaleString().slice(0, 10)}</p>
                     </div>
                     <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wide text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">
-                      Pending
+                      {t("Pending")}
                     </span>
                   </div>
 
                   <div className="py-3">
-                    <p className="text-xs font-semibold text-slate-500">Retailer / Chemist: <strong className="text-med-navy">{indent.chemistName}</strong></p>
+                    <p className="text-xs font-semibold text-slate-500">{t("Retailer / Chemist: ")}<strong className="text-med-navy">{indent.chemistName}</strong></p>
                     <div className="mt-2 space-y-1 bg-slate-50/50 rounded-lg p-2.5">
                       {indent.items.map((item) => (
                         <div key={item.id} className="flex justify-between items-center text-xs text-slate-700 font-medium">
                           <span>{item.medicineName}</span>
-                          <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-100">Qty: {item.quantity}</span>
+                          <span className="font-mono font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-100">{t("Qty: ")}{item.quantity}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-slate-50 flex items-center justify-end">
-                    <button className="inline-flex items-center gap-1 text-xs font-bold text-med-green hover:underline">
-                      Process to B2B POS Invoice <ArrowRight className="h-3 w-3" />
-                    </button>
+                    <Link
+                      href={`/stockist/sales?indentId=${indent.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-med-green hover:underline"
+                    >
+                      {t("Process to B2B POS Invoice ")}<ArrowRight className="h-3 w-3" />
+                    </Link>
                   </div>
                 </div>
               ))}

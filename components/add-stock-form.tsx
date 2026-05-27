@@ -7,7 +7,7 @@ import {
   ChevronDown, Database, Plus, Search, Sparkles, X, Zap, 
   Camera, Upload, RefreshCw, CheckCircle2, 
   AlertCircle, FileText, Info, HelpCircle, Clipboard,
-  Loader2
+  Loader2, Truck, UserCheck
 } from "lucide-react";
 import { AddMedicineForm } from "@/components/add-medicine-form";
 import { BarcodeScanner } from "@/components/barcode-scanner";
@@ -431,7 +431,67 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const [saving, setSaving] = useState(false);
 
   // Uncontrolled to Controlled inputs states
+  const [localSuppliers, setLocalSuppliers] = useState<SelectItem[]>(suppliers);
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierPhone, setSupplierPhone] = useState("");
+  const [supplierEmail, setSupplierEmail] = useState("");
+  const [supplierAddress, setSupplierAddress] = useState("");
+  const [supplierGstin, setSupplierGstin] = useState("");
+  const [supplierCreditDays, setSupplierCreditDays] = useState("30");
+  const [addingSupplier, setAddingSupplier] = useState(false);
+
   const [supplierId, setSupplierId] = useState("");
+
+  async function handleAddSupplierSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!supplierName.trim()) {
+      toast.error("Manufacturer name is required");
+      return;
+    }
+    setAddingSupplier(true);
+    try {
+      const response = await fetch("/api/suppliers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: supplierName.trim(),
+          phone: supplierPhone.trim() || undefined,
+          email: supplierEmail.trim() || undefined,
+          address: supplierAddress.trim() || undefined,
+          gstin: supplierGstin.trim() || undefined,
+          creditDays: Number(supplierCreditDays) || 30,
+          balancePaisa: 0
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error ?? "Failed to save supplier");
+      }
+      const newSup = result.data;
+      if (newSup) {
+        const item: SelectItem = {
+          id: newSup.id,
+          name: newSup.name
+        };
+        setLocalSuppliers((prev) => [item, ...prev]);
+        setSupplierId(newSup.id);
+        setShowAddSupplier(false);
+        setSupplierName("");
+        setSupplierPhone("");
+        setSupplierEmail("");
+        setSupplierAddress("");
+        setSupplierGstin("");
+        setSupplierCreditDays("30");
+        toast.success(`Registered & selected manufacturer: ${newSup.name}`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to register manufacturer");
+    } finally {
+      setAddingSupplier(false);
+    }
+  }
+
   const [batchNo, setBatchNo] = useState("");
   const [mfgDate, setMfgDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
@@ -514,7 +574,11 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const filteredMedicines = localMedicines.filter((m) => {
     if (!medicineSearch.trim()) return true;
     const q = medicineSearch.toLowerCase();
-    return m.name.toLowerCase().includes(q) || m.genericName?.toLowerCase().includes(q);
+    return (
+      m.name.toLowerCase().includes(q) || 
+      (m.genericName || "").toLowerCase().includes(q) ||
+      (m as any).composition?.toLowerCase().includes(q)
+    );
   });
 
   // Safely bind MediaStream to <video> element once mounted (solves black screen preview bug)
@@ -1569,18 +1633,27 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         </div>
 
         {/* Dynamic Controlled Form Inputs */}
-        <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-600 font-semibold">Supplier</span>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-605 font-semibold">Supplier / Manufacturer</span>
+            <button
+              type="button"
+              onClick={() => setShowAddSupplier(true)}
+              className="inline-flex items-center gap-1 text-xs font-bold text-med-green hover:underline focus:outline-none"
+            >
+              <Plus className="h-3.5 w-3.5" /> Register Manufacturer
+            </button>
+          </div>
           <select 
             name="supplierId" 
             value={supplierId}
             onChange={(e) => setSupplierId(e.target.value)}
-            className="h-11 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-med-green focus:ring-2 focus:ring-med-green/20 outline-none"
+            className="h-11 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-med-green focus:ring-2 focus:ring-med-green/20 outline-none font-semibold text-slate-700 bg-white"
           >
             <option value="">No supplier</option>
-            {suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
+            {localSuppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}
           </select>
-        </label>
+        </div>
 
         <label className="space-y-2">
           <span className="text-sm font-medium text-slate-600 font-semibold">Batch no *</span>
@@ -2265,6 +2338,133 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* ─── INLINE MANUFACTURER REGISTRATION MODAL ─── */}
+      {showAddSupplier && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setShowAddSupplier(false)}
+        >
+          <div 
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-display text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-emerald-600" />
+                  <span>Register Manufacturer / CFA</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Add bulk supply channel account inline</p>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setShowAddSupplier(false)} 
+                className="rounded-lg p-2 hover:bg-slate-200 transition-colors text-slate-500 outline-none"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Form Body */}
+            <form onSubmit={handleAddSupplierSubmit} className="p-6 space-y-4">
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold text-slate-500">Manufacturer / Supplier Name *</span>
+                <input 
+                  required 
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors font-semibold text-slate-700" 
+                  placeholder="e.g. Cipla Healthcare Ltd" 
+                />
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1">
+                  <span className="text-xs font-semibold text-slate-500">Phone</span>
+                  <input 
+                    value={supplierPhone}
+                    onChange={(e) => setSupplierPhone(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors text-slate-700" 
+                    placeholder="Contact number" 
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-semibold text-slate-500">Email</span>
+                  <input 
+                    type="email" 
+                    value={supplierEmail}
+                    onChange={(e) => setSupplierEmail(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors text-slate-700" 
+                    placeholder="Email address" 
+                  />
+                </label>
+              </div>
+
+              <label className="block space-y-1">
+                <span className="text-xs font-semibold text-slate-500">Depot Address</span>
+                <input 
+                  value={supplierAddress}
+                  onChange={(e) => setSupplierAddress(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors text-slate-700" 
+                  placeholder="Supply depot address" 
+                />
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block space-y-1">
+                  <span className="text-xs font-semibold text-slate-500">GSTIN No.</span>
+                  <input 
+                    value={supplierGstin}
+                    onChange={(e) => setSupplierGstin(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors font-mono text-slate-700" 
+                    placeholder="15-digit GSTIN" 
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-semibold text-slate-500">Credit Days</span>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={supplierCreditDays}
+                    onChange={(e) => setSupplierCreditDays(e.target.value)}
+                    className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green transition-colors font-semibold text-slate-700 text-center" 
+                  />
+                </label>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowAddSupplier(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs min-h-10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingSupplier}
+                  className="flex items-center justify-center gap-2 px-5 py-2 rounded-lg bg-med-green hover:bg-emerald-600 text-white font-bold text-xs min-h-10 shadow-sm transition-all disabled:opacity-50"
+                >
+                  {addingSupplier ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4" />
+                      <span>Save Manufacturer</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

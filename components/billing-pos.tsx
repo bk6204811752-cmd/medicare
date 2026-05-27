@@ -720,7 +720,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
             totalPaisa: savedTotalPaisa,
             discountPaisa: totals.discountPaisa,
             gstPaisa: totals.gstPaisa,
-            netPaisa: totals.netPaisa,
+            netPaisa: totals.totalPaisa,
             createdAt: new Date().toISOString(),
             isOfflinePending: true
           },

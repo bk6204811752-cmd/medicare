@@ -37,11 +37,11 @@ export async function GET() {
         },
       },
       select: {
-        inventoryItemId: true,
+        inventoryId: true,
       },
     });
 
-    const activeInventoryIds = new Set(recentSales.map((item) => item.inventoryItemId));
+    const activeInventoryIds = new Set(recentSales.map((item) => item.inventoryId));
 
     // 3. Filter for inventory items that have ZERO sales in the last 90 days
     const deadStockItems = inventoryItems.filter(

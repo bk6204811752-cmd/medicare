@@ -1,8 +1,9 @@
-import { AlertTriangle, Box, ChevronRight, HelpCircle, MapPin, Package, RefreshCw, ShieldAlert, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Box, ChevronRight, HelpCircle, MapPin, Package, ShieldAlert, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { formatCurrency } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { getWholesaleInventory } from "@/lib/stockist-db";
+import { VirtualTransferForm } from "@/components/virtual-transfer-form";
 
 export default async function InventoryPage() {
   const user = await requireUser();
@@ -105,37 +106,7 @@ export default async function InventoryPage() {
         <div className="space-y-6">
           
           {/* Stock Transfer */}
-          <div className="glass-card p-4 sm:p-5">
-            <h2 className="font-display text-base font-bold text-med-navy mb-4 flex items-center gap-2">
-              <RefreshCw className="h-5 w-5 text-med-green" /> Virtual Stock Transfer
-            </h2>
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); alert("Stock transfer logged successfully!"); }}>
-              <label className="block space-y-1">
-                <span className="text-xs font-semibold text-slate-500">Choose Stock Batch</span>
-                <select required className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green bg-white font-medium">
-                  <option value="">Select Batch Lot</option>
-                  {inventory.slice(0, 10).map((i) => (
-                    <option key={i.id} value={i.id}>{i.medicine.name} (Batch: {i.batchNo})</option>
-                  ))}
-                </select>
-              </label>
-
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block space-y-1">
-                  <span className="text-xs font-semibold text-slate-500">Qty to Move</span>
-                  <input type="number" min="1" required className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green font-bold" />
-                </label>
-                <label className="block space-y-1">
-                  <span className="text-xs font-semibold text-slate-500">Target Location</span>
-                  <input required className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green font-bold" placeholder="e.g. COLD_STORAGE" />
-                </label>
-              </div>
-
-              <button type="submit" className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-med-navy font-semibold text-white shadow-sm hover:opacity-90 active:scale-95 transition-all text-xs">
-                Log Transfer Movement
-              </button>
-            </form>
-          </div>
+          <VirtualTransferForm inventory={inventory} />
 
           {/* Pricing matrix guide */}
           <div className="rounded-xl border border-sky-100 bg-sky-50/30 p-4 space-y-2.5">

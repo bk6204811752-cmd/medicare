@@ -7,6 +7,10 @@ import { createCustomerSchema, createInventorySchema, createMedicineSchema, crea
 
 export const DEMO_TENANT_ID = "tenant-sharma";
 
+// ─── Caches ──────────────────────────────────────────────────
+const salesSummaryCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 30000; // 30 seconds
+
 // ─── Prisma payload types ────────────────────────────────────
 
 type InventoryWithRelations = Prisma.InventoryItemGetPayload<{
@@ -184,12 +188,11 @@ const demoCustomers = [
 
 // ─── Bootstrap ───────────────────────────────────────────────
 
-const _isAzure = (process.env.DATABASE_PROVIDER || "").trim() === "sqlserver";
-let _bootstrapped = _isAzure; // Azure is pre-seeded, skip all runtime checks
+let _bootstrapped = false;
 let _bootstrapPromise: Promise<void> | null = null;
 
 function ensureDefaultData(): Promise<void> | void {
-  // Fast path: already bootstrapped (Azure, or SQLite after first successful seed)
+  // Fast path: already bootstrapped (after first successful seed)
   // This is synchronous — zero async overhead for 41 call sites.
   if (_bootstrapped) return;
 
@@ -1121,6 +1124,7 @@ export async function addStockAdjustment(tenantId: string, input: unknown) {
 // ─── Sales (tenant-scoped) ───────────────────────────────────
 
 export async function createSale(tenantId: string, input: unknown) {
+  salesSummaryCache.delete(tenantId);
   const data = createSaleSchema.parse(input);
   await ensureDefaultData();
   const saleId = uid("sale");
@@ -1304,10 +1308,14 @@ export async function getSaleByIdOrInvoice(tenantId: string, idOrInvoice: string
     items: sale.items.map(mapSaleItemRow) 
   };
 }
-
 // ─── Reports (tenant-scoped) ─────────────────────────────────
 
 export async function getSalesSummary(tenantId: string) {
+  const cached = salesSummaryCache.get(tenantId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   await ensureDefaultData();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1327,7 +1335,7 @@ export async function getSalesSummary(tenantId: string) {
     prisma.sale.count({ where: { tenantId, createdAt: { gte: today, lt: tomorrow } } }),
   ]);
 
-  return {
+  const result = {
     bills: allCount,
     totalPaisa: allAgg._sum?.totalPaisa ?? 0,
     gstPaisa: allAgg._sum?.gstPaisa ?? 0,
@@ -1338,6 +1346,9 @@ export async function getSalesSummary(tenantId: string) {
     todayGstPaisa: todayAgg._sum?.gstPaisa ?? 0,
     todayDuePaisa: todayAgg._sum?.amountDuePaisa ?? 0,
   };
+
+  salesSummaryCache.set(tenantId, { data: result, timestamp: Date.now() });
+  return result;
 }
 
 export async function getSalesTrend(tenantId: string, days = 7) {
@@ -1682,6 +1693,7 @@ export async function createSaleReturn(tenantId: string, input: {
     }
   });
 
+  salesSummaryCache.delete(tenantId);
   return (await getSaleReturns(tenantId)).find((r) => r.id === returnId);
 }
 

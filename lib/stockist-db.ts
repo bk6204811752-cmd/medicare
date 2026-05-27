@@ -586,34 +586,45 @@ export async function getB2BSalesSummary(tenantId: string) {
 }
 
 export async function getB2BSalesTrend(tenantId: string) {
-  const trendData: { day: string; sales: number; bills: number }[] = [];
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  for (let i = 6; i >= 0; i--) {
+  // Calculate date range
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+
+  const startOfRange = new Date();
+  startOfRange.setDate(startOfRange.getDate() - 6);
+  startOfRange.setHours(0, 0, 0, 0);
+
+  // Single query for all 7 days
+  const sales = await prisma.b2BSale.findMany({
+    where: {
+      tenantId,
+      invoiceDate: { gte: startOfRange, lte: endOfToday },
+    },
+    select: { totalPaisa: true, invoiceDate: true },
+  });
+
+  // Group by day in JavaScript
+  return Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dayName = days[d.getDay()];
+    d.setDate(d.getDate() - (6 - i));
+    d.setHours(0, 0, 0, 0);
+    const dayName = dayNames[d.getDay()];
 
-    const start = new Date(d);
-    start.setHours(0, 0, 0, 0);
+    const nextDay = new Date(d);
+    nextDay.setDate(nextDay.getDate() + 1);
 
-    const end = new Date(d);
-    end.setHours(23, 59, 59, 999);
+    const daySales = sales.filter(
+      (s) => s.invoiceDate >= d && s.invoiceDate < nextDay
+    );
 
-    const daySales = await prisma.b2BSale.aggregate({
-      where: { tenantId, invoiceDate: { gte: start, lte: end } },
-      _sum: { totalPaisa: true },
-      _count: { id: true },
-    });
-
-    trendData.push({
+    return {
       day: dayName,
-      sales: Math.round((daySales._sum?.totalPaisa || 0) / 100),
-      bills: daySales._count.id || 0,
-    });
-  }
-
-  return trendData;
+      sales: Math.round(daySales.reduce((sum, s) => sum + s.totalPaisa, 0) / 100),
+      bills: daySales.length,
+    };
+  });
 }
 
 // ─── GSTR B2B Reports Aggregates ───────────────────────────────

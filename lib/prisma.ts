@@ -4,16 +4,9 @@ const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-// ─── Env sanitization ───────────────────────────────────────
-// Vercel env vars can have trailing \r\n from the dashboard or CLI.
-// Strip them to prevent "Failed to connect" errors.
-function cleanEnv(value: string | undefined): string {
-  return (value ?? "").replace(/[\r\n]+/g, "").trim();
-}
-
 // ─── Retry helper for transient DB failures ──────────────────
-// Azure SQL free-tier cold starts can take 3–10s.
-// A single TCP timeout kills the request. This retries with backoff.
+// SQLite can have busy/locked issues under concurrent access.
+// This retries with exponential backoff.
 
 function isTransientError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -59,39 +52,7 @@ export async function withRetry<T>(
   throw lastError;
 }
 
-const provider = cleanEnv(process.env.DATABASE_PROVIDER);
-const useAzureSql = provider === "sqlserver";
-
 function createPrismaClient() {
-  if (useAzureSql) {
-    let url = cleanEnv(process.env.AZURE_DATABASE_URL);
-    if (!url) {
-      throw new Error(
-        "AZURE_DATABASE_URL is required when DATABASE_PROVIDER=sqlserver.\n" +
-          "Format: sqlserver://HOST:1433;database=DB;user=USER;password={PASS};encrypt=true"
-      );
-    }
-
-    // Ensure connection timeout is set for Azure SQL cold starts
-    if (!url.toLowerCase().includes("connectiontimeout")) {
-      url += ";connectionTimeout=30000";
-    }
-
-    // Optimize connection pooling for serverless environments to avoid Azure pool exhaustion
-    if (!url.toLowerCase().includes("connectionlimit")) {
-      url += ";connectionLimit=5";
-    }
-
-    // Dynamic import avoids bundling mssql when using SQLite
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaMssql } = require("@prisma/adapter-mssql");
-
-    return new PrismaClient({
-      adapter: new PrismaMssql(url),
-      log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
-    });
-  }
-
   return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"]
   });
@@ -110,4 +71,3 @@ export const prisma = basePrisma.$extends({
     },
   },
 }) as unknown as PrismaClient;
-

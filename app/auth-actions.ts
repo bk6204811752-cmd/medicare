@@ -65,7 +65,7 @@ export async function sendVerificationOtpAction(formData: FormData) {
   const data = parsed.data;
 
   try {
-    // Check if email already exists — retry for Azure SQL cold starts
+    // Check if email already exists — retry for database cold starts
     const existingUser = await withRetry(() => getUserByEmailWithPassword(data.email));
     if (existingUser) {
       redirectWith("/register", "error", "This email is already registered. Please login instead.");

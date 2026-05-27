@@ -1,19 +1,11 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { execSync } = require("child_process");
 
-const provider = (process.env.DATABASE_PROVIDER || "sqlite").trim();
-console.log(`[build] Detected DATABASE_PROVIDER = "${provider}"`);
-
+console.log("[build] Generating Prisma Client...");
 try {
-  if (provider === "sqlserver") {
-    console.log("[build] Generating Prisma Client for SQL Server...");
-    execSync("npx prisma generate --schema=prisma/schema.azure.prisma", { stdio: "inherit" });
-  } else {
-    console.log("[build] Generating Prisma Client for SQLite...");
-    execSync("npx prisma generate --schema=prisma/schema.prisma", { stdio: "inherit" });
-    console.log("[build] Synchronizing SQLite database schema...");
-    execSync("npx prisma db push --accept-data-loss", { stdio: "inherit" });
-  }
+  execSync("npx prisma generate --schema=prisma/schema.prisma", { stdio: "inherit" });
+  console.log("[build] Synchronizing database schema...");
+  execSync("npx prisma db push --skip-generate", { stdio: "inherit" });
 } catch (error) {
   console.error("[build] Failed to generate Prisma Client / sync database:", error.message || error);
   process.exit(1);

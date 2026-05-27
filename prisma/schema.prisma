@@ -3,8 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
 }
 
 model Tenant {
@@ -245,6 +244,7 @@ model Sale {
 
   @@index([tenantId])
   @@index([customerId])
+  @@index([tenantId, createdAt])
 }
 
 model SaleItem {
@@ -571,6 +571,7 @@ model B2BSale {
   items           B2BSaleItem[]
 
   @@index([tenantId])
+  @@index([tenantId, invoiceDate])
 }
 
 model B2BSaleItem {
@@ -613,6 +614,7 @@ model Receipt {
   salesman    Salesman? @relation(fields: [salesmanId], references: [id])
 
   @@index([tenantId])
+  @@index([tenantId, receiptDate])
 }
 
 model B2BIndent {

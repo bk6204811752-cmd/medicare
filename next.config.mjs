@@ -4,8 +4,8 @@ const nextConfig = {
   poweredByHeader: false,
   typedRoutes: false,
 
-  // mssql / tedious are native Node packages that must not be bundled by webpack
-  serverExternalPackages: ["mssql", "tedious", "@prisma/adapter-mssql", "nodemailer"],
+  // nodemailer is a native Node package that must not be bundled by webpack
+  serverExternalPackages: ["nodemailer"],
 
   // Tree-shake heavy icon/utility libraries — only bundle used exports
   experimental: {

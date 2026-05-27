@@ -29,12 +29,15 @@
     "tailwind-merge": "latest",
     "tesseract.js": "^7.0.0",
     "@prisma/client": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "pg": "^8.11.5",
     "zod": "latest",
     "zustand": "latest"
   },
   "devDependencies": {
     "@types/node": "latest",
     "@types/nodemailer": "^8.0.0",
+    "@types/pg": "^8.11.6",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "autoprefixer": "latest",

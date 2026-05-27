@@ -1,9 +1,10 @@
-import { AlertTriangle, Box, ChevronRight, HelpCircle, MapPin, Package, ShieldAlert, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Box, ChevronRight, HelpCircle, MapPin, Package, ShieldAlert, ShieldCheck, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { formatCurrency } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { getWholesaleInventory } from "@/lib/stockist-db";
 import { VirtualTransferForm } from "@/components/virtual-transfer-form";
+import Link from "next/link";
 
 export default async function InventoryPage() {
   const user = await requireUser();
@@ -17,6 +18,14 @@ export default async function InventoryPage() {
       <PageHeader
         title="Distribution Inventory"
         description="Monitor wholesale drug stocks, edit PTR/PTS pricing matrices, and inspect FEFO picking sequences"
+        action={
+          <Link
+            href="/stockist/inventory/add"
+            className="inline-flex items-center gap-2 rounded-lg bg-med-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-med-greenDark transition-colors"
+          >
+            <Plus className="h-4 w-4" /> Purchase Entry / Add Stock
+          </Link>
+        }
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px] min-w-0 w-full">

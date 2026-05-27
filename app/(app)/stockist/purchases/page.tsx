@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { formatCurrency } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { getB2BIndents } from "@/lib/stockist-db";
+import Link from "next/link";
 
 export default async function PurchasesPage() {
   const user = await requireUser();
@@ -25,9 +26,12 @@ export default async function PurchasesPage() {
             <h2 className="font-display text-base sm:text-lg font-semibold text-med-navy flex items-center gap-2">
               <Truck className="h-5 w-5 text-med-green" /> Purchases from Manufacturers / CFA
             </h2>
-            <button className="inline-flex items-center gap-1 rounded bg-med-green px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-med-greenDark active:scale-95 transition-all">
+            <Link
+              href="/stockist/inventory/add"
+              className="inline-flex items-center gap-1 rounded bg-med-green px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-med-greenDark active:scale-95 transition-all"
+            >
               <Plus className="h-3.5 w-3.5" /> Purchase Entry
-            </button>
+            </Link>
           </div>
 
           <div className="p-8 text-center text-slate-400 bg-slate-50/50 border border-dashed border-slate-200 rounded-xl">

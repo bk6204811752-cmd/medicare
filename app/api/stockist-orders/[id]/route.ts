@@ -11,12 +11,12 @@ export const dynamic = "force-dynamic";
 // PATCH — Stockist actions: accept | reject | confirm_delivery
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
 
-  const orderId = params.id;
+  const { id: orderId } = await params;
   const tenantId = auth.ctx.tenantId;
 
   try {

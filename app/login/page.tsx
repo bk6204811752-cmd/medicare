@@ -31,7 +31,7 @@ function LoginForm() {
       <form action={loginAction} className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-soft sm:p-6">
         <Link href="/" className="font-display text-2xl font-bold text-med-navy">Medicare</Link>
         <h1 className="mt-6 font-display text-2xl font-semibold text-med-navy">Login</h1>
-        <p className="mt-1 text-sm text-slate-500">Login with your registered email and password. New shops need admin approval before access.</p>
+        <p className="mt-1 text-sm text-slate-500">Login with your registered email and password. New businesses need admin approval before access.</p>
         {error ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm font-medium text-red-700">{error}</p> : null}
         {success || message ? (
           <p className="mt-4 rounded-md bg-emerald-50 p-3 text-sm font-medium text-emerald-700">{success || message}</p>
@@ -47,7 +47,7 @@ function LoginForm() {
         </div>
         <SubmitButton />
         <div className="mt-4 flex flex-col gap-3 text-center text-sm sm:flex-row sm:items-center sm:justify-between sm:text-left">
-          <Link href="/register" className="font-semibold text-med-greenDark">Register pharmacy</Link>
+          <Link href="/register" className="font-semibold text-med-greenDark">Register Pharmacy / Stockist</Link>
           <Link href="/forgot-password" className="font-semibold text-med-greenDark">Forgot password?</Link>
         </div>
         {process.env.NODE_ENV !== "production" && (

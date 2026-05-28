@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { AlertTriangle, BarChart3, Clock, IndianRupee, Package, Plus, ShoppingCart, TrendingUp, Users, UserCheck } from "lucide-react";
+import { AlertTriangle, BarChart3, Clock, IndianRupee, Package, Plus, ShoppingCart, TrendingUp, Users, UserCheck, Box, CreditCard } from "lucide-react";
 import { StatCard } from "@/components/stat-card";
 import { PageHeader } from "@/components/page-header";
 import { formatCurrency, t } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { getB2BSalesSummary, getB2BSalesTrend, getParties, getSalesmen } from "@/lib/stockist-db";
 import { getNotifications } from "@/lib/local-db";
+import { prisma } from "@/lib/prisma";
 
 export default async function StockistDashboard() {
   const user = await requireUser();
@@ -15,11 +16,16 @@ export default async function StockistDashboard() {
   // Await seeder bootstrapping sequentially first to avoid SQLite lock contention
   const summary = await getB2BSalesSummary(tid);
   
-  const [trend, notifications, parties, salesmen] = await Promise.all([
+  const [trend, notifications, parties, salesmen, suppliers] = await Promise.all([
     getB2BSalesTrend(tid),
     getNotifications(tid),
     getParties(tid),
     getSalesmen(tid),
+    prisma.supplier.findMany({
+      where: { tenantId: tid, isActive: true },
+      orderBy: { name: "asc" },
+      take: 6,
+    }),
   ]);
 
   const lowStock = notifications.filter((n) => n.type === "low_stock");
@@ -385,6 +391,64 @@ export default async function StockistDashboard() {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Active Manufacturers & CFA vertical list */}
+          <section className="glass-card p-3 sm:p-3.5 min-w-0 w-full overflow-hidden">
+            <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-1.5">
+              <h2 className="font-display text-xs font-black uppercase text-med-navy tracking-wide">Active Manufacturers</h2>
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-black text-emerald-600 leading-none">{suppliers.length}</span>
+            </div>
+            {suppliers.length === 0 ? (
+              <p className="text-[11px] text-slate-400 py-6 text-center font-medium">No manufacturers registered</p>
+            ) : (
+              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 scrollbar-none">
+                {suppliers.map((s) => {
+                  const getInitials = (name: string) => {
+                    return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+                  };
+                  const getGradient = (id: string) => {
+                    const charCodeSum = id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+                    const options = [
+                      "from-emerald-500 to-teal-500",
+                      "from-sky-500 to-indigo-500",
+                      "from-purple-500 to-pink-500",
+                      "from-amber-500 to-orange-500",
+                      "from-rose-500 to-red-500"
+                    ];
+                    return options[charCodeSum % options.length];
+                  };
+                  const hasOutstanding = s.balancePaisa > 0;
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/stockist/suppliers?id=${s.id}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-white p-2.5 shadow-2xs hover:bg-slate-50 hover:border-slate-250 hover:scale-[1.01] transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr ${getGradient(s.id)} text-[10px] font-bold text-white shadow-3xs`}>
+                          {getInitials(s.name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-extrabold text-slate-850 leading-tight truncate hover:text-med-green transition-colors">{s.name}</p>
+                          <span className="text-[8px] font-bold text-slate-400 block mt-0.5">Limit: {s.creditDays} Days</span>
+                        </div>
+                      </div>
+                      <span className={`font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${
+                        hasOutstanding ? "text-amber-700 bg-amber-50" : "text-emerald-700 bg-emerald-50"
+                      }`}>
+                        ₹{Math.round(s.balancePaisa / 100).toLocaleString()}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+            <div className="mt-3 pt-2 border-t border-slate-100 text-center">
+              <Link href="/stockist/suppliers" className="text-[10px] font-black text-med-green hover:underline uppercase tracking-wider">
+                Manage Directory →
+              </Link>
+            </div>
           </section>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   AlertCircle, CheckCircle2, Box, Plus, Search, 
   CreditCard, Truck, UserCheck, Phone, Mail, MapPin, 
@@ -48,6 +49,9 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState("");
 
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get("id");
+
   const handleSelectSupplier = async (supplier: LocalSupplier) => {
     setSelectedSupplier(supplier);
     setLoadingHistory(true);
@@ -66,6 +70,15 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
       setLoadingHistory(false);
     }
   };
+
+  useEffect(() => {
+    if (idParam) {
+      const match = initialSuppliers.find((s) => s.id === idParam);
+      if (match) {
+        handleSelectSupplier(match);
+      }
+    }
+  }, [idParam, initialSuppliers]);
 
   // Filter suppliers by name, phone, or GSTIN
   const filteredSuppliers = useMemo(() => {

@@ -21,10 +21,18 @@ function redirectWith(path: string, type: "success" | "error", message: string):
   redirect(`${path}?${type}=${encodeURIComponent(message)}`);
 }
 
+/** Require the user to have a stockist role (stockist_admin or stockist_staff). */
+function requireStockistRole(role: string) {
+  if (role !== "stockist_admin" && role !== "stockist_staff") {
+    redirect("/shop/dashboard?error=Unauthorized");
+  }
+}
+
 // ─── Route Actions ───────────────────────────────────────────
 
 export async function createRouteAction(formData: FormData) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) redirect("/login");
 
@@ -50,6 +58,7 @@ export async function createRouteAction(formData: FormData) {
 
 export async function createSalesmanAction(formData: FormData) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) redirect("/login");
 
@@ -89,6 +98,7 @@ export async function createSalesmanAction(formData: FormData) {
 
 export async function createPartyAction(formData: FormData) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) redirect("/login");
 
@@ -126,6 +136,7 @@ export async function createPartyAction(formData: FormData) {
 
 export async function updatePartyAction(formData: FormData) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) redirect("/login");
 
@@ -168,6 +179,7 @@ export async function updatePartyAction(formData: FormData) {
 
 export async function createReceiptAction(formData: FormData) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) redirect("/login");
 
@@ -219,6 +231,7 @@ export async function createB2BSaleAction(input: {
   }[];
 }) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) throw new Error("Unauthorized");
 
@@ -238,6 +251,7 @@ export async function createB2BSalesOrderAction(input: {
   items: { medicineId: string; medicineName: string; quantity: number; freeQuantity?: number; ratePaisa: number }[];
 }) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) throw new Error("Unauthorized");
 
@@ -252,6 +266,7 @@ export async function createB2BSalesOrderAction(input: {
 
 export async function createStockistSupplierAction(formData: FormData) {
   const user = await requireUser();
+  requireStockistRole(user.role);
   const tid = user.tenantId;
   if (!tid) redirect("/login");
 

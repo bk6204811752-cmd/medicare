@@ -55,6 +55,7 @@ export function SupplierDashboardClient({
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"history" | "medicines">("history");
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   // Sorting state for aggregated tab
   const [medSortKey, setMedSortKey] = useState<"qty" | "volume" | "name">("qty");
@@ -81,14 +82,17 @@ export function SupplierDashboardClient({
       lastSupply = formatDate(history[0].createdAt);
     }
 
+    const totalPaid = Math.max(0, totalSpent - supplier.balancePaisa);
+
     return {
       totalSpent,
       totalQty,
       uniqueMedsCount: uniqueMeds.size,
       activeBatches,
-      lastSupply
+      lastSupply,
+      totalPaid
     };
-  }, [history]);
+  }, [history, supplier.balancePaisa]);
 
   // 2. Filter Supply History
   const filteredHistory = useMemo(() => {
@@ -104,6 +108,32 @@ export function SupplierDashboardClient({
       return medicineMatch || batchMatch || hsnMatch || dateMatch;
     });
   }, [history, searchTerm]);
+
+  // Group flat supply items into orders by exact receipt timestamp (createdAt)
+  const groupedOrders = useMemo(() => {
+    const groups: Record<string, {
+      id: string;
+      date: string;
+      totalValuePaisa: number;
+      items: SupplyItem[];
+    }> = {};
+
+    filteredHistory.forEach((item) => {
+      const key = item.createdAt;
+      if (!groups[key]) {
+        groups[key] = {
+          id: `PO-${new Date(item.createdAt).getTime().toString(36).toUpperCase()}`,
+          date: item.createdAt,
+          totalValuePaisa: 0,
+          items: []
+        };
+      }
+      groups[key].totalValuePaisa += item.purchaseRatePaisa * item.quantity;
+      groups[key].items.push(item);
+    });
+
+    return Object.values(groups).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [filteredHistory]);
 
   // 3. Aggregate Medicine Supply
   const medicineAggregates = useMemo(() => {
@@ -239,6 +269,26 @@ export function SupplierDashboardClient({
               {formatCurrency(supplier.balancePaisa)}
             </h2>
             <p className="text-xs text-slate-400 mt-1">Pending payments to distributor</p>
+            <div className="mt-4 pt-3 border-t border-slate-100/70 space-y-1.5">
+              <div className="flex justify-between text-xs font-bold">
+                <span className="text-slate-400 uppercase tracking-wider text-[9px]">Payment Cleared</span>
+                <span className="text-emerald-600">
+                  {stats.totalSpent > 0 ? Math.min(100, Math.round((stats.totalPaid / stats.totalSpent) * 100)) : 100}%
+                </span>
+              </div>
+              <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                  style={{
+                    width: `${stats.totalSpent > 0 ? Math.min(100, Math.round((stats.totalPaid / stats.totalSpent) * 100)) : 100}%`
+                  }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 font-semibold pt-1">
+                <span>Paid: {formatCurrency(stats.totalPaid)}</span>
+                <span>Spent: {formatCurrency(stats.totalSpent)}</span>
+              </div>
+            </div>
           </div>
 
           <div className="border-t border-slate-100 pt-4 flex gap-4 mt-6">
@@ -362,63 +412,95 @@ export function SupplierDashboardClient({
               <p className="mt-3 text-sm font-medium">No supplies matched the search criteria.</p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm -mx-4 md:mx-0">
-              <div className="overflow-x-auto scrollbar-none">
-                <table className="w-full text-left text-xs min-w-[800px]">
-                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="px-4 py-3">Medicine Name</th>
-                      <th className="px-4 py-3">Batch</th>
-                      <th className="px-4 py-3">Supply Date</th>
-                      <th className="px-4 py-3">Expiry Date</th>
-                      <th className="px-4 py-3 text-right">Qty Supplied</th>
-                      <th className="px-4 py-3 text-right">Purchase Rate</th>
-                      <th className="px-4 py-3 text-right">MRP</th>
-                      <th className="px-4 py-3 text-right">GST %</th>
-                      <th className="px-4 py-3 text-right">Total Value</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredHistory.map((item) => {
-                      const totalVal = item.purchaseRatePaisa * item.quantity;
-                      const isExhausted = item.quantity === 0;
-                      return (
-                        <tr
-                          key={item.id}
-                          className={`hover:bg-slate-50/50 transition-colors ${
-                            isExhausted ? "bg-slate-50/30 text-slate-400" : ""
-                          }`}
-                        >
-                          <td className="px-4 py-3">
-                            <span className={`font-bold block ${isExhausted ? "text-slate-400" : "text-slate-800"}`}>
-                              {item.medicineName}
-                            </span>
-                            <span className="text-[10px] text-slate-400">{item.medicinePackSize}</span>
-                          </td>
-                          <td className="px-4 py-3 font-mono">{item.batchNo}</td>
-                          <td className="px-4 py-3">{formatDate(item.createdAt)}</td>
-                          <td className="px-4 py-3">{formatDate(item.expiryDate)}</td>
-                          <td className="px-4 py-3 text-right">
-                            {isExhausted ? (
-                              <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
-                                Exhausted
-                              </span>
-                            ) : (
-                              <span className="font-bold text-slate-700">{item.quantity}</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">{formatCurrency(item.purchaseRatePaisa)}</td>
-                          <td className="px-4 py-3 text-right">{formatCurrency(item.mrpPaisa)}</td>
-                          <td className="px-4 py-3 text-right">{item.gstRate}%</td>
-                          <td className="px-4 py-3 text-right font-bold">
-                            {formatCurrency(totalVal)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            <div className="space-y-3">
+              {groupedOrders.map((order) => {
+                const isExpanded = expandedOrderId === order.id;
+                return (
+                  <div key={order.id} className="rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                      className="w-full flex flex-col sm:flex-row sm:items-center justify-between px-5 py-4 text-left hover:bg-slate-50 transition-colors gap-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 border border-sky-100">
+                          <Package className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800 text-sm font-mono">{order.id}</p>
+                          <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                            Received: {formatDate(order.date)} • {order.items.length} medicine{order.items.length !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Purchase Value</p>
+                          <p className="font-mono font-black text-slate-800 text-sm mt-0.5">{formatCurrency(order.totalValuePaisa)}</p>
+                        </div>
+                        {isExpanded ? (
+                          <span className="text-[9px] font-extrabold uppercase bg-slate-100 px-2.5 py-1 rounded text-slate-500">Hide</span>
+                        ) : (
+                          <span className="text-[9px] font-extrabold uppercase bg-emerald-50 px-2.5 py-1 rounded text-emerald-600">View Items</span>
+                        )}
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-slate-150 bg-slate-50/10">
+                        <div className="overflow-x-auto scrollbar-none">
+                          <table className="w-full text-left text-xs min-w-[800px]">
+                            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                              <tr>
+                                <th className="px-5 py-3">Medicine Name</th>
+                                <th className="px-5 py-3">Batch No.</th>
+                                <th className="px-5 py-3 font-mono">HSN Code</th>
+                                <th className="px-5 py-3">Mfg Date</th>
+                                <th className="px-5 py-3">Expiry Date</th>
+                                <th className="px-5 py-3 text-right">Qty</th>
+                                <th className="px-5 py-3 text-right">Purchase Rate</th>
+                                <th className="px-5 py-3 text-right">MRP</th>
+                                <th className="px-5 py-3 text-right">GST %</th>
+                                <th className="px-5 py-3 text-right">Total Value</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {order.items.map((item) => {
+                                const totalVal = item.purchaseRatePaisa * item.quantity;
+                                return (
+                                  <tr key={item.id} className="hover:bg-slate-50/30 transition-colors">
+                                    <td className="px-5 py-3">
+                                      <span className="font-bold block text-slate-850">{item.medicineName}</span>
+                                      <span className="text-[10px] text-slate-400">{item.medicinePackSize}</span>
+                                    </td>
+                                    <td className="px-5 py-3 font-mono">
+                                      <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-bold">{item.batchNo}</span>
+                                    </td>
+                                    <td className="px-5 py-3 font-mono text-slate-500">{item.hsnCode}</td>
+                                    <td className="px-5 py-3 text-slate-500">{item.mfgDate ? formatDate(item.mfgDate) : "—"}</td>
+                                    <td className="px-5 py-3 text-slate-500">{formatDate(item.expiryDate)}</td>
+                                    <td className="px-5 py-3 text-right font-bold text-slate-700">{item.quantity}</td>
+                                    <td className="px-5 py-3 text-right font-mono font-semibold text-slate-700">{formatCurrency(item.purchaseRatePaisa)}</td>
+                                    <td className="px-5 py-3 text-right font-mono text-slate-500">{formatCurrency(item.mrpPaisa)}</td>
+                                    <td className="px-5 py-3 text-right text-slate-500">{item.gstRate}%</td>
+                                    <td className="px-5 py-3 text-right font-bold text-slate-800">{formatCurrency(totalVal)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                            <tfoot>
+                              <tr className="bg-slate-50 font-black text-slate-850 border-t-2 border-slate-200">
+                                <td colSpan={9} className="px-5 py-3 text-right text-xs uppercase tracking-wider text-slate-400">Order Grand Total</td>
+                                <td className="px-5 py-3 text-right font-mono text-emerald-600 text-sm">{formatCurrency(order.totalValuePaisa)}</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

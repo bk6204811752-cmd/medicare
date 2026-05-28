@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { type LocalUser } from "@/lib/local-db";
 import { getCurrentUser } from "@/lib/auth";
@@ -28,9 +29,17 @@ export async function authenticateApiRequest(): Promise<
     };
   }
 
-  // Super admins can access all tenants — use a query param or the first tenant
-  // Regular users are scoped to their own tenant
-  const tenantId = user.tenantId;
+  // Super admins must explicitly specify a tenant for scoped operations.
+  // Regular users are scoped to their own tenant.
+  let tenantId = user.tenantId;
+
+  if (user.role === "super_admin") {
+    const headersList = await headers();
+    const explicitTenant = headersList.get("x-tenant-id") || headersList.get("X-Tenant-Id");
+    if (explicitTenant) {
+      tenantId = explicitTenant;
+    }
+  }
 
   if (!tenantId && user.role !== "super_admin") {
     return {
@@ -42,6 +51,8 @@ export async function authenticateApiRequest(): Promise<
     };
   }
 
+  // Super admin without explicit tenant — allowed for admin-wide endpoints,
+  // but scoped endpoints should check for empty tenantId and reject.
   return {
     ok: true,
     ctx: { user, tenantId: tenantId ?? "" }
@@ -57,6 +68,36 @@ export function requireAdmin(
   if (ctx.user.role !== "super_admin") {
     return NextResponse.json(
       { error: "Admin access required." },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+/**
+ * Require a stockist role (stockist_admin or stockist_staff). Returns 403 response if user is not a stockist.
+ */
+export function requireStockist(
+  ctx: AuthenticatedContext
+): NextResponse | null {
+  if (ctx.user.role !== "stockist_admin" && ctx.user.role !== "stockist_staff" && ctx.user.role !== "super_admin") {
+    return NextResponse.json(
+      { error: "Stockist access required." },
+      { status: 403 }
+    );
+  }
+  return null;
+}
+
+/**
+ * Require a chemist/shop role. Returns 403 response if user is a stockist.
+ */
+export function requireChemist(
+  ctx: AuthenticatedContext
+): NextResponse | null {
+  if (ctx.user.role === "stockist_admin" || ctx.user.role === "stockist_staff") {
+    return NextResponse.json(
+      { error: "Chemist access required." },
       { status: 403 }
     );
   }

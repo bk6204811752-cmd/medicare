@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useTransition, useMemo, useEffect, useCallback, useRef } from "react";
-import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search } from "lucide-react";
+import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X } from "lucide-react";
 import { createB2BSaleAction } from "@/app/stockist-actions";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ type Party = {
   creditLimitPaisa: number;
   outstandingPaisa: number;
   routeId?: string | null;
+  address?: string | null;
 };
 
 type Salesman = {
@@ -28,17 +29,22 @@ type Salesman = {
 type InventoryItem = {
   id: string;
   batchNo: string;
+  mfgDate: string | null;
   expiryDate: string;
   quantity: number;
   ptrPaisa: number;
   saleRatePaisa: number;
   mrpPaisa: number;
+  hsnCode: string;
   rackLocation: string | null;
   medicine: {
     id: string;
     name: string;
     composition: string | null;
     gstRate: number;
+    manufacturer: string;
+    packSize: string;
+    hsnCode: string;
   };
 };
 
@@ -46,6 +52,7 @@ type InvoiceLine = {
   inventoryId: string;
   medicineName: string;
   batchNo: string;
+  mfgDate: string | null;
   expiryDate: string;
   quantity: number;
   freeQuantity: number;
@@ -53,6 +60,9 @@ type InvoiceLine = {
   mrpPaisa: number;
   discountPercent: number;
   gstRate: number;
+  hsnCode: string;
+  manufacturer: string;
+  packSize: string;
   schemeDetails: string;
   availableStock: number;
 };
@@ -79,6 +89,10 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [showAllPartiesOverride, setShowAllPartiesOverride] = useState(false);
   const partyDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Premium B2B Invoice & Receipt print modal states
+  const [completedInvoice, setCompletedInvoice] = useState<any>(null);
+  const [printFormat, setPrintFormat] = useState<"a4" | "thermal">("a4");
   
   const [isPending, startTransition] = useTransition();
   const [billingError, setBillingError] = useState<string | null>(null);
@@ -138,6 +152,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               inventoryId: matchedInv.id,
               medicineName: matchedInv.medicine.name,
               batchNo: matchedInv.batchNo,
+              mfgDate: matchedInv.mfgDate || null,
               expiryDate: matchedInv.expiryDate,
               quantity: item.quantity,
               freeQuantity: 0,
@@ -145,6 +160,9 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               mrpPaisa: matchedInv.mrpPaisa,
               discountPercent: 0,
               gstRate: matchedInv.medicine.gstRate,
+              hsnCode: matchedInv.hsnCode || matchedInv.medicine.hsnCode || "",
+              manufacturer: matchedInv.medicine.manufacturer || "",
+              packSize: matchedInv.medicine.packSize || "",
               schemeDetails: "",
               availableStock: matchedInv.quantity,
             });
@@ -262,6 +280,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         inventoryId: item.id,
         medicineName: item.medicine.name,
         batchNo: item.batchNo,
+        mfgDate: item.mfgDate || null,
         expiryDate: item.expiryDate,
         quantity: 10, // Standard wholesale default batch size
         freeQuantity: 0,
@@ -269,6 +288,9 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         mrpPaisa: item.mrpPaisa,
         discountPercent: 0,
         gstRate: item.medicine.gstRate,
+        hsnCode: item.hsnCode || item.medicine.hsnCode || "",
+        manufacturer: item.medicine.manufacturer || "",
+        packSize: item.medicine.packSize || "",
         schemeDetails: "",
         availableStock: item.quantity,
       }
@@ -379,8 +401,46 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       });
 
       if (result.success) {
+        // Capture a rich B2B Invoice snapshot for printing before clearing inputs
+        const activeParty = parties.find((p) => p.id === selectedPartyId);
+        
+        const snapshotItems = lines.map((l) => ({
+          medicineName: l.medicineName,
+          batchNo: l.batchNo,
+          hsnCode: l.hsnCode,
+          manufacturer: l.manufacturer,
+          mfgDate: l.mfgDate,
+          expiryDate: l.expiryDate,
+          packSize: l.packSize,
+          quantity: l.quantity,
+          freeQuantity: l.freeQuantity,
+          ptrPaisa: l.ptrPaisa,
+          mrpPaisa: l.mrpPaisa,
+          discountPercent: l.discountPercent,
+          gstRate: l.gstRate,
+          totalItemDeduction: l.quantity + l.freeQuantity,
+          lineTotalPaisa: (l.quantity * l.ptrPaisa) - Math.round((l.quantity * l.ptrPaisa) * (l.discountPercent / 100)),
+        }));
+
+        setCompletedInvoice({
+          invoiceNo: result.invoiceNo || `INV-${Date.now()}`,
+          invoiceType: invoiceType,
+          date: new Date().toISOString(),
+          paymentMode: paymentMode,
+          notes: notes || undefined,
+          partyName: activeParty?.name || "Retail Chemist",
+          partyPhone: activeParty?.phone || null,
+          partyGstin: activeParty?.gstin || null,
+          partyDl: activeParty?.drugLicenseNo || null,
+          partyAddress: activeParty?.address || null,
+          salesmanName: salesmen.find((s) => s.id === selectedSalesmanId)?.name || undefined,
+          items: snapshotItems,
+          calculations: { ...calculations },
+        });
+
         setBillingSuccess(`B2B POS ${invoiceType === "challan" ? "Delivery Challan" : "Invoice"} generated successfully!`);
         setGeneratedInvoiceNo(result.invoiceNo || null);
+        
         // Clear Pos
         setLines([]);
         setSelectedPartyId("");
@@ -394,7 +454,8 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full animate-fade-in no-print">
+    <>
+      <div className="grid gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full animate-fade-in no-print">
       
       {/* Left panel: Product Selector & Lines Table */}
       <div className="glass-card p-4 sm:p-5 space-y-5">
@@ -593,16 +654,23 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
         {/* Invoicing Lines Table */}
         <div className="overflow-hidden rounded-xl border border-slate-100 shadow-xs">
-          <table className="w-full text-left text-xs border-collapse bg-white">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse bg-white min-w-[900px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 font-display font-bold text-slate-500 uppercase tracking-wider text-[9px]">
-                <th className="px-3 py-3 w-[35%]">Medicine Batch</th>
-                <th className="px-3 py-3 text-right w-[15%]">Qty (Lot)</th>
-                <th className="px-3 py-3 text-right w-[15%]">Free Qty</th>
-                <th className="px-3 py-3 text-right w-[15%]">PTR Rate</th>
-                <th className="px-3 py-3 text-right w-[10%]">Disc %</th>
-                <th className="px-3 py-3 text-right w-[15%]">Total</th>
-                <th className="px-3 py-3 text-center"></th>
+                <th className="px-3 py-3 w-[22%]">Medicine Name</th>
+                <th className="px-3 py-3 w-[10%]">Batch No.</th>
+                <th className="px-3 py-3 w-[8%]">HSN</th>
+                <th className="px-3 py-3 w-[12%]">Manufacturer</th>
+                <th className="px-3 py-3 w-[8%]">Mfg Date</th>
+                <th className="px-3 py-3 w-[8%]">Expiry</th>
+                <th className="px-3 py-3 w-[6%]">Pack</th>
+                <th className="px-3 py-3 text-right w-[8%]">Qty</th>
+                <th className="px-3 py-3 text-right w-[5%]">Free</th>
+                <th className="px-3 py-3 text-right w-[8%]">PTR Rate</th>
+                <th className="px-3 py-3 text-right w-[5%]">Disc%</th>
+                <th className="px-3 py-3 text-right w-[8%]">Total</th>
+                <th className="px-3 py-3 text-center w-[4%]"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -613,14 +681,23 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                 return (
                   <tr key={line.inventoryId} className="hover:bg-slate-50/40">
                     <td className="px-3 py-2.5">
-                      <p className="font-semibold text-slate-800 text-sm">{line.medicineName}</p>
-                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">Batch: {line.batchNo} • Exp: {line.expiryDate}</p>
+                      <p className="font-semibold text-slate-800 text-xs leading-tight">{line.medicineName}</p>
                       {line.schemeDetails ? (
                         <span className="inline-block mt-1 text-[8px] font-bold uppercase tracking-wider text-purple-700 bg-purple-50 px-1 rounded">
                           {line.schemeDetails}
                         </span>
                       ) : null}
                     </td>
+                    <td className="px-3 py-2.5">
+                      <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">{line.batchNo}</span>
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-[10px] text-slate-600">{line.hsnCode || "—"}</td>
+                    <td className="px-3 py-2.5 text-[10px] text-slate-600 leading-tight max-w-[100px]">
+                      <span className="block truncate">{line.manufacturer || "—"}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-[10px] text-slate-500">{line.mfgDate || "—"}</td>
+                    <td className="px-3 py-2.5 text-[10px] text-slate-500">{line.expiryDate}</td>
+                    <td className="px-3 py-2.5 text-[10px] text-slate-600">{line.packSize || "—"}</td>
                     <td className="px-3 py-2.5 text-right">
                       <input
                         type="number"
@@ -644,6 +721,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                         onChange={(e) => updateLine(idx, "ptrPaisa", Math.round(Number(e.target.value) * 100))}
                         className="h-8 w-16 rounded border border-slate-300 px-1 text-center font-semibold font-mono focus:outline-med-green bg-slate-50 focus:bg-white"
                       />
+                      <p className="text-[9px] text-slate-400 font-semibold mt-1">MRP: ₹{(line.mrpPaisa/100).toFixed(0)}</p>
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <input
@@ -669,13 +747,14 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               })}
               {lines.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={13} className="p-8 text-center text-slate-400">
                     No items selected. Search and add wholesale lots above.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
@@ -798,12 +877,12 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           {billingError ? <p className="rounded-lg bg-red-50 p-2.5 text-xs font-bold text-red-700">{billingError}</p> : null}
           {billingSuccess ? <p className="rounded-lg bg-emerald-50 p-2.5 text-xs font-bold text-emerald-700">{billingSuccess}</p> : null}
 
-          {generatedInvoiceNo && (
+          {generatedInvoiceNo && completedInvoice && (
             <button
-              onClick={() => window.print()}
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95 transition-all text-xs"
+              onClick={() => setCompletedInvoice(completedInvoice)}
+              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95 transition-all text-xs animate-pulse"
             >
-              <Printer className="h-4 w-4 text-slate-500" /> Print invoice ({generatedInvoiceNo})
+              <Printer className="h-4 w-4 text-slate-500" /> Open Print Console ({generatedInvoiceNo})
             </button>
           )}
 
@@ -819,5 +898,469 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       </div>
 
     </div>
+
+    {completedInvoice && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 no-print overflow-y-auto">
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            body * {
+              visibility: hidden !important;
+            }
+            #b2b-print-target, #b2b-print-target * {
+              visibility: visible !important;
+            }
+            #b2b-print-target {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              box-shadow: none !important;
+              border: none !important;
+              background: white !important;
+              color: black !important;
+            }
+          }
+        `}} />
+        
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
+          {/* Modal Header */}
+          <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-emerald-50/20 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-base font-black text-slate-800 flex items-center gap-2">
+                <Printer className="h-5 w-5 text-emerald-600 animate-pulse" /> Wholesale Invoice Generated
+              </h3>
+              <p className="text-xs text-slate-400 font-semibold mt-0.5">Invoice Ref: <code className="font-mono text-slate-600">{completedInvoice.invoiceNo}</code></p>
+            </div>
+            <button 
+              onClick={() => setCompletedInvoice(null)}
+              className="rounded-lg p-1.5 hover:bg-slate-150 transition-colors text-slate-400 hover:text-slate-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          {/* Modal Body / Selector & Invoice Preview Container */}
+          <div className="flex-1 overflow-y-auto p-6 bg-slate-50 flex flex-col md:flex-row gap-6">
+            
+            {/* Left Selector Options Panel */}
+            <div className="w-full md:w-64 space-y-4 shrink-0">
+              <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-xs space-y-3.5">
+                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Print Configuration</p>
+                
+                {/* Format Toggle Buttons */}
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setPrintFormat("a4")}
+                    className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
+                      printFormat === "a4"
+                        ? "bg-med-navy text-white border-med-navy shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <FileText className="h-4 w-4" /> A4 Tax Invoice Sheet
+                  </button>
+                  <button
+                    onClick={() => setPrintFormat("thermal")}
+                    className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
+                      printFormat === "thermal"
+                        ? "bg-med-navy text-white border-med-navy shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Printer className="h-4 w-4" /> 3" Thermal Receipt
+                  </button>
+                </div>
+                
+                <div className="border-t border-slate-100 pt-3 text-[10px] text-slate-400 leading-relaxed font-semibold">
+                  <span className="text-emerald-700 font-bold block mb-1">💡 Pro-Tip:</span>
+                  Select your layout first, then click "Trigger System Print" to open the browser print dialog.
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-xs space-y-2.5">
+                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Transaction Snapshot</p>
+                <div className="text-xs space-y-1 font-semibold text-slate-500">
+                  <p className="flex justify-between"><span>Chemist:</span> <span className="text-slate-800 font-bold">{completedInvoice.partyName}</span></p>
+                  <p className="flex justify-between"><span>Mode:</span> <span className="text-slate-800 uppercase font-bold">{completedInvoice.paymentMode}</span></p>
+                  <p className="flex justify-between"><span>Items:</span> <span className="text-slate-800 font-mono font-bold">{completedInvoice.items.length} meds</span></p>
+                  <p className="flex justify-between border-t border-slate-100 pt-2 mt-1 font-bold">
+                    <span>Total:</span> <span className="text-emerald-600 font-mono font-black">{formatCurrency(completedInvoice.calculations.totalPaisa)}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Right Real-time Dynamic View Target */}
+            <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm overflow-x-auto overflow-y-visible flex justify-center">
+              
+              {/* INVOICE CONTAINER TO PRINT */}
+              <div 
+                id="b2b-print-target"
+                className={printFormat === "a4" 
+                  ? "w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-800 p-6 flex flex-col justify-between"
+                  : "w-[80mm] bg-white text-slate-800 p-3 font-mono text-[11px] leading-snug flex flex-col justify-start"
+                }
+                style={printFormat === "a4" ? { minWidth: "750px" } : { width: "80mm" }}
+              >
+                
+                {/* layout renderer */}
+                {printFormat === "a4" ? (
+                  // ────────────────────────────────────────────────────────
+                  // 1. CLASSIC A4 B2B TAX INVOICE
+                  // ────────────────────────────────────────────────────────
+                  <div className="space-y-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      {/* Title Bar */}
+                      <div className="text-center border-b-2 border-slate-800 pb-2">
+                        <h2 className="text-lg font-black tracking-widest text-slate-900 uppercase">
+                          {completedInvoice.invoiceType === "challan" ? "DELIVERY CHALLAN" : "TAX INVOICE"}
+                        </h2>
+                        <p className="text-[10px] text-slate-400 uppercase font-black tracking-wider mt-0.5">Wholesale Pharmaceutical Distribution</p>
+                      </div>
+                      
+                      {/* Two Column Business Details */}
+                      <div className="grid grid-cols-2 gap-6 mt-4 border-b border-slate-350 pb-4 text-[11px]">
+                        {/* Seller Details (Left) */}
+                        <div className="space-y-1.5 border-r border-slate-200 pr-4">
+                          <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">B2B SUPPLIER DETAILS</p>
+                          <h4 className="font-extrabold text-slate-900 text-sm">MEDICARE PHARMACEUTICALS</h4>
+                          <p className="text-slate-500 font-semibold leading-relaxed">
+                            B2B Warehouse Block 4, Industrial Area, Okhla,<br />
+                            New Delhi, Delhi - 110020
+                          </p>
+                          <p className="font-bold text-slate-700 mt-1">📞 Helpline: <span className="font-mono text-slate-800">+91 99999 88888</span></p>
+                          <p className="font-bold text-slate-500 font-mono mt-1">
+                            GSTIN: <span className="font-black text-slate-900">07AAAAA1111A1Z1</span>
+                          </p>
+                          <p className="font-semibold text-slate-600 text-[10px] leading-tight">
+                            DL No: <span className="font-bold">DL-20B-12948 / DL-21B-12949</span>
+                          </p>
+                        </div>
+                        
+                        {/* Buyer Details (Right) */}
+                        <div className="space-y-1.5 pl-2">
+                          <p className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">RETAIL CHEMIST (BUYER)</p>
+                          <h4 className="font-black text-slate-900 text-sm">{completedInvoice.partyName}</h4>
+                          <p className="text-slate-500 font-semibold leading-relaxed">
+                            {completedInvoice.partyAddress || "Shop location address not configured."}
+                          </p>
+                          {completedInvoice.partyPhone && (
+                            <p className="font-bold text-slate-700 mt-1">📞 Contact: <span className="font-mono text-slate-800">{completedInvoice.partyPhone}</span></p>
+                          )}
+                          <p className="font-bold text-slate-500 font-mono mt-1">
+                            GSTIN: <span className="font-black text-slate-900">{completedInvoice.partyGstin || "UNREGISTERED (URP)"}</span>
+                          </p>
+                          <p className="font-semibold text-slate-600 text-[10px]">
+                            Drug License: <span className="font-bold">{completedInvoice.partyDl || "N/A"}</span>
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Invoice Metadata Banner */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 grid grid-cols-4 gap-4 mt-4 text-[11px] font-semibold text-slate-500">
+                        <div>
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase">Invoice Number</span>
+                          <span className="font-bold text-slate-850 font-mono text-xs">{completedInvoice.invoiceNo}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase">Billing Date</span>
+                          <span className="font-bold text-slate-800">
+                            {new Date(completedInvoice.date).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase">Payment Terms</span>
+                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-slate-200 text-slate-800">
+                            {completedInvoice.paymentMode === "credit" ? "Trade Credit" : completedInvoice.paymentMode}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="block text-[9px] font-bold text-slate-400 uppercase">Beat Agent</span>
+                          <span className="font-bold text-slate-800">{completedInvoice.salesmanName || "Office Counter Direct"}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Billing Items Table */}
+                      <table className="w-full text-left text-[11px] border-collapse mt-5">
+                        <thead>
+                          <tr className="bg-slate-800 text-white font-bold uppercase tracking-wider text-[9px]">
+                            <th className="px-3 py-2 border border-slate-700 text-center w-[4%]">S.No</th>
+                            <th className="px-3 py-2 border border-slate-700 w-[24%]">Medicine Billed Lot & Pack</th>
+                            <th className="px-3 py-2 border border-slate-700 text-center w-[8%] font-mono">HSN</th>
+                            <th className="px-3 py-2 border border-slate-700 text-center w-[10%]">Batch</th>
+                            <th className="px-3 py-2 border border-slate-700 text-center w-[8%]">Mfg</th>
+                            <th className="px-3 py-2 border border-slate-700 text-center w-[8%]">Expiry</th>
+                            <th className="px-3 py-2 border border-slate-700 text-right w-[6%]">Qty</th>
+                            <th className="px-3 py-2 border border-slate-700 text-right w-[5%]">Free</th>
+                            <th className="px-3 py-2 border border-slate-700 text-right w-[9%]">PTR (₹)</th>
+                            <th className="px-3 py-2 border border-slate-700 text-right w-[5%]">Disc%</th>
+                            <th className="px-3 py-2 border border-slate-700 text-right w-[5%]">GST%</th>
+                            <th className="px-3 py-2 border border-slate-700 text-right w-[8%]">Total (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {completedInvoice.items.map((item: any, idx: number) => (
+                            <tr key={idx} className="font-semibold text-slate-700">
+                              <td className="px-3 py-2 border border-slate-200 text-center font-mono">{idx + 1}</td>
+                              <td className="px-3 py-2 border border-slate-200">
+                                <p className="font-extrabold text-slate-900 leading-tight">{item.medicineName}</p>
+                                <p className="text-[9px] text-slate-450 font-semibold mt-0.5">
+                                  {item.packSize || "—"} • {item.manufacturer || "Unknown Mfg"}
+                                </p>
+                              </td>
+                              <td className="px-3 py-2 border border-slate-200 text-center font-mono text-[10px] text-slate-650">{item.hsnCode || "—"}</td>
+                              <td className="px-3 py-2 border border-slate-200 text-center font-mono font-bold text-slate-800">{item.batchNo}</td>
+                              <td className="px-3 py-2 border border-slate-200 text-center text-slate-500 font-mono text-[10px]">{item.mfgDate || "—"}</td>
+                              <td className="px-3 py-2 border border-slate-200 text-center text-slate-500 font-mono text-[10px]">{item.expiryDate}</td>
+                              <td className="px-3 py-2 border border-slate-200 text-right font-mono font-bold text-slate-800">{item.quantity}</td>
+                              <td className="px-3 py-2 border border-slate-200 text-right font-mono font-bold text-slate-600">{item.freeQuantity}</td>
+                              <td className="px-3 py-2 border border-slate-200 text-right font-mono">₹{(item.ptrPaisa / 100).toFixed(2)}</td>
+                              <td className="px-3 py-2 border border-slate-200 text-right font-mono">{item.discountPercent || "0"}%</td>
+                              <td className="px-3 py-2 border border-slate-200 text-right font-mono">{item.gstRate}%</td>
+                              <td className="px-3 py-2 border border-slate-200 text-right font-mono font-bold text-slate-900">₹{(item.lineTotalPaisa / 100).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      
+                      {/* Financial Summaries & Tax Breakdowns */}
+                      <div className="grid grid-cols-12 gap-6 mt-6">
+                        
+                        {/* GST Slab Summary Table (Left Column) */}
+                        <div className="col-span-7 space-y-2 border border-slate-200 rounded-lg p-3 bg-slate-50/50">
+                          <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Detailed GST Tax Breakdowns</p>
+                          <table className="w-full text-left text-[10px] border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-200 font-bold text-slate-500">
+                                <th className="py-1">Tax Slab</th>
+                                <th className="py-1 text-right">Taxable Amt</th>
+                                <th className="py-1 text-right">CGST Amt</th>
+                                <th className="py-1 text-right">SGST Amt</th>
+                                <th className="py-1 text-right">Total GST</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                              {Array.from(new Set(completedInvoice.items.map((i: any) => i.gstRate))).map((rate: any) => {
+                                const slabItems = completedInvoice.items.filter((i: any) => i.gstRate === rate);
+                                const slabTaxable = slabItems.reduce((acc: number, cur: any) => acc + cur.lineTotalPaisa - Math.round(cur.lineTotalPaisa * (rate / (100 + rate))), 0);
+                                const slabGst = slabItems.reduce((acc: number, cur: any) => acc + Math.round(cur.lineTotalPaisa * (rate / (100 + rate))), 0);
+                                const halfGst = Math.round(slabGst / 2);
+                                return (
+                                  <tr key={rate}>
+                                    <td className="py-1 font-bold text-slate-800">GST {rate}%</td>
+                                    <td className="py-1 text-right font-mono">₹{(slabTaxable / 100).toFixed(2)}</td>
+                                    <td className="py-1 text-right font-mono">₹{(halfGst / 100).toFixed(2)}</td>
+                                    <td className="py-1 text-right font-mono">₹{(halfGst / 100).toFixed(2)}</td>
+                                    <td className="py-1 text-right font-mono font-bold text-slate-900">₹{(slabGst / 100).toFixed(2)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        
+                        {/* Financial Summary Totals (Right Column) */}
+                        <div className="col-span-5 space-y-2 border border-slate-200 rounded-lg p-3 bg-white font-semibold text-slate-650 text-xs">
+                          <div className="flex justify-between">
+                            <span>Invoice Subtotal:</span>
+                            <span className="font-mono text-slate-900">₹{(completedInvoice.calculations.subtotalPaisa / 100).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-red-650">
+                            <span>Scheme Discounts:</span>
+                            <span className="font-mono">- ₹{(completedInvoice.calculations.discountPaisa / 100).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>CGST + SGST Tax:</span>
+                            <span className="font-mono text-slate-900">₹{(completedInvoice.calculations.gstPaisa / 100).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-slate-200 pt-2 font-black text-slate-900 text-sm">
+                            <span className="text-emerald-700">NET PAYABLE:</span>
+                            <span className="font-mono text-emerald-600">₹{(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Words representation */}
+                      <div className="mt-4 border-t border-slate-200 pt-3 text-[10px] text-slate-550 font-semibold italic">
+                        <strong className="text-[9px] uppercase font-black text-slate-400 not-italic block mb-0.5">Amount Billed in Words</strong>
+                        {numberToRupeesWords(completedInvoice.calculations.totalPaisa)}
+                      </div>
+                    </div>
+                    
+                    {/* Footer & Signature Section */}
+                    <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-200 text-[10px] font-semibold text-slate-400 mt-8">
+                      {/* Terms */}
+                      <div className="col-span-2 space-y-1 text-slate-400 leading-normal pr-4">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Standard B2B Terms & Conditions</p>
+                        <p>1. Pharmaceutical goods once billed and shipped cannot be returned or swapped.</p>
+                        <p>2. Outstandings on trade credit must be settled within active distributor terms ({completedInvoice.paymentMode === "credit" ? "As Mapped" : "Immediate"}).</p>
+                        <p>3. Subject to local business jurisdiction laws only.</p>
+                      </div>
+                      
+                      {/* Signatures */}
+                      <div className="flex flex-col justify-between items-center h-20 text-center pl-2">
+                        <div className="w-full border-b border-slate-350 pb-8 mt-2 italic font-serif font-black text-slate-700 text-xs">
+                          Medicare Distributors
+                        </div>
+                        <span className="text-[9px] uppercase font-bold tracking-wider">Authorized Signatory</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // ────────────────────────────────────────────────────────
+                  // 2. 3-INCH THERMAL RECEIPT
+                  // ────────────────────────────────────────────────────────
+                  <div className="flex flex-col justify-start w-full">
+                    {/* Store Header */}
+                    <div className="text-center space-y-0.5">
+                      <h3 className="font-black text-xs text-slate-900">MEDICARE DISTRIBUTORS</h3>
+                      <p className="text-[9px] text-slate-505">B2B Wholesale Pharma Hub</p>
+                      <p className="text-[9px] font-mono">GSTIN: 07AAAAA1111A1Z1</p>
+                      <p className="text-[9px] font-mono">DL No: DL-20B-12948 / DL-21B-12949</p>
+                      <p className="text-[9px]">Phone: +91 99999 88888</p>
+                    </div>
+                    
+                    <p className="my-2 border-b border-dashed border-slate-800"></p>
+                    
+                    {/* Invoice Details */}
+                    <div className="space-y-0.5 text-[10px] text-slate-700">
+                      <p className="font-mono"><strong>Ref:</strong> {completedInvoice.invoiceNo}</p>
+                      <p><strong>Date:</strong> {new Date(completedInvoice.date).toLocaleString("en-IN")}</p>
+                      <p><strong>Retailer:</strong> {completedInvoice.partyName}</p>
+                      {completedInvoice.partyGstin && <p className="font-mono"><strong>GST:</strong> {completedInvoice.partyGstin}</p>}
+                      <p><strong>Terms:</strong> <span className="uppercase font-bold">{completedInvoice.paymentMode}</span></p>
+                      {completedInvoice.salesmanName && <p><strong>Salesman:</strong> {completedInvoice.salesmanName}</p>}
+                    </div>
+                    
+                    <p className="my-2 border-b border-dashed border-slate-800"></p>
+                    
+                    {/* Items List */}
+                    <div className="space-y-1.5 text-slate-800 font-semibold">
+                      <div className="flex justify-between font-bold text-[9px] uppercase">
+                        <span className="w-[50%]">Item Lot</span>
+                        <span className="w-[20%] text-right font-mono">Qty</span>
+                        <span className="w-[30%] text-right font-mono">Total</span>
+                      </div>
+                      
+                      <p className="border-b border-slate-200/50 my-1"></p>
+                      
+                      {completedInvoice.items.map((item: any, idx: number) => (
+                        <div key={idx} className="space-y-0.5">
+                          <div className="flex justify-between font-bold">
+                            <span className="w-[50%] truncate">{item.medicineName}</span>
+                            <span className="w-[20%] text-right font-mono">{item.quantity}{item.freeQuantity > 0 ? `+${item.freeQuantity}` : ""}</span>
+                            <span className="w-[30%] text-right font-mono">₹{(item.lineTotalPaisa / 100).toFixed(0)}</span>
+                          </div>
+                          <div className="text-[9px] text-slate-500 font-mono pl-1 font-normal">
+                            Batch: {item.batchNo} • Exp: {item.expiryDate} • Rate: ₹{(item.ptrPaisa / 100).toFixed(0)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <p className="my-2 border-b border-dashed border-slate-800"></p>
+                    
+                    {/* Totals Summary */}
+                    <div className="space-y-1 font-mono text-right text-[10px] text-slate-700">
+                      <p className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>₹{(completedInvoice.calculations.subtotalPaisa / 100).toFixed(2)}</span>
+                      </p>
+                      <p className="flex justify-between text-slate-505">
+                        <span>Discounts:</span>
+                        <span>-₹{(completedInvoice.calculations.discountPaisa / 100).toFixed(2)}</span>
+                      </p>
+                      <p className="flex justify-between">
+                        <span>CGST/SGST Tax:</span>
+                        <span>₹{(completedInvoice.calculations.gstPaisa / 100).toFixed(2)}</span>
+                      </p>
+                      <p className="flex justify-between font-black text-slate-900 border-t border-slate-300 pt-1 text-xs">
+                        <span>NET PAYABLE:</span>
+                        <span>₹{(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}</span>
+                      </p>
+                    </div>
+                    
+                    <p className="my-2 border-b border-dashed border-slate-800"></p>
+                    
+                    {/* Footer Message */}
+                    <div className="text-center space-y-1 text-[9px] font-sans text-slate-500">
+                      <p className="font-bold text-slate-800">Thank you for your business!</p>
+                      <p>Please reconcile invoice outstandings within mapped trade billing cycles.</p>
+                      <p className="text-[8px] font-mono text-slate-300 mt-2">Powered by Medicare B2B</p>
+                    </div>
+                  </div>
+                )}
+                
+              </div>
+              
+            </div>
+          </div>
+          
+          {/* Modal Footer / Triggers */}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 no-print">
+            <button
+              onClick={() => setCompletedInvoice(null)}
+              className="h-10 px-4 rounded-xl border border-slate-200 bg-white font-bold text-slate-600 hover:bg-slate-100 transition-colors text-xs"
+            >
+              Close & Return to POS
+            </button>
+            
+            <button
+              onClick={() => window.print()}
+              className="h-10 px-6 rounded-xl bg-med-green font-bold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all text-xs flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" /> Trigger System Print
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
   );
+}
+
+// Utility function to convert numbers to Indian Rupees Words
+function numberToRupeesWords(paisa: number): string {
+  const totalRupees = Math.floor(paisa / 100);
+  if (totalRupees === 0) return "Zero Rupees Only";
+  
+  const ones = [
+    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten",
+    "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"
+  ];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  
+  function convertLessThanThousand(n: number): string {
+    if (n === 0) return "";
+    if (n < 20) return ones[n];
+    if (n < 100) {
+      const unit = n % 10;
+      return tens[Math.floor(n / 10)] + (unit ? " " + ones[unit] : "");
+    }
+    const rem = n % 100;
+    return ones[Math.floor(n / 100)] + " Hundred" + (rem ? " and " + convertLessThanThousand(rem) : "");
+  }
+  
+  let num = totalRupees;
+  let wordResult = "";
+  
+  if (Math.floor(num / 10000000) > 0) {
+    wordResult += convertLessThanThousand(Math.floor(num / 10000000)) + " Crore ";
+    num %= 10000000;
+  }
+  if (Math.floor(num / 100000) > 0) {
+    wordResult += convertLessThanThousand(Math.floor(num / 100000)) + " Lakh ";
+    num %= 100000;
+  }
+  if (Math.floor(num / 1000) > 0) {
+    wordResult += convertLessThanThousand(Math.floor(num / 1000)) + " Thousand ";
+    num %= 1000;
+  }
+  if (num > 0) {
+    wordResult += convertLessThanThousand(num);
+  }
+  
+  return wordResult.trim() + " Rupees Only";
 }

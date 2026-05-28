@@ -209,7 +209,15 @@ async function seedDefaultData() {
   try {
     const tenantCount = await prisma.tenant.count();
     if (tenantCount > 0) {
-      await ensureDefaultUsers();
+      // In production, skip seeding demo users with hardcoded passwords
+      if (process.env.NODE_ENV !== "production") {
+        await ensureDefaultUsers();
+      }
+      return;
+    }
+
+    // Skip demo data seeding entirely in production
+    if (process.env.NODE_ENV === "production") {
       return;
     }
 
@@ -357,7 +365,7 @@ async function ensureDefaultUsers() {
 // ─── Utilities ───────────────────────────────────────────────
 
 function uid(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
 function dateOnly(value: string) {
@@ -531,6 +539,10 @@ export async function createSession(userId: string) {
   const sessionId = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
   await withRetry(() => prisma.authSession.create({ data: { id: sessionId, userId, expiresAt } }));
+
+  // Periodically clean up expired sessions (non-blocking)
+  prisma.authSession.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {});
+
   return { sessionId, expiresAt: expiresAt.toISOString() };
 }
 
@@ -644,11 +656,16 @@ export async function getAllTenants() {
     orderBy: { createdAt: "desc" },
     include: { users: { where: { role: { in: ["shop_admin", "stockist_admin"] } }, take: 1 } }
   });
-  const priority = { pending: 0, approved: 1, rejected: 2 } as Record<string, number>;
+  const getPriority = (status: string) => {
+    if (status === "pending") return 0;
+    if (status === "approved") return 1;
+    if (status === "rejected") return 2;
+    return 9;
+  };
   return tenants.map((t) => ({
     ...mapTenant(t),
     ownerRole: t.users[0]?.role || "shop_admin"
-  })).sort((a, b) => (priority[a.approvalStatus] ?? 9) - (priority[b.approvalStatus] ?? 9));
+  })).sort((a, b) => getPriority(a.approvalStatus) - getPriority(b.approvalStatus));
 }
 
 export async function getApprovedTenantsWithOwners() {
@@ -693,8 +710,16 @@ export async function resetPasswordWithOtp(email: string, otp: string, password:
   if (!otpRow) return false;
   await prisma.$transaction([
     prisma.user.update({ where: { id: String(user.id) }, data: { passwordHash: await hashPassword(password) } }),
-    prisma.passwordResetOtp.update({ where: { id: otpRow.id }, data: { usedAt: new Date() } })
+    prisma.passwordResetOtp.update({ where: { id: otpRow.id }, data: { usedAt: new Date() } }),
+    // Invalidate ALL existing sessions for this user — prevents stolen-session reuse
+    prisma.authSession.deleteMany({ where: { userId: String(user.id) } })
   ]);
+  // Clear the in-memory session cache for this user
+  for (const [key, entry] of sessionCache.entries()) {
+    if (entry.user.id === String(user.id)) {
+      sessionCache.delete(key);
+    }
+  }
   return true;
 }
 
@@ -754,7 +779,8 @@ export async function getInventoryRows(tenantId: string) {
   await ensureDefaultData();
   const rows = await prisma.inventoryItem.findMany({
     where: { tenantId, isActive: true },
-    include: { medicine: true, supplier: true }
+    include: { medicine: true, supplier: true },
+    take: 1000
   });
   return sortInventory(rows.map(mapInventory));
 }
@@ -879,7 +905,8 @@ export async function getSuppliers(tenantId: string): Promise<LocalSupplier[]> {
   await ensureDefaultData();
   const suppliers = await prisma.supplier.findMany({
     where: { tenantId, isActive: true },
-    orderBy: { name: "asc" }
+    orderBy: { name: "asc" },
+    take: 500
   });
   return suppliers.map(mapSupplier);
 }
@@ -888,9 +915,15 @@ export async function addSupplier(tenantId: string, input: unknown) {
   const data = createSupplierSchema.parse(input);
   await ensureDefaultData();
   const existing = data.id ? await prisma.supplier.findFirst({ where: { tenantId, id: data.id } }) : null;
-  const supplierId = data.id ?? existing?.id ?? uid("sup");
 
-  if (data.id || existing) {
+  // If an ID was provided but doesn't belong to this tenant, reject it
+  if (data.id && !existing) {
+    throw new Error("Supplier not found or does not belong to this shop.");
+  }
+
+  const supplierId = existing?.id ?? uid("sup");
+
+  if (existing) {
     await prisma.supplier.update({
       where: { id: supplierId },
       data: {
@@ -945,7 +978,8 @@ export async function getCustomers(tenantId: string): Promise<LocalCustomer[]> {
   await ensureDefaultData();
   const customers = await prisma.customer.findMany({
     where: { tenantId },
-    orderBy: { createdAt: "desc" }
+    orderBy: { createdAt: "desc" },
+    take: 1000
   });
   return customers.map((c) => ({
     id: c.id, name: c.name, phone: c.phone, email: c.email,
@@ -973,9 +1007,15 @@ export async function addCustomer(tenantId: string, input: unknown) {
   const existing = data.id 
     ? await prisma.customer.findFirst({ where: { tenantId, id: data.id } }) 
     : (data.phone ? await prisma.customer.findFirst({ where: { tenantId, phone: data.phone } }) : null);
-  const customerId = data.id ?? existing?.id ?? uid("cust");
 
-  if (data.id || existing) {
+  // If an ID was provided but doesn't belong to this tenant, reject it
+  if (data.id && !existing) {
+    throw new Error("Customer not found or does not belong to this shop.");
+  }
+
+  const customerId = existing?.id ?? uid("cust");
+
+  if (existing) {
     await prisma.customer.update({
       where: { id: customerId },
       data: {
@@ -1136,7 +1176,7 @@ export async function createSale(tenantId: string, input: unknown) {
       include: { medicine: true, supplier: true }
     });
 
-    const inventoryMap = new Map(inventories.map((inv) => [inv.id, inv]));
+    const inventoryMap = new Map<string, any>(inventories.map((inv: any) => [inv.id, inv]));
     const inventoryRows: { row: LocalInventoryRow; line: (typeof data.lines)[number] }[] = [];
 
     for (const line of data.lines) {
@@ -1164,7 +1204,8 @@ export async function createSale(tenantId: string, input: unknown) {
 
     const totals = calculateBillTotals(saleLines);
     const invoiceCount = await tx.sale.count({ where: { tenantId } });
-    const invoiceNo = `MED-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(6, "0")}`;
+    const randomSuffix = crypto.randomBytes(2).toString("hex").toUpperCase();
+    const invoiceNo = `MED-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(6, "0")}-${randomSuffix}`;
     const customerName = data.customerName || "Walk-in Customer";
     let customerId: string | null = null;
 
@@ -1195,7 +1236,7 @@ export async function createSale(tenantId: string, input: unknown) {
 
     // Map sale item records for bulk batch insertion
     const saleItemData = inventoryRows.map(({ row, line }, index) => {
-      const lineTotal = totals.lineTotals[index];
+      const lineTotal = totals.lineTotals.at(index)!;
       return {
         id: uid("item"),
         saleId,
@@ -1236,7 +1277,7 @@ export async function createSale(tenantId: string, input: unknown) {
     const scheduleHData: any[] = [];
     for (const [index, line] of saleLines.entries()) {
       if (["H", "H1", "X"].includes(line.schedule)) {
-        const saleItemId = saleItemData[index].id;
+        const saleItemId = saleItemData.at(index)?.id;
         scheduleHData.push({
           id: uid("sch"),
           tenantId,
@@ -1371,7 +1412,7 @@ export async function getSalesTrend(tenantId: string, days = 7) {
     end.setDate(end.getDate() + 1);
     const daySales = sales.filter((s) => s.createdAt >= start && s.createdAt < end);
     return {
-      day: dayNames[start.getDay()],
+      day: dayNames.at(start.getDay()) ?? "",
       sales: Math.round(daySales.reduce((sum, s) => sum + s.totalPaisa, 0) / 100),
       bills: daySales.length
     };
@@ -1381,7 +1422,8 @@ export async function getSalesTrend(tenantId: string, days = 7) {
 export async function getScheduleHRegister(tenantId: string) {
   await ensureDefaultData();
   const rows = await prisma.scheduleHRegister.findMany({
-    where: { tenantId }, include: { saleItem: true }, orderBy: { saleDate: "desc" }
+    where: { tenantId }, include: { saleItem: true }, orderBy: { saleDate: "desc" },
+    take: 1000
   });
   return rows.map(mapScheduleHRow);
 }
@@ -1583,7 +1625,8 @@ export async function createPurchaseOrder(tenantId: string, input: {
   await ensureDefaultData();
   const poId = uid("po");
   const poCount = await prisma.purchaseOrder.count({ where: { tenantId } });
-  const poNumber = `PO-${new Date().getFullYear()}-${String(poCount + 1).padStart(5, "0")}`;
+  const randomSuffix = crypto.randomBytes(2).toString("hex").toUpperCase();
+  const poNumber = `PO-${new Date().getFullYear()}-${String(poCount + 1).padStart(5, "0")}-${randomSuffix}`;
   const totalPaisa = input.items.reduce((sum, i) => sum + i.quantity * i.ratePaisa, 0);
 
   await prisma.$transaction(async (tx) => {
@@ -1663,7 +1706,8 @@ export async function createSaleReturn(tenantId: string, input: {
   await ensureDefaultData();
   const returnId = uid("sret");
   const returnCount = await prisma.saleReturn.count({ where: { tenantId } });
-  const returnNo = `SR-${new Date().getFullYear()}-${String(returnCount + 1).padStart(5, "0")}`;
+  const randomSuffix = crypto.randomBytes(2).toString("hex").toUpperCase();
+  const returnNo = `SR-${new Date().getFullYear()}-${String(returnCount + 1).padStart(5, "0")}-${randomSuffix}`;
   const totalRefund = input.items.reduce((sum, i) => sum + i.refundPaisa, 0);
 
   await prisma.$transaction(async (tx) => {
@@ -1688,7 +1732,8 @@ export async function createSaleReturn(tenantId: string, input: {
       await tx.inventoryItem.update({ where: { id: item.inventoryId }, data: { quantity: { increment: item.quantity } } });
     }
 
-    if (sale.customerId) {
+    // Only decrement customer outstanding if the original sale was on credit
+    if (sale.customerId && (sale.status === "credit" || sale.paymentMode === "credit")) {
       await tx.customer.update({ where: { id: sale.customerId }, data: { outstandingPaisa: { decrement: totalRefund } } });
     }
   });
@@ -1724,7 +1769,8 @@ export async function createPurchaseReturn(tenantId: string, input: {
   await ensureDefaultData();
   const returnId = uid("pret");
   const returnCount = await prisma.purchaseReturn.count({ where: { tenantId } });
-  const returnNo = `PR-${new Date().getFullYear()}-${String(returnCount + 1).padStart(5, "0")}`;
+  const randomSuffix = crypto.randomBytes(2).toString("hex").toUpperCase();
+  const returnNo = `PR-${new Date().getFullYear()}-${String(returnCount + 1).padStart(5, "0")}-${randomSuffix}`;
   const totalPaisa = input.items.reduce((sum, i) => sum + i.quantity * i.ratePaisa, 0);
 
   await prisma.$transaction(async (tx) => {
@@ -1736,6 +1782,15 @@ export async function createPurchaseReturn(tenantId: string, input: {
     });
 
     for (const item of input.items) {
+      // Validate stock won't go negative
+      const inventory = await tx.inventoryItem.findFirst({
+        where: { id: item.inventoryId, tenantId, isActive: true }
+      });
+      if (!inventory) throw new Error(`Inventory item not found: ${item.medicineName}`);
+      if (inventory.quantity < item.quantity) {
+        throw new Error(`Insufficient stock for ${item.medicineName}. Available: ${inventory.quantity}, requested return: ${item.quantity}.`);
+      }
+
       await tx.purchaseReturnItem.create({
         data: {
           id: uid("pri"), purchaseReturnId: returnId, inventoryId: item.inventoryId,
@@ -1747,7 +1802,12 @@ export async function createPurchaseReturn(tenantId: string, input: {
       await tx.inventoryItem.update({ where: { id: item.inventoryId }, data: { quantity: { decrement: item.quantity } } });
     }
 
-    await tx.supplier.update({ where: { id: input.supplierId }, data: { balancePaisa: { decrement: totalPaisa } } });
+    // Decrement supplier balance, clamped to 0 minimum
+    const supplier = await tx.supplier.findUnique({ where: { id: input.supplierId } });
+    if (supplier) {
+      const newBalance = Math.max(0, supplier.balancePaisa - totalPaisa);
+      await tx.supplier.update({ where: { id: input.supplierId }, data: { balancePaisa: newBalance } });
+    }
   });
 
   return (await getPurchaseReturns(tenantId)).find((r) => r.id === returnId);
@@ -2054,5 +2114,5 @@ export function toCsv(rows: Record<string, unknown>[]) {
     const text = String(value ?? "");
     return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
   };
-  return [headers.join(","), ...rows.map((row) => headers.map((header) => escape(row[header])).join(","))].join("\n");
+  return [headers.join(","), ...rows.map((row) => headers.map((header) => escape(Reflect.get(row, header))).join(","))].join("\n");
 }

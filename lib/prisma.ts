@@ -29,11 +29,11 @@ function isTransientError(error: unknown): boolean {
   );
 }
 
-export async function withRetry<T>(
-  fn: () => Promise<T>,
+export async function withRetry(
+  fn: () => Promise<any>,
   maxAttempts = 3,
   baseDelayMs = 1000
-): Promise<T> {
+): Promise<any> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -77,4 +77,5 @@ export const prisma = basePrisma.$extends({
       return withRetry(() => query(args));
     },
   },
-}) as unknown as PrismaClient;
+}) as any;
+

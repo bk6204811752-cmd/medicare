@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireChemist } from "@/lib/api-auth";
 import {
   createStockistOrder,
   getStockistOrdersForChemist,
@@ -11,10 +11,13 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const chemistErr = requireChemist(auth.ctx);
+  if (chemistErr) return chemistErr;
   try {
     const orders = await getStockistOrdersForChemist(auth.ctx.tenantId);
     // Sanitize OTP from chemist-side list (only show via notification)
-    const safe = orders.map((o) => ({
+    const safe = (orders as any[]).map((o) => ({
       ...o,
       otp: undefined,
       orderDate: o.orderDate.toISOString(),
@@ -34,6 +37,10 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const chemistErr = requireChemist(auth.ctx);
+  if (chemistErr) return chemistErr;
+
   try {
     const body = await req.json();
     const { stockistTenantId, notes, items } = body;

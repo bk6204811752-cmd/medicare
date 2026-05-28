@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireStockist } from "@/lib/api-auth";
 import { getIncomingOrdersForStockist } from "@/lib/stockist-integration";
 
 export const dynamic = "force-dynamic";
@@ -8,9 +8,13 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
+
   try {
     const orders = await getIncomingOrdersForStockist(auth.ctx.tenantId);
-    const safe = orders.map((o) => ({
+    const safe = (orders as any[]).map((o) => ({
       ...o,
       otp: undefined, // never send OTP to front end via list
       orderDate: o.orderDate.toISOString(),

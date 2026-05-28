@@ -27,10 +27,21 @@ export async function GET(request: Request) {
     }
 
     // 2. Fetch all B2B Sales (Invoices) and Receipts (Payments)
+    // Include deep inventory relation for full medicine details
     const [sales, receipts] = await Promise.all([
       prisma.b2BSale.findMany({
         where: { tenantId: tid, partyId },
-        include: { items: true },
+        include: { 
+          items: {
+            include: {
+              inventory: {
+                include: {
+                  medicine: true
+                }
+              }
+            }
+          }
+        },
         orderBy: { invoiceDate: "asc" }
       }),
       prisma.receipt.findMany({
@@ -52,13 +63,21 @@ export async function GET(request: Request) {
         debitPaisa: s.paymentMode === "credit" ? s.totalPaisa : 0,
         creditPaisa: 0,
         paidPaisa: s.amountPaidPaisa,
+        status: s.status,
         paymentMode: s.paymentMode,
         items: s.items.map((item) => ({
           name: item.medicineName,
           qty: item.quantity,
           free: item.freeQuantity,
           rate: item.saleRatePaisa,
-          total: item.totalPaisa
+          total: item.totalPaisa,
+          mrpPaisa: item.mrpPaisa,
+          batchNo: item.batchNo,
+          expiryDate: item.expiryDate ? item.expiryDate.toISOString().slice(0, 10) : null,
+          mfgDate: item.inventory?.mfgDate ? item.inventory.mfgDate.toISOString().slice(0, 10) : null,
+          hsnCode: item.inventory?.hsnCode || item.inventory?.medicine?.hsnCode || null,
+          manufacturer: item.inventory?.medicine?.manufacturer || null,
+          packSize: item.inventory?.medicine?.packSize || null,
         }))
       });
     });

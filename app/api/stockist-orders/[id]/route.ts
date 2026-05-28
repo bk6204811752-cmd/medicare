@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireStockist } from "@/lib/api-auth";
 import {
   acceptOrder,
   rejectOrder,
@@ -15,6 +15,9 @@ export async function PATCH(
 ) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
 
   const { id: orderId } = await params;
   const tenantId = auth.ctx.tenantId;

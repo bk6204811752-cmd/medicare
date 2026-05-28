@@ -658,6 +658,101 @@ export async function getB2BSalesTrend(tenantId: string) {
 
 // ─── GSTR B2B Reports Aggregates ───────────────────────────────
 
+// ─── Analytics: Monthly Profit, Top Chemists, Top Medicines ───
+
+export async function getStockistAnalytics(tenantId: string, fromDateStr: string, toDateStr: string) {
+  const fromDate = new Date(`${fromDateStr}T00:00:00.000Z`);
+  const toDate = new Date(`${toDateStr}T23:59:59.999Z`);
+
+  const sales = await prisma.b2BSale.findMany({
+    where: { tenantId, invoiceDate: { gte: fromDate, lte: toDate } },
+    include: { 
+      party: true,
+      items: {
+        include: {
+          inventory: true
+        }
+      }
+    },
+    orderBy: { invoiceDate: "asc" },
+  });
+
+  // Monthly sales revenue and cost from inventory purchase rate
+  const monthlyMap: Record<string, { revenue: number; cost: number; profit: number }> = {};
+  for (const sale of sales) {
+    const monthKey = sale.invoiceDate.toISOString().slice(0, 7); // "YYYY-MM"
+    if (!monthlyMap[monthKey]) monthlyMap[monthKey] = { revenue: 0, cost: 0, profit: 0 };
+    monthlyMap[monthKey].revenue += sale.taxablePaisa;
+
+    // Cost = sum of purchaseRatePaisa * qty for items in this sale
+    for (const item of sale.items) {
+      const purchaseCost = (item.inventory?.purchaseRatePaisa || 0) * item.quantity;
+      monthlyMap[monthKey].cost += purchaseCost;
+    }
+  }
+  for (const key of Object.keys(monthlyMap)) {
+    monthlyMap[key].profit = monthlyMap[key].revenue - monthlyMap[key].cost;
+  }
+
+  const monthlyProfit = Object.entries(monthlyMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, data]) => ({
+      month,
+      label: new Date(month + "-01").toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+      revenuePaisa: data.revenue,
+      costPaisa: data.cost,
+      profitPaisa: data.profit,
+    }));
+
+  // Top Chemists by revenue
+  const chemistMap: Record<string, { name: string; revenuePaisa: number; invoices: number }> = {};
+  for (const sale of sales) {
+    const id = sale.partyId;
+    if (!chemistMap[id]) chemistMap[id] = { name: sale.party.name, revenuePaisa: 0, invoices: 0 };
+    chemistMap[id].revenuePaisa += sale.totalPaisa;
+    chemistMap[id].invoices += 1;
+  }
+  const topChemists = Object.entries(chemistMap)
+    .map(([id, data]) => ({ partyId: id, ...data }))
+    .sort((a, b) => b.revenuePaisa - a.revenuePaisa)
+    .slice(0, 10);
+
+  // Top Medicines by quantity sold
+  const medMap: Record<string, { name: string; qty: number; revenuePaisa: number }> = {};
+  for (const sale of sales) {
+    for (const item of sale.items) {
+      const name = item.medicineName;
+      if (!medMap[name]) medMap[name] = { name, qty: 0, revenuePaisa: 0 };
+      medMap[name].qty += item.quantity + item.freeQuantity;
+      medMap[name].revenuePaisa += item.totalPaisa;
+    }
+  }
+  const topMedicines = Object.values(medMap)
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 10);
+
+  // Summary totals (cost from inventory purchase rates)
+  let totalCostPaisa = 0;
+  for (const sale of sales) {
+    for (const item of sale.items) {
+      totalCostPaisa += (item.inventory?.purchaseRatePaisa || 0) * item.quantity;
+    }
+  }
+  const totalRevenuePaisa = sales.reduce((s, sale) => s + sale.totalPaisa, 0);
+  const totalProfitPaisa = totalRevenuePaisa - totalCostPaisa;
+  const totalInvoices = sales.length;
+
+  return {
+    monthlyProfit,
+    topChemists,
+    topMedicines,
+    totalRevenuePaisa,
+    totalCostPaisa,
+    totalProfitPaisa,
+    totalInvoices,
+  };
+}
+
 export async function getGSTR1B2B(tenantId: string, fromDateStr: string, toDateStr: string) {
   const fromDate = new Date(`${fromDateStr}T00:00:00.000Z`);
   const toDate = new Date(`${toDateStr}T23:59:59.999Z`);

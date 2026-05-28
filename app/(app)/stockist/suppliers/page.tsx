@@ -4,6 +4,7 @@ import { formatCurrency } from "@/lib/utils";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createStockistSupplierAction } from "@/app/stockist-actions";
+import Link from "next/link";
 
 export default async function StockistSuppliersPage({ searchParams }: { searchParams: Promise<{ success?: string; error?: string }> }) {
   const user = await requireUser();
@@ -97,7 +98,9 @@ export default async function StockistSuppliersPage({ searchParams }: { searchPa
                   {suppliers.map((sup) => (
                     <tr key={sup.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-4 py-3.5">
-                        <p className="font-semibold text-med-navy text-sm sm:text-base leading-snug">{sup.name}</p>
+                        <Link href={`/stockist/suppliers/${encodeURIComponent(sup.id)}`} className="font-semibold text-med-navy text-sm sm:text-base leading-snug hover:text-med-greenDark hover:underline">
+                          {sup.name}
+                        </Link>
                         <p className="text-xs text-slate-400 font-medium mt-0.5">{sup.phone || "No contact"} • {sup.email || "No email"}</p>
                       </td>
                       <td className="px-4 py-3.5 font-mono text-xs text-slate-700 font-bold">

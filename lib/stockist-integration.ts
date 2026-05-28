@@ -1,12 +1,14 @@
+import crypto from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { withRetry } from "@/lib/prisma";
+import { hashOtp } from "@/lib/local-db";
 
 function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function generate6DigitOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 function generateOrderNo(): string {
@@ -175,7 +177,7 @@ export async function acceptOrder(orderId: string, stockistTenantId: string) {
       where: { id: orderId },
       data: {
         status: "otp_sent",
-        otp,
+        otp: hashOtp(otp), // Store hashed OTP, not plaintext
         otpExpiresAt,
       },
     });
@@ -257,7 +259,7 @@ export async function confirmDelivery(
   if (!order) throw new Error("Order not found");
   if (order.status !== "otp_sent")
     throw new Error("Order is not awaiting delivery confirmation");
-  if (!order.otp || order.otp !== otp) throw new Error("Invalid OTP");
+  if (!order.otp || order.otp !== hashOtp(otp)) throw new Error("Invalid OTP");
   if (order.otpExpiresAt && order.otpExpiresAt < new Date())
     throw new Error("OTP has expired");
 

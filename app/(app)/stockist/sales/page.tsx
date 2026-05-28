@@ -24,22 +24,28 @@ export default async function SalesPage() {
     creditLimitPaisa: p.creditLimitPaisa,
     outstandingPaisa: p.outstandingPaisa,
     routeId: p.routeId,
+    address: p.address,
   }));
 
   const uiInventory = inventory.map((i) => ({
     id: i.id,
     batchNo: i.batchNo,
+    mfgDate: i.mfgDate ? i.mfgDate.toISOString().slice(0, 10) : null,
     expiryDate: i.expiryDate.toISOString().slice(0, 10),
     quantity: i.quantity,
     ptrPaisa: i.ptrPaisa,
     saleRatePaisa: i.saleRatePaisa,
     mrpPaisa: i.mrpPaisa,
+    hsnCode: i.hsnCode || "",
     rackLocation: i.rackLocation,
     medicine: {
       id: i.medicine.id,
       name: i.medicine.name,
       composition: i.medicine.composition,
       gstRate: i.medicine.gstRate,
+      manufacturer: i.medicine.manufacturer || "",
+      packSize: i.medicine.packSize || "",
+      hsnCode: i.medicine.hsnCode || "",
     },
   }));
 

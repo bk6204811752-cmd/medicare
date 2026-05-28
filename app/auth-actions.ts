@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import { clearAuthSession, requireSuperAdmin, setAuthSession } from "@/lib/auth";
 import { prisma, withRetry } from "@/lib/prisma";
 import {
+  checkLoginRateLimit,
+  checkOtpSendRateLimit,
+  checkOtpVerifyRateLimit,
+  checkPasswordResetRateLimit,
+} from "@/lib/rate-limit";
+import {
   createEmailVerificationOtp,
   createPasswordResetOtp,
   getAllTenants,
@@ -64,6 +70,13 @@ export async function sendVerificationOtpAction(formData: FormData) {
   }
   const data = parsed.data;
 
+  // Rate limit OTP sends: max 3 per email per 10 minutes
+  const rl = checkOtpSendRateLimit(data.email);
+  if (!rl.allowed) {
+    const retryMin = Math.ceil(rl.retryAfterMs / 60000);
+    redirectWith("/register", "error", `Too many OTP requests. Please try again in ${retryMin} minute(s).`);
+  }
+
   try {
     // Check if email already exists — retry for database cold starts
     const existingUser = await withRetry(() => getUserByEmailWithPassword(data.email));
@@ -81,8 +94,7 @@ export async function sendVerificationOtpAction(formData: FormData) {
     // Re-throw Next.js redirect errors — they use throw internally
     if (error && typeof error === "object" && "digest" in error) throw error;
     console.error("sendVerificationOtpAction error:", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    redirectWith("/register", "error", "Something went wrong: " + msg);
+    redirectWith("/register", "error", "Something went wrong. Please try again later.");
   }
 
   // Redirect back to register with verification step
@@ -164,6 +176,13 @@ export async function loginAction(formData: FormData) {
   }
   const data = parsed.data;
 
+  // Rate limit login attempts: max 5 per email per 15 minutes
+  const rl = checkLoginRateLimit(data.email);
+  if (!rl.allowed) {
+    const retryMin = Math.ceil(rl.retryAfterMs / 60000);
+    redirectWith("/login", "error", `Too many login attempts. Please try again in ${retryMin} minute(s).`);
+  }
+
   try {
     const user = await withRetry(() => getUserByEmailWithPassword(data.email));
     if (!user || !(await verifyPassword(data.password, String(user.password_hash)))) {
@@ -211,6 +230,13 @@ export async function forgotPasswordAction(formData: FormData) {
   }
   const data = parsed.data;
 
+  // Rate limit password reset requests: max 3 per email per 10 minutes
+  const rl = checkPasswordResetRateLimit(data.email);
+  if (!rl.allowed) {
+    const retryMin = Math.ceil(rl.retryAfterMs / 60000);
+    redirectWith("/forgot-password", "error", `Too many reset requests. Please try again in ${retryMin} minute(s).`);
+  }
+
   try {
     const user = await withRetry(() => getUserByEmailWithPassword(data.email));
     if (user) {
@@ -223,8 +249,7 @@ export async function forgotPasswordAction(formData: FormData) {
   } catch (error: unknown) {
     if (error && typeof error === "object" && "digest" in error) throw error;
     console.error("forgotPasswordAction error:", error);
-    const msg = error instanceof Error ? error.message : String(error);
-    redirectWith("/forgot-password", "error", "Something went wrong: " + msg);
+    redirectWith("/forgot-password", "error", "Something went wrong. Please try again later.");
   }
 
   redirect(`/reset-password?email=${encodeURIComponent(data.email)}&success=${encodeURIComponent("If the email exists, an OTP has been sent.")}`);
@@ -242,6 +267,13 @@ export async function resetPasswordAction(formData: FormData) {
     redirectWith(`/reset-password?email=${encodeURIComponent(formValue(formData, "email"))}`, "error", parsed.error.issues[0]?.message || "Invalid reset details");
   }
   const data = parsed.data;
+
+  // Rate limit OTP verification: max 5 per email per 15 minutes
+  const rl = checkOtpVerifyRateLimit(data.email);
+  if (!rl.allowed) {
+    const retryMin = Math.ceil(rl.retryAfterMs / 60000);
+    redirectWith(`/reset-password?email=${encodeURIComponent(data.email)}`, "error", `Too many attempts. Please try again in ${retryMin} minute(s).`);
+  }
 
   const ok = await withRetry(() => resetPasswordWithOtp(data.email, data.otp, data.password));
   if (!ok) {

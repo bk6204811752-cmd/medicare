@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireStockist } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -10,6 +10,9 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
 
   const { searchParams } = new URL(request.url);
   const indentId = searchParams.get("indentId")?.trim() ?? "";

@@ -206,12 +206,12 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   // Memoize active class computation
-  const activeClass = useCallback((href: string) =>
-    pathname.startsWith(href)
+  const activeClass = useCallback((href: string) => {
+    const isActive = pathname === href || pathname.startsWith(href + "/");
+    return isActive
       ? "bg-med-greenSoft text-med-green border-l-[3px] border-med-green font-semibold"
-      : "text-slate-600 hover:bg-slate-50 hover:text-med-navy border-l-[3px] border-transparent",
-    [pathname]
-  );
+      : "text-slate-600 hover:bg-slate-50 hover:text-med-navy border-l-[3px] border-transparent";
+  }, [pathname]);
 
   const toggleCollapsed = useCallback(() => setCollapsed(c => !c), []);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
@@ -339,7 +339,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
               key={item.href}
               href={item.href}
               className={`flex flex-1 flex-col items-center justify-center h-full transition-transform ${
-                pathname.startsWith(item.href)
+                (pathname === item.href || pathname.startsWith(item.href + "/"))
                   ? "text-med-green border-t-2 border-med-green font-semibold scale-105"
                   : "text-slate-400 border-t-2 border-transparent"
               }`}

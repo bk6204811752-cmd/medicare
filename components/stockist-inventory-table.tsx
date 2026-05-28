@@ -42,12 +42,26 @@ interface StockistInventoryRow {
 export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [manufacturer, setManufacturer] = useState("all");
+  const [supplier, setSupplier] = useState("all");
   const [status, setStatus] = useState<StockStatus>("all");
   const [page, setPage] = useState(0);
 
   const categories = useMemo(() => {
     return Array.from(
       new Set(rows.map((row) => row.medicine.category).filter(Boolean))
+    ).sort() as string[];
+  }, [rows]);
+
+  const manufacturers = useMemo(() => {
+    return Array.from(
+      new Set(rows.map((row) => row.medicine.manufacturer).filter(Boolean))
+    ).sort() as string[];
+  }, [rows]);
+
+  const suppliers = useMemo(() => {
+    return Array.from(
+      new Set(rows.map((row) => row.supplier?.name).filter(Boolean))
     ).sort() as string[];
   }, [rows]);
 
@@ -95,6 +109,8 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
 
         if (normalized && !haystack.includes(normalized)) return false;
         if (category !== "all" && row.medicine.category !== category) return false;
+        if (manufacturer !== "all" && row.medicine.manufacturer !== manufacturer) return false;
+        if (supplier !== "all" && row.supplier?.name !== supplier) return false;
         
         if (status === "healthy" && (low || expiring || expired)) return false;
         if (status === "low" && !low) return false;
@@ -109,7 +125,7 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
         const bRisk = Number(b.quantity <= b.reorderLevel) + Number(b._days <= 60);
         return bRisk - aRisk || a._days - b._days || a.medicine.name.localeCompare(b.medicine.name);
       });
-  }, [category, query, rowsWithExpiry, status]);
+  }, [category, query, rowsWithExpiry, status, manufacturer, supplier]);
 
   // Pagination bounds checking
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
@@ -129,7 +145,7 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
         </div>
 
         <div className="glass-card p-4 flex flex-col justify-between h-24 bg-white shadow-xs hover:scale-102 hover:shadow transition-all duration-200">
-          <span className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Low Stock Lots</span>
+          <span className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Low Stock Lots</span>
           <span className={`text-2xl font-black mt-1 ${lowCount > 0 ? "text-orange-600" : "text-emerald-650"}`}>{lowCount}</span>
           <span className="text-[9px] text-slate-450 font-bold flex items-center gap-1">
             <AlertTriangle className="h-3 w-3 text-orange-500" /> Requires distributor reorder
@@ -157,7 +173,7 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
       </div>
 
       {/* 🔍 Search & Advanced Filter Bar */}
-      <div className="glass-card p-4 grid gap-3 md:grid-cols-[1fr_200px_200px]">
+      <div className="glass-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-[1.5fr_1.2fr_1.2fr_1.2fr_1.1fr]">
         <label className="relative block">
           <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
           <input
@@ -187,6 +203,36 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
             ))}
           </select>
         </label>
+
+        {/* Manufacturer Filter */}
+        <select 
+          className="h-11 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 bg-white" 
+          value={manufacturer} 
+          onChange={(e) => {
+            setManufacturer(e.target.value);
+            setPage(0);
+          }}
+        >
+          <option value="all">All Manufacturers</option>
+          {manufacturers.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+
+        {/* Supplier Filter */}
+        <select 
+          className="h-11 rounded-lg border border-slate-205 px-3 text-xs font-bold text-slate-700 bg-white" 
+          value={supplier} 
+          onChange={(e) => {
+            setSupplier(e.target.value);
+            setPage(0);
+          }}
+        >
+          <option value="all">All Suppliers</option>
+          {suppliers.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
 
         <select 
           className="h-11 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 bg-white" 

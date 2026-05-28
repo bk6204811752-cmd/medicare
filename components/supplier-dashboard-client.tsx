@@ -48,10 +48,14 @@ type LocalSupplier = {
 
 export function SupplierDashboardClient({
   supplier,
-  history
+  history,
+  backUrl = "/shop/suppliers",
+  hideBackBtn = false
 }: {
   supplier: LocalSupplier;
   history: SupplyItem[];
+  backUrl?: string;
+  hideBackBtn?: boolean;
 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"history" | "medicines">("history");
@@ -201,14 +205,16 @@ export function SupplierDashboardClient({
   return (
     <div className="space-y-6">
       {/* Back to Suppliers */}
-      <div>
-        <Link
-          href="/shop/suppliers"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4" /> Back to Suppliers
-        </Link>
-      </div>
+      {!hideBackBtn && (
+        <div>
+          <Link
+            href={backUrl}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4" /> Back to Suppliers
+          </Link>
+        </div>
+      )}
 
       {/* ─── HERO & PROFILE CARD ─── */}
       <div className="grid gap-6 lg:grid-cols-3">

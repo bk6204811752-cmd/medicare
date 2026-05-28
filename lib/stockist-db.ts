@@ -387,6 +387,19 @@ export async function createB2BSale(tenantId: string, input: {
   });
 }
 
+export async function getB2BSalesWithItems(tenantId: string) {
+  return await withRetry(() =>
+    prisma.b2BSale.findMany({
+      where: { tenantId },
+      include: {
+        party: true,
+        items: true,
+      },
+      orderBy: { invoiceDate: "desc" },
+    })
+  );
+}
+
 // ─── Credit Ledger & receipts ──────────────────────────────────
 
 export async function getReceipts(tenantId: string) {

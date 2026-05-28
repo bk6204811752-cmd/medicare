@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { History } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getParties, getSalesmen, getWholesaleInventory } from "@/lib/stockist-db";
 import { StockistSalesPos } from "@/components/stockist-sales-pos";
@@ -57,10 +59,18 @@ export default async function SalesPage() {
 
   return (
     <div className="space-y-6 max-w-full overflow-x-hidden">
-      <PageHeader
-        title="B2B POS & Invoice Booking"
-        description="Fast offline-ready B2B direct billing and drug order booking console"
-      />
+      <div className="no-print">
+        <PageHeader
+          title="B2B POS & Invoice Booking"
+          description="Fast offline-ready B2B direct billing and drug order booking console"
+          action={
+            <Link href="/stockist/sales/history" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:scale-95 transition-all">
+              <History className="h-4 w-4 text-slate-500" />
+              Sales History
+            </Link>
+          }
+        />
+      </div>
       <StockistSalesPos
         parties={uiParties}
         inventory={uiInventory}

@@ -83,18 +83,41 @@ export async function GET(request: Request) {
     });
 
     receipts.forEach((r) => {
+      let isReturn = r.paymentMode === "return";
+      let returnItems: any[] = [];
+      let desc = `Payment Collection Receipt (${r.paymentMode.toUpperCase()})${r.referenceNo ? ` - Ref: ${r.referenceNo}` : ""}`;
+      
+      if (isReturn) {
+        desc = `Sales Return Credit Note (Ref: ${r.receiptNo})`;
+        try {
+          const parsed = JSON.parse(r.notes || "{}");
+          if (parsed.items) {
+            returnItems = parsed.items.map((item: any) => ({
+              name: item.medicineName,
+              qty: item.quantity,
+              free: 0,
+              rate: item.ratePaisa,
+              total: item.quantity * item.ratePaisa,
+              batchNo: item.batchNo || "N/A"
+            }));
+          }
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+
       transactions.push({
         id: r.id,
         date: r.receiptDate,
         type: "receipt",
         refNo: r.receiptNo,
-        description: `Payment Collection Receipt (${r.paymentMode.toUpperCase()})${r.referenceNo ? ` - Ref: ${r.referenceNo}` : ""}`,
+        description: desc,
         debitPaisa: 0,
         creditPaisa: r.amountPaisa,
         paidPaisa: r.amountPaisa,
         paymentMode: r.paymentMode,
-        notes: r.notes || "",
-        items: []
+        notes: isReturn ? "" : (r.notes || ""),
+        items: returnItems
       });
     });
 

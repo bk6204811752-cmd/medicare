@@ -12,11 +12,23 @@ const PAGE_SIZE = 50;
 export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [manufacturer, setManufacturer] = useState("all");
+  const [supplier, setSupplier] = useState("all");
   const [status, setStatus] = useState<StockStatus>("all");
   const [page, setPage] = useState(0);
 
   const categories = useMemo(
     () => Array.from(new Set(rows.map((row) => row.medicine.category).filter(Boolean))).sort() as string[],
+    [rows]
+  );
+
+  const manufacturers = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.medicine.manufacturer).filter(Boolean))).sort() as string[],
+    [rows]
+  );
+
+  const suppliers = useMemo(
+    () => Array.from(new Set(rows.map((row) => row.supplier?.name).filter(Boolean))).sort() as string[],
     [rows]
   );
 
@@ -57,6 +69,8 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
 
         if (normalized && !haystack.includes(normalized)) return false;
         if (category !== "all" && row.medicine.category !== category) return false;
+        if (manufacturer !== "all" && row.medicine.manufacturer !== manufacturer) return false;
+        if (supplier !== "all" && row.supplier?.name !== supplier) return false;
         if (status === "healthy" && (low || expiring || expired)) return false;
         if (status === "low" && !low) return false;
         if (status === "expiring" && !expiring) return false;
@@ -68,7 +82,7 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
         const bRisk = Number(b.quantity <= b.reorderLevel) + Number(b._days <= 60);
         return bRisk - aRisk || a._days - b._days;
       });
-  }, [category, query, rowsWithExpiry, status]);
+  }, [category, query, rowsWithExpiry, status, manufacturer, supplier]);
 
   // Reset to page 0 when filters change
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
@@ -79,7 +93,7 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
 
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="grid gap-3 border-b border-slate-200 p-4 md:grid-cols-[1fr_180px_180px_auto]">
+      <div className="grid gap-3 border-b border-slate-200 p-4 sm:grid-cols-2 lg:grid-cols-[1.5fr_1.2fr_1.2fr_1.2fr_1.2fr_auto] items-center">
         <label className="relative">
           <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
           <input
@@ -91,7 +105,7 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
         </label>
         <label className="relative">
           <Filter className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
-          <select className="h-11 w-full rounded-md border border-slate-300 pl-9 pr-3" value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }}>
+          <select className="h-11 w-full rounded-md border border-slate-300 pl-9 pr-3 bg-white" value={category} onChange={(event) => { setCategory(event.target.value); setPage(0); }}>
             <option value="all">All categories</option>
             {categories.map((item) => (
               <option key={item} value={item}>
@@ -100,7 +114,24 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
             ))}
           </select>
         </label>
-        <select className="h-11 rounded-md border border-slate-300 px-3" value={status} onChange={(event) => { setStatus(event.target.value as StockStatus); setPage(0); }}>
+        
+        {/* Manufacturer Filter */}
+        <select className="h-11 rounded-md border border-slate-300 px-3 bg-white text-sm" value={manufacturer} onChange={(event) => { setManufacturer(event.target.value); setPage(0); }}>
+          <option value="all">All Manufacturers</option>
+          {manufacturers.map((m) => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
+
+        {/* Supplier Filter */}
+        <select className="h-11 rounded-md border border-slate-300 px-3 bg-white text-sm" value={supplier} onChange={(event) => { setSupplier(event.target.value); setPage(0); }}>
+          <option value="all">All Suppliers</option>
+          {suppliers.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+
+        <select className="h-11 rounded-md border border-slate-300 px-3 bg-white text-sm" value={status} onChange={(event) => { setStatus(event.target.value as StockStatus); setPage(0); }}>
           <option value="all">All stock status</option>
           <option value="healthy">Healthy</option>
           <option value="low">Low stock</option>

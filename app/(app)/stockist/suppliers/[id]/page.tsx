@@ -20,6 +20,7 @@ export default async function SupplierDetailPage({ params }: { params: Promise<{
     <SupplierDashboardClient
       supplier={supplier}
       history={history}
+      backUrl="/stockist/suppliers"
     />
   );
 }

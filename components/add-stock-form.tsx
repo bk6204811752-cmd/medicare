@@ -937,7 +937,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     else if ((sample.match(/;/g) || []).length > (sample.match(/,/g) || []).length) delimiter = ";";
 
     // Column index mapping from header
-    let colMap: Record<string, number> = { name: 0, batch: 1, mfgDate: -1, expiry: 2, qty: 3, rate: 4, mrp: 5, gst: 6, hsn: 7 };
+    let colMap: Record<string, number> = { name: 0, batch: 1, mfgDate: -1, expiry: 2, qty: 3, rate: 4, mrp: 5, gst: 6, hsn: 7, saleRate: -1 };
     if (hasHeader) {
       const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
       headers.forEach((h, i) => {
@@ -946,10 +946,14 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         else if (/mfg|manufactur/.test(h)) colMap.mfgDate = i;
         else if (/exp|expiry/.test(h)) colMap.expiry = i;
         else if (/qty|quantity|units/.test(h)) colMap.qty = i;
-        else if (/rate|purchase|cost|ptr/.test(h)) colMap.rate = i;
+        else if (/pts|purchase|cost|pur_rate/.test(h)) colMap.rate = i;
+        else if (/ptr|sale|retail/.test(h)) colMap.saleRate = i;
         else if (/mrp|max/.test(h)) colMap.mrp = i;
         else if (/gst|tax/.test(h)) colMap.gst = i;
         else if (/hsn/.test(h)) colMap.hsn = i;
+        else if (/rate/.test(h)) {
+          if (colMap.rate === 4) colMap.rate = i;
+        }
       });
     }
 
@@ -1001,9 +1005,18 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         }
       }
 
-      const mrpVal = cols[colMap.mrp] || "";
-      const rateVal = cols[colMap.rate] || "";
-      const gstVal = cols[colMap.gst] || "12";
+      // Helper to clean price and numeric strings (removes ₹, Rs., commas, trailing /-, spaces)
+      function cleanPriceStr(val: string): string {
+        if (!val) return "";
+        const clean = val.replace(/[^0-9.]/g, "");
+        return clean === "." ? "" : clean;
+      }
+
+      const mrpVal = cleanPriceStr(cols[colMap.mrp] || "");
+      const rateVal = cleanPriceStr(cols[colMap.rate] || "");
+      const saleRateVal = colMap.saleRate >= 0 ? cleanPriceStr(cols[colMap.saleRate] || "") : mrpVal;
+      const gstVal = cleanPriceStr(cols[colMap.gst] || "12");
+      const qtyVal = cleanPriceStr(cols[colMap.qty] || "1");
 
       items.push({
         id: Math.random().toString(36).substring(2, 9),
@@ -1012,10 +1025,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         batchNo: cols[colMap.batch] || "",
         mfgDate,
         expiryDate,
-        quantity: cols[colMap.qty] || "1",
+        quantity: qtyVal,
         purchaseRate: rateVal,
         mrp: mrpVal,
-        saleRate: mrpVal,
+        saleRate: saleRateVal || mrpVal,
         gstRate: gstVal || "12",
         hsnCode: colMap.hsn >= 0 ? (cols[colMap.hsn] || "") : "",
       });
@@ -2415,8 +2428,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                         <th className="py-3 px-3 text-slate-600 font-bold w-32">MFG Date</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-36">Expiry Date <span className="text-red-500">*</span></th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">Qty (Loose)</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Rate (₹)</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Cost Rate (₹)</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Sale Rate (₹)</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">MRP (₹)</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-20">GST (%)</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-28 text-center">Status / Actions</th>
                       </tr>
                     </thead>
@@ -2521,11 +2536,35 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                               <input 
                                 type="number"
                                 step="0.01"
+                                value={item.saleRate}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'saleRate', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input 
+                                type="number"
+                                step="0.01"
                                 value={item.mrp}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'mrp', e.target.value)}
                                 className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
                               />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <select
+                                value={item.gstRate}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'gstRate', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green bg-white"
+                              >
+                                <option value="0">0%</option>
+                                <option value="5">5%</option>
+                                <option value="12">12%</option>
+                                <option value="18">18%</option>
+                                <option value="28">28%</option>
+                              </select>
                             </td>
                             <td className="py-2.5 px-3 text-center">
                               <div className="flex items-center justify-center gap-1.5">

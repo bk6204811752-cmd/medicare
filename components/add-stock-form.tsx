@@ -7,7 +7,7 @@ import {
   ChevronDown, Database, Plus, Search, Sparkles, X, Zap, 
   Camera, Upload, RefreshCw, CheckCircle2, 
   AlertCircle, FileText, Info, HelpCircle, Clipboard,
-  Loader2, Truck, UserCheck
+  Loader2, Truck, UserCheck, FileSpreadsheet
 } from "lucide-react";
 import { AddMedicineForm } from "@/components/add-medicine-form";
 import { BarcodeScanner } from "@/components/barcode-scanner";
@@ -29,6 +29,7 @@ type ScannedItem = {
   medicineId: string;
   name: string;
   batchNo: string;
+  mfgDate: string;
   expiryDate: string;
   quantity: string;
   purchaseRate: string;
@@ -125,30 +126,52 @@ function parseInvoiceTextSingle(text: string, medicinesList: SelectItem[]) {
     }
   }
 
-  // 3. Expiry Date detection (resilient to spaces like "05 / 2022")
+  // 3. Expiry Date detection (resilient to spaces like "05 / 2022" and full dates "15/06/2025")
   const expPatterns = [
+    // Full date with day: DD/MM/YYYY or DD-MM-YYYY
+    /(?:exp(?:\.?\s*date)?|expiry|exp\.?\s*dt|e\.?\s*date|mfg\.?\s*date)\s*[:\-\s]*([0-9]{1,2}\s*[\/\-]\s*[0-9]{1,2}\s*[\/\-]\s*[0-9]{2,4})/i,
+    // Month/Year format: MM/YYYY
     /(?:exp(?:\.?\s*date)?|expiry|exp\.?\s*dt|e\.?\s*date)\s*[:\-\s]*([0-9]{2}\s*[\/\-]\s*[0-9]{2,4})/i,
+    // Standalone full date: DD/MM/YYYY
+    /\b([0-9]{1,2})\s*[\/\-]\s*([0-9]{1,2})\s*[\/\-]\s*(20[2-9][0-9])\b/,
+    // Standalone MM/YYYY
     /\b(0[1-9]|1[0-2])\s*[\/\-]\s*(20[2-9][0-9]|[2-9][0-9])\b/,
-    /\b(20[2-9][0-9]|[2-9][0-9])\s*[\/\-]\s*(0[1-9]|1[0-2])\b/
   ];
   for (const pattern of expPatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      const parts = match[1].split(/[\/\-]/).map(p => p.trim());
-      if (parts.length === 2) {
+      const raw = match[1];
+      const parts = raw.split(/[\/\-]/).map(p => p.trim());
+      if (parts.length === 3) {
+        // Full date DD/MM/YYYY
+        let [d, m, y] = parts;
+        if (y.length === 2) y = "20" + y;
+        if (parseInt(d) > 12) { // likely day is first
+          detectedExpiry = `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+        } else {
+          detectedExpiry = `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+        }
+        break;
+      } else if (parts.length === 2) {
+        // MM/YYYY format - use last day of that month
         let month = parts[0];
         let year = parts[1];
-        if (month.length === 4) {
-          year = parts[0];
-          month = parts[1];
-        }
-        if (year.length === 2) {
-          year = "20" + year;
-        }
+        if (month.length === 4) { year = parts[0]; month = parts[1]; }
+        if (year.length === 2) year = "20" + year;
         month = month.padStart(2, "0");
-        detectedExpiry = `${year}-${month}-28`;
+        // Get last day of month
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        detectedExpiry = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
         break;
       }
+    }
+    // Handle 3-group regex (standalone full date)
+    if (match && match[3]) {
+      const d = match[1].padStart(2, "0");
+      const m = match[2].padStart(2, "0");
+      const y = match[3];
+      detectedExpiry = `${y}-${m}-${d}`;
+      break;
     }
   }
 
@@ -216,6 +239,7 @@ function parseInvoiceTextSingle(text: string, medicinesList: SelectItem[]) {
     medicineId: detectedMedicineId,
     name: detectedName,
     batchNo: detectedBatch,
+    mfgDate: "",
     expiryDate: detectedExpiry,
     quantity: detectedQty,
     purchaseRate: detectedPurchaseRate,
@@ -252,21 +276,32 @@ function parseInvoiceText(text: string, medicinesList: SelectItem[]): ScannedIte
       continue;
     }
 
-    // Expiry Date (supports spaces e.g. "05 / 2022")
-    const expRegex = /\b(0[1-9]|1[0-2])\s*[\/\-]\s*(20[2-9][0-9]|[2-9][0-9])\b/g;
+    // Expiry Date (supports full dates DD/MM/YYYY and month/year MM/YYYY or MM/YY)
     let expiryDateStr = "";
     let cleanLine = line;
-    const expMatch = expRegex.exec(line);
     
-    if (expMatch) {
-      let month = expMatch[1];
-      let year = expMatch[2];
-      if (year.length === 2) {
-        year = "20" + year;
+    // Try full date first: DD/MM/YYYY or DD-MM-YYYY
+    const fullDateRegex = /\b([0-9]{1,2})\s*[\/\-]\s*([0-9]{1,2})\s*[\/\-]\s*(20[2-9][0-9])\b/g;
+    const fullDateMatch = fullDateRegex.exec(line);
+    if (fullDateMatch) {
+      const d = fullDateMatch[1].padStart(2, "0");
+      const m = fullDateMatch[2].padStart(2, "0");
+      const y = fullDateMatch[3];
+      expiryDateStr = `${y}-${m}-${d}`;
+      cleanLine = cleanLine.replace(fullDateMatch[0], " ");
+    } else {
+      // Fallback to month/year: MM/YYYY
+      const expRegex = /\b(0[1-9]|1[0-2])\s*[\/\-]\s*(20[2-9][0-9]|[2-9][0-9])\b/g;
+      const expMatch = expRegex.exec(line);
+      if (expMatch) {
+        let month = expMatch[1];
+        let year = expMatch[2];
+        if (year.length === 2) year = "20" + year;
+        month = month.padStart(2, "0");
+        const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+        expiryDateStr = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+        cleanLine = cleanLine.replace(expMatch[0], " ");
       }
-      month = month.padStart(2, "0");
-      expiryDateStr = `${year}-${month}-28`;
-      cleanLine = cleanLine.replace(expMatch[0], " ");
     }
 
     // A valid invoice table row must have an expiry date
@@ -399,6 +434,7 @@ function parseInvoiceText(text: string, medicinesList: SelectItem[]): ScannedIte
       medicineId: detectedMedicineId,
       name: matchedName,
       batchNo: detectedBatch,
+      mfgDate: "",
       expiryDate: expiryDateStr,
       quantity: finalQty,
       purchaseRate: detectedRate,
@@ -553,6 +589,12 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [rowStatuses, setRowStatuses] = useState<Record<string, "idle" | "saving" | "success" | "error">>({});
   const [isMobile, setIsMobile] = useState(false);
+
+  // Bulk CSV/TXT/PDF file import states
+  const [showBulkFileModal, setShowBulkFileModal] = useState(false);
+  const [bulkFileProcessing, setBulkFileProcessing] = useState(false);
+  const [bulkFileStep, setBulkFileStep] = useState("");
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
 
   // Device detection for camera options
   useEffect(() => {
@@ -875,6 +917,190 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     }
   };
 
+  // ─── Parse CSV/TXT structured stock data ───
+  function parseCsvTextToItems(text: string): ScannedItem[] {
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const items: ScannedItem[] = [];
+
+    // Detect if CSV has a header row
+    const firstLine = lines[0]?.toLowerCase() || "";
+    const hasHeader = firstLine.includes("name") || firstLine.includes("medicine") ||
+      firstLine.includes("batch") || firstLine.includes("expiry") || firstLine.includes("qty");
+
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+
+    // Try to detect delimiter: comma, tab, pipe, semicolon
+    const sample = dataLines[0] || "";
+    let delimiter = ",";
+    if ((sample.match(/\t/g) || []).length > (sample.match(/,/g) || []).length) delimiter = "\t";
+    else if ((sample.match(/\|/g) || []).length > 2) delimiter = "|";
+    else if ((sample.match(/;/g) || []).length > (sample.match(/,/g) || []).length) delimiter = ";";
+
+    // Column index mapping from header
+    let colMap: Record<string, number> = { name: 0, batch: 1, mfgDate: -1, expiry: 2, qty: 3, rate: 4, mrp: 5, gst: 6, hsn: 7 };
+    if (hasHeader) {
+      const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+      headers.forEach((h, i) => {
+        if (/med|name|medicine|drug|product/.test(h)) colMap.name = i;
+        else if (/batch|lot/.test(h)) colMap.batch = i;
+        else if (/mfg|manufactur/.test(h)) colMap.mfgDate = i;
+        else if (/exp|expiry/.test(h)) colMap.expiry = i;
+        else if (/qty|quantity|units/.test(h)) colMap.qty = i;
+        else if (/rate|purchase|cost|ptr/.test(h)) colMap.rate = i;
+        else if (/mrp|max/.test(h)) colMap.mrp = i;
+        else if (/gst|tax/.test(h)) colMap.gst = i;
+        else if (/hsn/.test(h)) colMap.hsn = i;
+      });
+    }
+
+    for (const line of dataLines) {
+      const cols = line.split(delimiter).map(c => c.trim().replace(/^["\']+|["\']+$/g, ""));
+      if (cols.length < 2) continue;
+
+      const rawName = cols[colMap.name] || "";
+      if (!rawName || rawName.length < 2) continue;
+
+      const rawExpiry = cols[colMap.expiry] || "";
+      const rawMfg = colMap.mfgDate >= 0 ? (cols[colMap.mfgDate] || "") : "";
+
+      // Parse date: support DD/MM/YYYY, MM/YYYY, YYYY-MM-DD
+      function parseFlexDate(raw: string): string {
+        if (!raw) return "";
+        raw = raw.trim();
+        // YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+        // DD/MM/YYYY or DD-MM-YYYY
+        const fullM = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+        if (fullM) {
+          let [, d, m, y] = fullM;
+          if (y.length === 2) y = "20" + y;
+          return `${y}-${m.padStart(2,"0")}-${d.padStart(2,"0")}`;
+        }
+        // MM/YYYY or MM-YYYY
+        const monthYear = raw.match(/^(\d{1,2})[\/-](\d{2,4})$/);
+        if (monthYear) {
+          let [, m, y] = monthYear;
+          if (y.length === 2) y = "20" + y;
+          m = m.padStart(2, "0");
+          const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+          return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+        }
+        return "";
+      }
+
+      const expiryDate = parseFlexDate(rawExpiry);
+      const mfgDate = parseFlexDate(rawMfg);
+
+      // Match medicine from local list
+      let medicineId = "new";
+      const nameLower = rawName.toLowerCase();
+      for (const med of localMedicines) {
+        if (nameLower.includes(med.name.toLowerCase()) || med.name.toLowerCase().includes(nameLower)) {
+          medicineId = med.id;
+          break;
+        }
+      }
+
+      const mrpVal = cols[colMap.mrp] || "";
+      const rateVal = cols[colMap.rate] || "";
+      const gstVal = cols[colMap.gst] || "12";
+
+      items.push({
+        id: Math.random().toString(36).substring(2, 9),
+        medicineId,
+        name: rawName,
+        batchNo: cols[colMap.batch] || "",
+        mfgDate,
+        expiryDate,
+        quantity: cols[colMap.qty] || "1",
+        purchaseRate: rateVal,
+        mrp: mrpVal,
+        saleRate: mrpVal,
+        gstRate: gstVal || "12",
+        hsnCode: colMap.hsn >= 0 ? (cols[colMap.hsn] || "") : "",
+      });
+    }
+    return items;
+  }
+
+  // ─── Bulk File Upload Handler (CSV/TXT/PDF) ───
+  const handleBulkFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so same file can be re-uploaded
+    e.target.value = "";
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    setBulkFileProcessing(true);
+    setBulkFileStep("📂 Reading file...");
+
+    try {
+      if (ext === "pdf") {
+        // For PDF — use FileReader to read as ArrayBuffer then extract text via pdfjs-dist if available, or fallback to OCR
+        setBulkFileStep("📄 Converting PDF to image for OCR...");
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const dataUrl = reader.result as string;
+          setImagePreview(dataUrl);
+          setShowScanner(true);
+          setBulkFileProcessing(false);
+          await runOCR(dataUrl);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // CSV / TXT processing
+      setBulkFileStep("📊 Parsing CSV/TXT structured data...");
+      const text = await file.text();
+
+      if (!text.trim()) {
+        toast.error("File is empty or unreadable.");
+        setBulkFileProcessing(false);
+        return;
+      }
+
+      let parsed: ScannedItem[];
+
+      // Detect if it looks like a structured CSV (has delimiters) or raw invoice text
+      const lineCount = text.split("\n").filter(Boolean).length;
+      const commaCount = (text.match(/,/g) || []).length;
+      const isStructuredCsv = commaCount > lineCount || ext === "csv";
+
+      if (isStructuredCsv) {
+        parsed = parseCsvTextToItems(text);
+        if (parsed.length === 0) {
+          // Fallback to raw text parsing
+          parsed = parseInvoiceText(text, localMedicines);
+        }
+      } else {
+        // Raw text invoice — use existing regex parser
+        parsed = parseInvoiceText(text, localMedicines);
+      }
+
+      if (parsed.length === 0) {
+        toast.error("Could not parse any stock items from the file. Check the format and try again.");
+        setBulkFileProcessing(false);
+        return;
+      }
+
+      setScannedItems(parsed);
+      setSelectedRowIds(parsed.map(x => x.id));
+      const initialStatuses: Record<string, "idle" | "saving" | "success" | "error"> = {};
+      parsed.forEach(x => { initialStatuses[x.id] = "idle"; });
+      setRowStatuses(initialStatuses);
+      setImagePreview(null);
+      setShowConfirmModal(true);
+      toast.success(`✅ Parsed ${parsed.length} stock items from ${file.name}!`);
+    } catch (err) {
+      console.error("Bulk file parse error:", err);
+      toast.error("Failed to process file. Please check the format.");
+    } finally {
+      setBulkFileProcessing(false);
+      setBulkFileStep("");
+    }
+  };
+
   // Run Tesseract OCR with Dynamic Imports to bypass SSR pre-rendering crashes
   const runOCR = async (imageSrc: string) => {
     setOcrLoading(true);
@@ -1032,6 +1258,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     }
     
     setBatchNo(item.batchNo || "");
+    setMfgDate(item.mfgDate || "");
     setExpiryDate(item.expiryDate || "");
     
     const parsedQty = parseInt(item.quantity || "0", 10);
@@ -1143,7 +1370,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       medicineId: actualMedicineId,
       supplierId: String(supplierId),
       batchNo: String(item.batchNo).trim(),
-      mfgDate: "",
+      mfgDate: String(item.mfgDate || ""),
       expiryDate: String(item.expiryDate || ""),
       purchaseRatePaisa: Math.round(sanitizePrice(item.purchaseRate) * 100),
       mrpPaisa: Math.round(sanitizePrice(item.mrp) * 100),
@@ -1408,7 +1635,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             <span>Smart Invoice Capture</span>
           </h3>
           <p className="text-xs text-slate-500">
-            Stockist dawa lekar aaya hai? Scan the invoice page with your camera, upload a photo, or paste raw text. Works 100% locally!
+            Stockist dawa lekar aaya hai? Scan invoice with camera, upload image, paste text, or <strong>import CSV/TXT/PDF bulk stock file</strong> directly!
           </p>
         </div>
         
@@ -1469,7 +1696,63 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             <Clipboard className="h-4 w-4 text-slate-550" />
             <span>Paste Text (Fail-safe)</span>
           </button>
+
+          {/* ── NEW: Bulk CSV/TXT/PDF/Excel Stock File Upload ── */}
+          <label
+            className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs cursor-pointer shadow-sm min-h-11 transition-all hover:scale-[1.02] active:scale-[0.98] hover:border-purple-500 ${bulkFileProcessing ? "opacity-70 cursor-wait" : ""}`}
+            title="Upload CSV, TXT, or PDF file with stock data"
+          >
+            {bulkFileProcessing ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /><span>{bulkFileStep || "Processing..."}</span></>
+            ) : (
+              <><FileSpreadsheet className="h-4 w-4" /><span>Upload CSV / TXT / PDF</span></>
+            )}
+            <input
+              ref={bulkFileInputRef}
+              type="file"
+              accept=".csv,.txt,.pdf,.xlsx,.xls"
+              className="hidden"
+              disabled={bulkFileProcessing}
+              onChange={handleBulkFileUpload}
+            />
+          </label>
         </div>
+      </div>
+
+      {/* CSV/TXT Format Guide Info Card */}
+      <div className="flex items-start gap-3 p-3.5 rounded-xl border border-purple-100 bg-purple-50/40 text-xs">
+        <FileSpreadsheet className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-purple-800 mb-1">CSV/TXT Bulk Stock File Format Guide</p>
+          <p className="text-slate-600 leading-relaxed">
+            Upload a <strong>.csv</strong> or <strong>.txt</strong> file with columns: 
+            <code className="mx-1 px-1 py-0.5 bg-purple-100 rounded text-[10px] font-mono">Medicine Name, Batch No, MFG Date, Expiry Date, Qty, Purchase Rate, MRP, GST%, HSN</code>
+            — or upload a <strong>.pdf</strong> invoice which will be auto-scanned via OCR.
+          </p>
+          <p className="text-slate-500 mt-1">
+            <strong>Date formats supported:</strong> DD/MM/YYYY, MM/YYYY, YYYY-MM-DD — exact dates are preserved! Header row is optional.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const csvContent = `Medicine Name,Batch No,MFG Date,Expiry Date,Qty,Purchase Rate,MRP,GST%,HSN\nParacetamol 500mg Tab,BCH001,01/06/2024,31/05/2026,100,8.50,15.00,12,3004\nAmoxicillin 250mg,BCH002,15/03/2024,14/03/2026,50,18.90,28.00,12,3004\nMetformin 500mg ER,BCH003,,12/2025,200,6.40,14.50,5,3004`;
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "stock_import_template.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success("Sample CSV template downloaded!");
+          }}
+          className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-[10px] font-bold transition-all shadow-sm"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          Sample CSV
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-2">
@@ -2129,7 +2412,8 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                         <th className="py-3 px-3 text-slate-600 font-bold w-12 text-center">Import?</th>
                         <th className="py-3 px-3 text-slate-600 font-bold min-w-[200px]">Medicine Match</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-28">Batch No</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-36">Expiry Date</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-32">MFG Date</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-36">Expiry Date <span className="text-red-500">*</span></th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">Qty (Loose)</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">Rate (₹)</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">MRP (₹)</th>
@@ -2198,10 +2482,20 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                             <td className="py-2.5 px-3">
                               <input 
                                 type="date"
+                                value={item.mfgDate}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'mfgDate', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                              />
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <input 
+                                type="date"
                                 value={item.expiryDate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'expiryDate', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                className={`h-8.5 w-full rounded border px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 ${!item.expiryDate ? 'border-red-300 bg-red-50/50 focus:ring-red-400' : 'border-slate-300 focus:ring-med-green'}`}
+                                title="Expiry Date (required)"
                               />
                             </td>
                             <td className="py-2.5 px-3">

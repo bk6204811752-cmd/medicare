@@ -32,6 +32,9 @@ type CatalogProduct = {
   ptr: number; // in Rupees
   mrp: number;
   manufacturer: string;
+  cheapestStockistId?: string;
+  cheapestStockistName?: string;
+  margin?: number;
 };
 
 const B2B_CATALOG: CatalogProduct[] = [
@@ -60,6 +63,40 @@ export default function OrderStockistPage() {
   const [showForm, setShowForm]     = useState(false);
   const [saving, setSaving]         = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  type StockistInventoryItem = {
+    id: string;
+    tenantId: string;
+    medicineId: string;
+    batchNo: string;
+    mfgDate: string | null;
+    expiryDate: string;
+    purchaseRatePaisa: number;
+    mrpPaisa: number;
+    saleRatePaisa: number;
+    gstRate: number;
+    hsnCode: string | null;
+    quantity: number;
+    medicine: {
+      id: string;
+      name: string;
+      genericName: string | null;
+      manufacturer: string | null;
+      category: string | null;
+      composition: string | null;
+      packSize: string | null;
+      gstRate: number;
+      mrpPaisa: number;
+    };
+    stockist: {
+      id: string;
+      name: string;
+      city: string | null;
+      phone: string | null;
+    };
+  };
+
+  const [inventoryItems, setInventoryItems] = useState<StockistInventoryItem[]>([]);
 
   // Catalog tab states
   const [catalogSearch, setCatalogSearch] = useState("");
@@ -90,12 +127,14 @@ export default function OrderStockistPage() {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const [sRes, oRes] = await Promise.all([
+      const [sRes, oRes, invRes] = await Promise.all([
         fetch("/api/stockists").then((r) => r.json()),
         fetch("/api/stockist-orders").then((r) => r.json()),
+        fetch("/api/stockists/inventory").then((r) => r.json()),
       ]);
       setStockists(sRes.data ?? []);
       setOrders(oRes.data ?? []);
+      setInventoryItems(invRes.data ?? []);
     } catch {
       toast.error("Failed to load B2B procurement ledger");
     } finally {
@@ -189,7 +228,82 @@ export default function OrderStockistPage() {
     }
   };
 
-  const handleAddCatalogProduct = (prod: CatalogProduct) => {
+  const dynamicCatalog = useMemo(() => {
+    // Group inventory items by medicine name (case-insensitive)
+    const grouped: Record<string, StockistInventoryItem[]> = {};
+    for (const item of inventoryItems) {
+      const key = item.medicine.name.toLowerCase();
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(item);
+    }
+
+    const catalog: {
+      name: string;
+      generic: string;
+      category: "pharma" | "consumables" | "equipment";
+      ptr: number;
+      mrp: number;
+      manufacturer: string;
+      cheapestStockistId?: string;
+      cheapestStockistName?: string;
+      margin: number;
+    }[] = [];
+
+    for (const key of Object.keys(grouped)) {
+      const group = grouped[key];
+      // Sort by saleRatePaisa ascending to find the cheapest
+      group.sort((a, b) => a.saleRatePaisa - b.saleRatePaisa);
+      const cheapest = group[0];
+      
+      const ptr = cheapest.saleRatePaisa / 100;
+      const mrp = cheapest.medicine.mrpPaisa / 100;
+      const margin = mrp > 0 ? Math.round(((mrp - ptr) / mrp) * 100) : 0;
+
+      let category: "pharma" | "consumables" | "equipment" = "pharma";
+      const dbCat = (cheapest.medicine.category || "").toLowerCase();
+      if (dbCat.includes("consumable")) {
+        category = "consumables";
+      } else if (dbCat.includes("equipment") || dbCat.includes("diagnostic")) {
+        category = "equipment";
+      }
+
+      catalog.push({
+        name: cheapest.medicine.name,
+        generic: cheapest.medicine.genericName || cheapest.medicine.composition || "General Medicine",
+        category,
+        ptr,
+        mrp,
+        manufacturer: cheapest.medicine.manufacturer || "Generic Supplier",
+        cheapestStockistId: cheapest.stockist.id,
+        cheapestStockistName: cheapest.stockist.name,
+        margin,
+      });
+    }
+
+    if (catalog.length === 0) {
+      return B2B_CATALOG;
+    }
+
+    return catalog;
+  }, [inventoryItems]);
+
+  const comparisonMedicines = useMemo(() => {
+    const uniqueMap = new Map<string, string>();
+    for (const item of inventoryItems) {
+      uniqueMap.set(item.medicineId, item.medicine.name);
+    }
+    return Array.from(uniqueMap.entries()).map(([id, name]) => ({ id, name }));
+  }, [inventoryItems]);
+
+  useEffect(() => {
+    if (comparisonMedicines.length > 0 && !comparisonMedicines.some(m => m.id === compProductId)) {
+      setCompProductId(comparisonMedicines[0].id);
+    }
+  }, [comparisonMedicines, compProductId]);
+
+  const handleAddCatalogProduct = (prod: any) => {
     // If the first row is empty, fill it, otherwise add a new row
     if (items.length === 1 && !items[0].medicineName.trim()) {
       setItems([{ medicineName: prod.name, quantity: 50, ratePaisa: prod.ptr.toFixed(2) }]);
@@ -197,8 +311,10 @@ export default function OrderStockistPage() {
       setItems((prev) => [...prev, { medicineName: prod.name, quantity: 50, ratePaisa: prod.ptr.toFixed(2) }]);
     }
     
-    // Automatically select first available stockist if none selected
-    if (!stockistId && stockists.length > 0) {
+    // Automatically select cheapest stockist if available
+    if (prod.cheapestStockistId) {
+      setStockistId(prod.cheapestStockistId);
+    } else if (!stockistId && stockists.length > 0) {
       setStockistId(stockists[0].id);
     }
 
@@ -207,7 +323,7 @@ export default function OrderStockistPage() {
   };
 
   const filteredCatalog = useMemo(() => {
-    return B2B_CATALOG.filter((prod) => {
+    return dynamicCatalog.filter((prod) => {
       const matchesSearch =
         prod.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
         prod.generic.toLowerCase().includes(catalogSearch.toLowerCase()) ||
@@ -216,7 +332,7 @@ export default function OrderStockistPage() {
       const matchesCat = catalogCategory === "all" || prod.category === catalogCategory;
       return matchesSearch && matchesCat;
     });
-  }, [catalogSearch, catalogCategory]);
+  }, [dynamicCatalog, catalogSearch, catalogCategory]);
 
   const pendingCount = orders.filter((o) => o.status === "pending").length;
   const otpReadyCount = orders.filter((o) => o.status === "otp_sent").length;
@@ -301,48 +417,112 @@ export default function OrderStockistPage() {
               onChange={(e) => setCompProductId(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-extrabold text-slate-700 outline-none focus:ring-1 focus:ring-emerald-500"
             >
-              <option value="med-dolo">Dolo 650 Tablet (Paracetamol)</option>
-              <option value="med-azithral">Azithral 500 Tablet (Azithromycin)</option>
-              <option value="med-glycomet">Glycomet GP 1 Tablet (Metformin)</option>
+              {comparisonMedicines.length > 0 ? (
+                comparisonMedicines.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="med-dolo">Dolo 650 Tablet (Paracetamol)</option>
+                  <option value="med-azithral">Azithral 500 Tablet (Azithromycin)</option>
+                  <option value="med-glycomet">Glycomet GP 1 Tablet (Metformin)</option>
+                </>
+              )}
             </select>
           </div>
         </div>
         {/* Comparison grid columns */}
         {(() => {
-          const compData: Record<string, { name: string; rates: { stockist: string; price: number; margin: number; discount: number; gst: number; cheapest?: boolean }[] }> = {
-            "med-dolo": {
-              name: "Dolo 650 Tablet",
-              rates: [
-                { stockist: "Shankar Pharma Wholesalers", price: 12.50, margin: 36, discount: 0, gst: 12 },
-                { stockist: "Saveo Premium Wholesales", price: 11.80, margin: 39, discount: 5, gst: 12, cheapest: true },
-                { stockist: "Medikabazaar Logistics", price: 13.00, margin: 33, discount: 2, gst: 12 },
-              ],
-            },
-            "med-azithral": {
-              name: "Azithral 500 Tablet",
-              rates: [
-                { stockist: "Shankar Pharma Wholesalers", price: 82.00, margin: 31, discount: 0, gst: 12 },
-                { stockist: "Saveo Premium Wholesales", price: 78.50, margin: 34, discount: 5, gst: 12, cheapest: true },
-                { stockist: "Medikabazaar Logistics", price: 84.00, margin: 29, discount: 2, gst: 12 },
-              ],
-            },
-            "med-glycomet": {
-              name: "Glycomet GP 1 Tablet",
-              rates: [
-                { stockist: "Shankar Pharma Wholesalers", price: 92.00, margin: 28, discount: 0, gst: 12 },
-                { stockist: "Saveo Premium Wholesales", price: 88.00, margin: 31, discount: 5, gst: 12, cheapest: true },
-                { stockist: "Medikabazaar Logistics", price: 94.50, margin: 26, discount: 2, gst: 12 },
-              ],
-            },
-          };
+          let activeName = "";
+          let activeRates: { stockistId: string; stockist: string; price: number; margin: number; discount: number; gst: number; cheapest?: boolean }[] = [];
 
-          const activeComp = compData[compProductId] || compData["med-dolo"];
-          const cheapestRate = activeComp.rates.find((r) => r.cheapest)!;
+          const dynamicMatch = inventoryItems.filter(item => item.medicineId === compProductId);
+          if (dynamicMatch.length > 0) {
+            activeName = dynamicMatch[0].medicine.name;
+            activeRates = dynamicMatch.map(item => {
+              const ptr = item.saleRatePaisa / 100;
+              const mrp = item.medicine.mrpPaisa / 100;
+              const margin = mrp > 0 ? Math.round(((mrp - ptr) / mrp) * 100) : 0;
+              return {
+                stockistId: item.stockist.id,
+                stockist: item.stockist.name,
+                price: ptr,
+                margin,
+                discount: 0,
+                gst: item.gstRate,
+              };
+            });
+
+            if (activeRates.length > 0) {
+              const minPrice = Math.min(...activeRates.map(r => r.price));
+              let markedCheapest = false;
+              for (const rate of activeRates) {
+                if (rate.price === minPrice && !markedCheapest) {
+                  rate.cheapest = true;
+                  markedCheapest = true;
+                }
+              }
+            }
+          } else {
+            const fallbackData: Record<string, { name: string; rates: { stockistId?: string; stockist: string; price: number; margin: number; discount: number; gst: number; cheapest?: boolean }[] }> = {
+              "med-dolo": {
+                name: "Dolo 650 Tablet",
+                rates: [
+                  { stockist: "Shankar Pharma Wholesalers", price: 12.50, margin: 36, discount: 0, gst: 12 },
+                  { stockist: "Saveo Premium Wholesales", price: 11.80, margin: 39, discount: 5, gst: 12, cheapest: true },
+                  { stockist: "Medikabazaar Logistics", price: 13.00, margin: 33, discount: 2, gst: 12 },
+                ],
+              },
+              "med-azithral": {
+                name: "Azithral 500 Tablet",
+                rates: [
+                  { stockist: "Shankar Pharma Wholesalers", price: 82.00, margin: 31, discount: 0, gst: 12 },
+                  { stockist: "Saveo Premium Wholesales", price: 78.50, margin: 34, discount: 5, gst: 12, cheapest: true },
+                  { stockist: "Medikabazaar Logistics", price: 84.00, margin: 29, discount: 2, gst: 12 },
+                ],
+              },
+              "med-glycomet": {
+                name: "Glycomet GP 1 Tablet",
+                rates: [
+                  { stockist: "Shankar Pharma Wholesalers", price: 92.00, margin: 28, discount: 0, gst: 12 },
+                  { stockist: "Saveo Premium Wholesales", price: 88.00, margin: 31, discount: 5, gst: 12, cheapest: true },
+                  { stockist: "Medikabazaar Logistics", price: 94.50, margin: 26, discount: 2, gst: 12 },
+                ],
+              },
+            };
+
+            const fallback = fallbackData[compProductId] || fallbackData["med-dolo"];
+            activeName = fallback.name;
+            activeRates = fallback.rates.map(r => {
+              const matchingStockist = stockists.find(s => s.name.toLowerCase().includes(r.stockist.split(" ")[0].toLowerCase()));
+              return {
+                stockistId: matchingStockist?.id ?? r.stockistId ?? "",
+                stockist: r.stockist,
+                price: r.price,
+                margin: r.margin,
+                discount: r.discount,
+                gst: r.gst,
+                cheapest: r.cheapest,
+              };
+            });
+          }
+
+          if (activeRates.length === 0) {
+            return (
+              <div className="text-center py-6 text-xs text-slate-400">
+                No supplier rates available for comparison.
+              </div>
+            );
+          }
+
+          const cheapestRate = activeRates.find((r) => r.cheapest) || activeRates[0];
 
           return (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {activeComp.rates.map((rate) => {
+                {activeRates.map((rate) => {
                   const gstVal = rate.price * (rate.gst / 100);
                   const discVal = rate.price * (rate.discount / 100);
                   const landingCost = rate.price + gstVal - discVal;
@@ -400,11 +580,20 @@ export default function OrderStockistPage() {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4.5 w-4.5 text-emerald-600 shrink-0" />
                   <p className="text-xs font-semibold text-slate-500">
-                    Audit verified! procuring {activeComp.name} from **{cheapestRate.stockist}** saves you **₹{(activeComp.rates.find(r => !r.cheapest)!.price - cheapestRate.price).toFixed(2)} per unit** compared to local market.
+                    {activeRates.length > 1 ? (
+                      `Audit verified! procuring ${activeName} from **${cheapestRate.stockist}** saves you **₹${(activeRates.find(r => !r.cheapest)!.price - cheapestRate.price).toFixed(2)} per unit** compared to other wholesalers.`
+                    ) : (
+                      `Audit verified! procuring ${activeName} from **${cheapestRate.stockist}** is ready at the best rate of **₹${cheapestRate.price.toFixed(2)}**.`
+                    )}
                   </p>
                 </div>
                 <button
-                  onClick={() => handleProcureCheapest(activeComp.name, cheapestRate.price)}
+                  onClick={() => {
+                    if (cheapestRate.stockistId) {
+                      setStockistId(cheapestRate.stockistId);
+                    }
+                    handleProcureCheapest(activeName, cheapestRate.price);
+                  }}
                   className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-4 py-2.5 transition-all shadow-sm active:scale-95 duration-100"
                 >
                   Procure cheapest (₹{cheapestRate.price.toFixed(2)})
@@ -465,7 +654,7 @@ export default function OrderStockistPage() {
         {/* Catalog Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {filteredCatalog.map((prod) => {
-            const margin = Math.round(((prod.mrp - prod.ptr) / prod.mrp) * 100);
+            const margin = prod.margin ?? (prod.mrp > 0 ? Math.round(((prod.mrp - prod.ptr) / prod.mrp) * 100) : 0);
             return (
               <div
                 key={prod.name}
@@ -481,6 +670,12 @@ export default function OrderStockistPage() {
                     {prod.name}
                   </h3>
                   <p className="text-[10px] text-slate-400 font-semibold truncate">🧪 {prod.generic}</p>
+                  {prod.cheapestStockistName && (
+                    <p className="text-[9px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span>Supplier: {prod.cheapestStockistName}</span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-end justify-between">

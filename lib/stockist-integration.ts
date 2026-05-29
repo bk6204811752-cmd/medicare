@@ -490,3 +490,34 @@ export async function markInAppNotificationsRead(
     data: { isRead: true },
   });
 }
+
+// ─── Fetch All Stockists Inventory ──────────────────────────────
+export async function getAllStockistInventory() {
+  const stockists = await getRegisteredStockists();
+  const stockistTenantIds = stockists.map((s) => s.id);
+
+  return await withRetry(() =>
+    prisma.inventoryItem.findMany({
+      where: {
+        tenantId: { in: stockistTenantIds },
+        isActive: true,
+        quantity: { gt: 0 },
+      },
+      include: {
+        medicine: true,
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+            phone: true,
+          },
+        },
+      },
+      orderBy: [
+        { medicine: { name: "asc" } },
+        { saleRatePaisa: "asc" },
+      ],
+    })
+  );
+}

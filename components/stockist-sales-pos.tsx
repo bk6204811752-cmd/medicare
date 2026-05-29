@@ -1,5 +1,5 @@
-"use script";
 "use client";
+
 
 import { useState, useTransition, useMemo, useEffect, useCallback, useRef } from "react";
 import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X } from "lucide-react";
@@ -67,7 +67,34 @@ type InvoiceLine = {
   availableStock: number;
 };
 
+function calculateFreeQuantity(qty: number, availableStock: number): { freeQty: number; schemeDetails: string } {
+  let freeQty = 0;
+  let schemeDetails = "";
+  
+  if (qty >= 50) {
+    freeQty = Math.floor(qty / 10);
+    schemeDetails = `Buy 10 Get 1 Free (${freeQty} free)`;
+  } else if (qty >= 10) {
+    freeQty = 1;
+    schemeDetails = "Buy 10 Get 1 Free (1 free)";
+  }
+  
+  // Cap free quantity to prevent insufficient stock error
+  const maxFree = Math.max(0, availableStock - qty);
+  if (freeQty > maxFree) {
+    freeQty = maxFree;
+    if (freeQty > 0) {
+      schemeDetails = `Buy 10 Get 1 Free (Capped to ${freeQty} due to stock)`;
+    } else {
+      schemeDetails = "";
+    }
+  }
+  
+  return { freeQty, schemeDetails };
+}
+
 export function StockistSalesPos({ parties, inventory, salesmen }: {
+
   parties: Party[];
   inventory: InventoryItem[];
   salesmen: Salesman[];
@@ -148,14 +175,16 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           );
 
           if (matchedInv) {
+            const requestedQty = Math.min(item.quantity, matchedInv.quantity);
+            const { freeQty, schemeDetails } = calculateFreeQuantity(requestedQty, matchedInv.quantity);
             newLines.push({
               inventoryId: matchedInv.id,
               medicineName: matchedInv.medicine.name,
               batchNo: matchedInv.batchNo,
               mfgDate: matchedInv.mfgDate || null,
               expiryDate: matchedInv.expiryDate,
-              quantity: item.quantity,
-              freeQuantity: 0,
+              quantity: requestedQty,
+              freeQuantity: freeQty,
               ptrPaisa: matchedInv.ptrPaisa > 0 ? matchedInv.ptrPaisa : matchedInv.saleRatePaisa,
               mrpPaisa: matchedInv.mrpPaisa,
               discountPercent: 0,
@@ -163,7 +192,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               hsnCode: matchedInv.hsnCode || matchedInv.medicine.hsnCode || "",
               manufacturer: matchedInv.medicine.manufacturer || "",
               packSize: matchedInv.medicine.packSize || "",
-              schemeDetails: "",
+              schemeDetails: schemeDetails,
               availableStock: matchedInv.quantity,
             });
           } else {
@@ -274,6 +303,9 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       return;
     }
 
+    const defaultQty = Math.min(10, item.quantity);
+    const { freeQty, schemeDetails } = calculateFreeQuantity(defaultQty, item.quantity);
+
     setLines((prev) => [
       ...prev,
       {
@@ -282,8 +314,8 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         batchNo: item.batchNo,
         mfgDate: item.mfgDate || null,
         expiryDate: item.expiryDate,
-        quantity: 10, // Standard wholesale default batch size
-        freeQuantity: 0,
+        quantity: defaultQty,
+        freeQuantity: freeQty,
         ptrPaisa: item.ptrPaisa > 0 ? item.ptrPaisa : item.saleRatePaisa,
         mrpPaisa: item.mrpPaisa,
         discountPercent: 0,
@@ -291,7 +323,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         hsnCode: item.hsnCode || item.medicine.hsnCode || "",
         manufacturer: item.medicine.manufacturer || "",
         packSize: item.medicine.packSize || "",
-        schemeDetails: "",
+        schemeDetails: schemeDetails,
         availableStock: item.quantity,
       }
     ]);
@@ -313,16 +345,9 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       // Buy 10 Get 1 Free automatic calculations
       if (key === "quantity") {
         const qty = Number(value);
-        if (qty >= 50) {
-          updated.freeQuantity = Math.floor(qty / 10);
-          updated.schemeDetails = `Buy 10 Get 1 Free (${updated.freeQuantity} free)`;
-        } else if (qty >= 10) {
-          updated.freeQuantity = 1;
-          updated.schemeDetails = "Buy 10 Get 1 Free (1 free)";
-        } else {
-          updated.freeQuantity = 0;
-          updated.schemeDetails = "";
-        }
+        const { freeQty, schemeDetails } = calculateFreeQuantity(qty, line.availableStock);
+        updated.freeQuantity = freeQty;
+        updated.schemeDetails = schemeDetails;
       }
 
       return updated;

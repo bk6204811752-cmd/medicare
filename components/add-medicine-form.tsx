@@ -22,6 +22,81 @@ const CATEGORIES = ["Pain relief", "Antibiotic", "Antifungal", "Antiviral", "Dia
 // ─── Medicine Database suggestion type ─────────────────────────
 type MedicineDbHit = DrugMasterSuggestion;
 
+export function parseWebFlexDate(value: string, type: 'mfg' | 'exp'): string {
+  if (!value) return "";
+  const cleaned = value.trim();
+  
+  // 1. Check YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+    return cleaned;
+  }
+  
+  // 2. Check YYYY-MM
+  if (/^\d{4}-\d{2}$/.test(cleaned)) {
+    const [y, m] = cleaned.split("-");
+    if (type === "exp") {
+      const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+      return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+    } else {
+      return `${y}-${m}-01`;
+    }
+  }
+
+  // 3. Check DD/MM/YYYY or DD-MM-YYYY or DD/MM/YY or DD-MM-YY
+  const fullDateMatch = cleaned.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if (fullDateMatch) {
+    let [, d, m, y] = fullDateMatch;
+    if (y.length === 2) y = "20" + y;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  // 4. Check MM/YYYY or MM-YYYY or MM/YY or MM-YY
+  const monthYearMatch = cleaned.match(/^(\d{1,2})[\/-](\d{2,4})$/);
+  if (monthYearMatch) {
+    let [, m, y] = monthYearMatch;
+    if (y.length === 2) y = "20" + y;
+    m = m.padStart(2, "0");
+    if (type === "exp") {
+      const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+      return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+    } else {
+      return `${y}-${m}-01`;
+    }
+  }
+
+  // 5. Check MMYY (4 digits)
+  const mmyyMatch = cleaned.match(/^(\d{2})(\d{2})$/);
+  if (mmyyMatch) {
+    let m = mmyyMatch[1];
+    let y = "20" + mmyyMatch[2];
+    if (parseInt(m) >= 1 && parseInt(m) <= 12) {
+      if (type === "exp") {
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+      } else {
+        return `${y}-${m}-01`;
+      }
+    }
+  }
+
+  // 6. Check MMYYYY (6 digits)
+  const mmyyyyMatch = cleaned.match(/^(\d{2})(\d{4})$/);
+  if (mmyyyyMatch) {
+    let m = mmyyyyMatch[1];
+    let y = mmyyyyMatch[2];
+    if (parseInt(m) >= 1 && parseInt(m) <= 12) {
+      if (type === "exp") {
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+      } else {
+        return `${y}-${m}-01`;
+      }
+    }
+  }
+
+  return "";
+}
+
 export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", prefillName = "", mode = "standalone", showInventoryFields = true }: AddMedicineFormProps) {
   const [saving, setSaving] = useState(false);
   const [showInventory, setShowInventory] = useState(mode === "inline" && showInventoryFields);
@@ -121,9 +196,24 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
       };
 
       if (useQuickAdd) {
+        const parsedExpiry = parseWebFlexDate(expiryDate, 'exp');
+        const mfgVal = String(fd.get("mfgDate") || "").trim();
+        const parsedMfg = mfgVal ? parseWebFlexDate(mfgVal, 'mfg') : undefined;
+
+        if (!parsedExpiry) {
+          toast.error("Expiry date (Month/Year) is required and must be in a valid format (e.g. MM/YYYY)");
+          setSaving(false);
+          return;
+        }
+        if (mfgVal && !parsedMfg) {
+          toast.error("Invalid Manufacturing Date format (e.g. MM/YYYY)");
+          setSaving(false);
+          return;
+        }
+
         payload.batchNo = batchNo;
-        payload.expiryDate = expiryDate;
-        payload.mfgDate = String(fd.get("mfgDate") || "").trim() || undefined;
+        payload.expiryDate = parsedExpiry;
+        payload.mfgDate = parsedMfg || undefined;
         payload.purchaseRatePaisa = Math.round(Number(fd.get("purchaseRate") || 0) * 100);
         payload.saleRatePaisa = Math.round(Number(fd.get("saleRate") || mrp / 100) * 100);
         payload.quantity = quantity;
@@ -298,8 +388,8 @@ export function AddMedicineForm({ onSuccess, onCancel, prefillBarcode = "", pref
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <FormField name="batchNo" label={`Batch No ${isInline ? "*" : ""}`} required={isInline} placeholder="e.g. DL650A" />
-            <FormField name="expiryDate" label={`Expiry Date ${isInline ? "*" : ""}`} type="date" required={isInline} />
-            <FormField name="mfgDate" label="MFG Date" type="date" />
+            <FormField name="expiryDate" label={`Expiry Date ${isInline ? "*" : ""}`} type="text" required={isInline} placeholder="MM/YYYY or DD/MM/YYYY" />
+            <FormField name="mfgDate" label="MFG Date" type="text" placeholder="MM/YYYY or DD/MM/YYYY" />
             <FormField name="quantity" label={`Quantity ${isInline ? "*" : ""}`} type="number" required={isInline} placeholder="e.g. 100" />
             <FormField name="purchaseRate" label="Purchase Rate (₹)" type="number" step="0.01" placeholder="e.g. 21.00" />
             <FormField name="saleRate" label="Sale Rate (₹)" type="number" step="0.01" placeholder="e.g. 32.00" />

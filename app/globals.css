@@ -451,3 +451,16 @@ html, body {
     height: min(55vw, 220px);
   }
 }
+
+/* Disable spin/stepper buttons for Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Disable spin/stepper buttons for Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+

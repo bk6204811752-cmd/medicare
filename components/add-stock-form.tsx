@@ -37,7 +37,83 @@ type ScannedItem = {
   saleRate: string;
   gstRate: string;
   hsnCode: string;
+  supplierId?: string;
 };
+
+export function parseWebFlexDate(value: string, type: 'mfg' | 'exp'): string {
+  if (!value) return "";
+  const cleaned = value.trim();
+  
+  // 1. Check YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+    return cleaned;
+  }
+  
+  // 2. Check YYYY-MM
+  if (/^\d{4}-\d{2}$/.test(cleaned)) {
+    const [y, m] = cleaned.split("-");
+    if (type === "exp") {
+      const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+      return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+    } else {
+      return `${y}-${m}-01`;
+    }
+  }
+
+  // 3. Check DD/MM/YYYY or DD-MM-YYYY or DD/MM/YY or DD-MM-YY
+  const fullDateMatch = cleaned.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
+  if (fullDateMatch) {
+    let [, d, m, y] = fullDateMatch;
+    if (y.length === 2) y = "20" + y;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  // 4. Check MM/YYYY or MM-YYYY or MM/YY or MM-YY
+  const monthYearMatch = cleaned.match(/^(\d{1,2})[\/-](\d{2,4})$/);
+  if (monthYearMatch) {
+    let [, m, y] = monthYearMatch;
+    if (y.length === 2) y = "20" + y;
+    m = m.padStart(2, "0");
+    if (type === "exp") {
+      const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+      return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+    } else {
+      return `${y}-${m}-01`;
+    }
+  }
+
+  // 5. Check MMYY (4 digits)
+  const mmyyMatch = cleaned.match(/^(\d{2})(\d{2})$/);
+  if (mmyyMatch) {
+    let m = mmyyMatch[1];
+    let y = "20" + mmyyMatch[2];
+    if (parseInt(m) >= 1 && parseInt(m) <= 12) {
+      if (type === "exp") {
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+      } else {
+        return `${y}-${m}-01`;
+      }
+    }
+  }
+
+  // 6. Check MMYYYY (6 digits)
+  const mmyyyyMatch = cleaned.match(/^(\d{2})(\d{4})$/);
+  if (mmyyyyMatch) {
+    let m = mmyyyyMatch[1];
+    let y = mmyyyyMatch[2];
+    if (parseInt(m) >= 1 && parseInt(m) <= 12) {
+      if (type === "exp") {
+        const lastDay = new Date(parseInt(y), parseInt(m), 0).getDate();
+        return `${y}-${m}-${String(lastDay).padStart(2, "0")}`;
+      } else {
+        return `${y}-${m}-01`;
+      }
+    }
+  }
+
+  return "";
+}
 
 // Fallback single-item parser
 function parseInvoiceTextSingle(text: string, medicinesList: SelectItem[]) {
@@ -925,7 +1001,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     // Detect if CSV has a header row
     const firstLine = lines[0]?.toLowerCase() || "";
     const hasHeader = firstLine.includes("name") || firstLine.includes("medicine") ||
-      firstLine.includes("batch") || firstLine.includes("expiry") || firstLine.includes("qty");
+      firstLine.includes("batch") || firstLine.includes("expiry") || firstLine.includes("qty") ||
+      firstLine.includes("product") || firstLine.includes("brand") || firstLine.includes("rate") ||
+      firstLine.includes("mrp") || firstLine.includes("gst") || firstLine.includes("hsn") ||
+      firstLine.includes("price") || firstLine.includes("cost") || firstLine.includes("exp");
 
     const dataLines = hasHeader ? lines.slice(1) : lines;
 
@@ -937,34 +1016,38 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     else if ((sample.match(/;/g) || []).length > (sample.match(/,/g) || []).length) delimiter = ";";
 
     // Column index mapping from header
-    let colMap: Record<string, number> = { name: 0, batch: 1, mfgDate: -1, expiry: 2, qty: 3, rate: 4, mrp: 5, gst: 6, hsn: 7, saleRate: -1 };
+    let colMap: Record<string, number>;
     if (hasHeader) {
+      colMap = { name: -1, batch: -1, mfgDate: -1, expiry: -1, qty: -1, rate: -1, mrp: -1, gst: -1, hsn: -1, saleRate: -1 };
       const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
       headers.forEach((h, i) => {
-        if (/med|name|medicine|drug|product/.test(h)) colMap.name = i;
-        else if (/batch|lot/.test(h)) colMap.batch = i;
-        else if (/mfg|manufactur/.test(h)) colMap.mfgDate = i;
-        else if (/exp|expiry/.test(h)) colMap.expiry = i;
-        else if (/qty|quantity|units/.test(h)) colMap.qty = i;
-        else if (/pts|purchase|cost|pur_rate/.test(h)) colMap.rate = i;
-        else if (/ptr|sale|retail/.test(h)) colMap.saleRate = i;
-        else if (/mrp|max/.test(h)) colMap.mrp = i;
-        else if (/gst|tax/.test(h)) colMap.gst = i;
-        else if (/hsn/.test(h)) colMap.hsn = i;
-        else if (/rate/.test(h)) {
-          if (colMap.rate === 4) colMap.rate = i;
+        if (/med|name|medicine|drug|product|brand/i.test(h)) colMap.name = i;
+        else if (/batch|lot|b\.?no|b\/n/i.test(h)) colMap.batch = i;
+        else if (/mfg|manufactur/i.test(h)) colMap.mfgDate = i;
+        else if (/exp|expiry/i.test(h)) colMap.expiry = i;
+        else if (/qty|quantity|units|stock/i.test(h)) colMap.qty = i;
+        else if (/purchase\s*rate|pur\s*rate|cost\s*rate|pts|cost|purchase|buy|pur_rate|purrate/i.test(h)) colMap.rate = i;
+        else if (/sale\s*rate|retail\s*rate|ptr|retail|sale|salerate/i.test(h)) colMap.saleRate = i;
+        else if (/mrp|max\s*retail|retail\s*price|price/i.test(h)) colMap.mrp = i;
+        else if (/gst|tax|cgst|sgst|igst|tax\s*rate/i.test(h)) colMap.gst = i;
+        else if (/hsn/i.test(h)) colMap.hsn = i;
+        else if (/rate/i.test(h)) {
+          if (colMap.rate === -1) colMap.rate = i;
         }
       });
+    } else {
+      // Default order fallback if no header
+      colMap = { name: 0, batch: 1, mfgDate: -1, expiry: 2, qty: 3, rate: 4, mrp: 5, gst: 6, hsn: 7, saleRate: -1 };
     }
 
     for (const line of dataLines) {
       const cols = line.split(delimiter).map(c => c.trim().replace(/^["\']+|["\']+$/g, ""));
       if (cols.length < 2) continue;
 
-      const rawName = cols[colMap.name] || "";
+      const rawName = colMap.name >= 0 ? (cols[colMap.name] || "") : "";
       if (!rawName || rawName.length < 2) continue;
 
-      const rawExpiry = cols[colMap.expiry] || "";
+      const rawExpiry = colMap.expiry >= 0 ? (cols[colMap.expiry] || "") : "";
       const rawMfg = colMap.mfgDate >= 0 ? (cols[colMap.mfgDate] || "") : "";
 
       // Parse date: support DD/MM/YYYY, MM/YYYY, YYYY-MM-DD
@@ -1012,25 +1095,26 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         return clean === "." ? "" : clean;
       }
 
-      const mrpVal = cleanPriceStr(cols[colMap.mrp] || "");
-      const rateVal = cleanPriceStr(cols[colMap.rate] || "");
+      const mrpVal = colMap.mrp >= 0 ? cleanPriceStr(cols[colMap.mrp] || "") : "";
+      const rateVal = colMap.rate >= 0 ? cleanPriceStr(cols[colMap.rate] || "") : "";
       const saleRateVal = colMap.saleRate >= 0 ? cleanPriceStr(cols[colMap.saleRate] || "") : mrpVal;
-      const gstVal = cleanPriceStr(cols[colMap.gst] || "12");
-      const qtyVal = cleanPriceStr(cols[colMap.qty] || "1");
+      const gstVal = colMap.gst >= 0 ? cleanPriceStr(cols[colMap.gst] || "") : "";
+      const qtyVal = colMap.qty >= 0 ? cleanPriceStr(cols[colMap.qty] || "") : "";
 
       items.push({
         id: Math.random().toString(36).substring(2, 9),
         medicineId,
         name: rawName,
-        batchNo: cols[colMap.batch] || "",
+        batchNo: colMap.batch >= 0 ? (cols[colMap.batch] || "") : "",
         mfgDate,
         expiryDate,
         quantity: qtyVal,
         purchaseRate: rateVal,
         mrp: mrpVal,
         saleRate: saleRateVal || mrpVal,
-        gstRate: gstVal || "12",
+        gstRate: gstVal,
         hsnCode: colMap.hsn >= 0 ? (cols[colMap.hsn] || "") : "",
+        supplierId: supplierId || "",
       });
     }
     return items;
@@ -1379,12 +1463,26 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       parsedGst = 12;
     }
 
+    const parsedExpiry = parseWebFlexDate(item.expiryDate, 'exp');
+    const parsedMfg = item.mfgDate ? parseWebFlexDate(item.mfgDate, 'mfg') : "";
+
+    if (!parsedExpiry) {
+      toast.error(`Expiry date is required and must be in a valid format (e.g. MM/YYYY) for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
+    }
+    if (item.mfgDate && !parsedMfg) {
+      toast.error(`Invalid Manufacturing Date format (e.g. MM/YYYY) for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
+    }
+
     const payload = {
       medicineId: actualMedicineId,
-      supplierId: String(supplierId),
+      supplierId: String(item.supplierId || supplierId || ""),
       batchNo: String(item.batchNo).trim(),
-      mfgDate: String(item.mfgDate || ""),
-      expiryDate: String(item.expiryDate || ""),
+      mfgDate: parsedMfg,
+      expiryDate: parsedExpiry,
       purchaseRatePaisa: Math.round(sanitizePrice(item.purchaseRate) * 100),
       mrpPaisa: Math.round(sanitizePrice(item.mrp) * 100),
       saleRatePaisa: Math.round(sanitizePrice(item.saleRate) * 100),
@@ -1405,8 +1503,23 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
       return false;
     }
-    if (payload.quantity <= 0) {
-      toast.error(`Quantity must be greater than zero for "${item.name}"`);
+    if (item.quantity === "" || payload.quantity <= 0) {
+      toast.error(`Quantity is required & must be greater than zero for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
+    }
+    if (item.purchaseRate === "" || payload.purchaseRatePaisa <= 0) {
+      toast.error(`Purchase rate is required & must be greater than zero for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
+    }
+    if (item.mrp === "" || payload.mrpPaisa <= 0) {
+      toast.error(`MRP is required & must be greater than zero for "${item.name}"`);
+      setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
+      return false;
+    }
+    if (item.gstRate === "") {
+      toast.error(`GST rate is required for "${item.name}"`);
       setRowStatuses(prev => ({ ...prev, [item.id]: 'error' }));
       return false;
     }
@@ -1557,14 +1670,22 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       parsedGst = 12; // Fallback
     }
 
+    const parsedExpiry = parseWebFlexDate(expiryDate, 'exp');
+    const parsedMfg = mfgDate ? parseWebFlexDate(mfgDate, 'mfg') : "";
+
     // Validate required fields on client side
     if (!String(batchNo).trim()) {
       toast.error("Batch number is required");
       setSaving(false);
       return;
     }
-    if (!expiryDate) {
-      toast.error("Expiry date is required");
+    if (!parsedExpiry) {
+      toast.error("Expiry date is required and must be in a valid format (e.g. MM/YYYY or DD/MM/YYYY)");
+      setSaving(false);
+      return;
+    }
+    if (mfgDate && !parsedMfg) {
+      toast.error("Invalid Manufacturing Date format (e.g. MM/YYYY or DD/MM/YYYY)");
       setSaving(false);
       return;
     }
@@ -1578,8 +1699,8 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       medicineId: actualMedicineId,
       supplierId: String(supplierId),
       batchNo: String(batchNo).trim(),
-      mfgDate: String(mfgDate),
-      expiryDate: String(expiryDate),
+      mfgDate: parsedMfg,
+      expiryDate: parsedExpiry,
       purchaseRatePaisa: Math.round(sanitizePrice(purchaseRate) * 100),
       mrpPaisa: Math.round(sanitizePrice(mrp) * 100),
       saleRatePaisa: Math.round(sanitizePrice(saleRate) * 100),
@@ -1626,10 +1747,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         if (field === 'medicineId') {
           const med = localMedicines.find(m => m.id === value);
           if (med) {
-            updated.gstRate = String(med.gstRate ?? 12);
-            updated.hsnCode = med.hsnCode ?? "";
-            updated.mrp = med.mrpPaisa ? String(med.mrpPaisa / 100) : updated.mrp;
-            updated.saleRate = med.mrpPaisa ? String(med.mrpPaisa / 100) : updated.saleRate;
+            updated.gstRate = updated.gstRate || String(med.gstRate ?? 12);
+            updated.hsnCode = updated.hsnCode || med.hsnCode || "";
+            updated.mrp = updated.mrp || (med.mrpPaisa ? String(med.mrpPaisa / 100) : "");
+            updated.saleRate = updated.saleRate || (med.mrpPaisa ? String(med.mrpPaisa / 100) : "");
           }
         }
         return updated;
@@ -1967,9 +2088,10 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           <span className="text-sm font-medium text-slate-600 font-semibold">MFG date</span>
           <input 
             name="mfgDate" 
-            type="date" 
+            type="text" 
             value={mfgDate} 
             onChange={(e) => setMfgDate(e.target.value)} 
+            placeholder="MM/YYYY or DD/MM/YYYY"
             className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm" 
           />
         </label>
@@ -1978,10 +2100,11 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           <span className="text-sm font-medium text-slate-600 font-semibold">Expiry date *</span>
           <input 
             name="expiryDate" 
-            type="date" 
+            type="text" 
             required 
             value={expiryDate} 
             onChange={(e) => setExpiryDate(e.target.value)} 
+            placeholder="MM/YYYY or DD/MM/YYYY"
             className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm" 
           />
         </label>
@@ -2394,14 +2517,37 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                 </div>
               </div>
 
-              {/* Right Side: Detected editable inputs editor */}
               <div className="lg:col-span-9 space-y-4 flex flex-col min-h-0">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <span className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
                     <span>Auto-Detected Form Fields</span>
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    {/* Bulk Supplier Change */}
+                    <div className="flex items-center gap-1.5 border border-purple-100 bg-purple-50/50 rounded px-2 py-0.5">
+                      <span className="text-[10px] text-purple-700 font-bold uppercase tracking-wider">Bulk Supplier:</span>
+                      <select
+                        onChange={(e) => {
+                          const newSupId = e.target.value;
+                          if (!newSupId) return;
+                          setScannedItems(prev => prev.map(item => {
+                            if (selectedRowIds.includes(item.id)) {
+                              return { ...item, supplierId: newSupId };
+                            }
+                            return item;
+                          }));
+                          toast.success("Updated supplier/manufacturer for all selected rows!");
+                        }}
+                        className="h-7 rounded border border-purple-200 bg-white px-1.5 text-[10px] font-semibold text-purple-750 outline-none"
+                      >
+                        <option value="">Set Manufacturer</option>
+                        {localSuppliers.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -2422,8 +2568,9 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                   <table className="w-full text-left border-collapse text-xs">
                     <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
                       <tr>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-12 text-center">Import?</th>
+                        <th className="py-3 px-3 text-slate-650 font-bold w-12 text-center">Import?</th>
                         <th className="py-3 px-3 text-slate-600 font-bold min-w-[200px]">Medicine Match</th>
+                        <th className="py-3 px-3 text-slate-600 font-bold w-48">Manufacturer / Supplier</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-28">Batch No</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-32">MFG Date</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-36">Expiry Date <span className="text-red-500">*</span></th>
@@ -2431,7 +2578,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">Cost Rate (₹)</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">Sale Rate (₹)</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-24">MRP (₹)</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-20">GST (%)</th>
+                        <th className="py-3 px-3 text-slate-650 font-bold w-20">GST (%)</th>
                         <th className="py-3 px-3 text-slate-600 font-bold w-28 text-center">Status / Actions</th>
                       </tr>
                     </thead>
@@ -2465,7 +2612,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                   onChange={(e) => updateScannedItem(item.id, 'medicineId', e.target.value)}
                                   className="h-8.5 w-full rounded border border-slate-300 bg-white px-2 font-semibold text-slate-800 text-[11px] outline-none focus:ring-1 focus:ring-med-green"
                                 >
-                                  <option value="new" className="text-amber-605 font-bold">✨ Add as New Medicine</option>
+                                  <option value="new" className="text-amber-650 font-bold">✨ Add as New Medicine</option>
                                   {localMedicines.map((m) => (
                                     <option key={m.id} value={m.id}>
                                       {m.name} {m.genericName ? `(${m.genericName})` : ""}
@@ -2486,6 +2633,21 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                               </div>
                             </td>
                             <td className="py-2.5 px-3">
+                              <select
+                                value={item.supplierId || ""}
+                                disabled={status === 'success' || status === 'saving'}
+                                onChange={(e) => updateScannedItem(item.id, 'supplierId', e.target.value)}
+                                className="h-8.5 w-full rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 text-[11px] outline-none focus:ring-1 focus:ring-med-green"
+                              >
+                                <option value="">No Supplier</option>
+                                {localSuppliers.map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="py-2.5 px-3">
                               <input 
                                 type="text"
                                 value={item.batchNo}
@@ -2496,26 +2658,28 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                             </td>
                             <td className="py-2.5 px-3">
                               <input 
-                                type="date"
+                                type="text"
                                 value={item.mfgDate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'mfgDate', e.target.value)}
+                                placeholder="MM/YYYY"
                                 className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
                               />
                             </td>
                             <td className="py-2.5 px-3">
                               <input 
-                                type="date"
+                                type="text"
                                 value={item.expiryDate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'expiryDate', e.target.value)}
-                                className={`h-8.5 w-full rounded border px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 ${!item.expiryDate ? 'border-red-300 bg-red-50/50 focus:ring-red-400' : 'border-slate-300 focus:ring-med-green'}`}
+                                placeholder="MM/YYYY"
+                                className={`h-8.5 w-full rounded border px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 ${!item.expiryDate ? 'border-red-300 bg-red-50/50 focus:ring-red-450' : 'border-slate-300 focus:ring-med-green'}`}
                                 title="Expiry Date (required)"
                               />
                             </td>
                             <td className="py-2.5 px-3">
                               <input 
-                                type="number"
+                                type="text"
                                 value={item.quantity}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'quantity', e.target.value)}
@@ -2524,8 +2688,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                             </td>
                             <td className="py-2.5 px-3">
                               <input 
-                                type="number"
-                                step="0.01"
+                                type="text"
                                 value={item.purchaseRate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'purchaseRate', e.target.value)}
@@ -2534,8 +2697,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                             </td>
                             <td className="py-2.5 px-3">
                               <input 
-                                type="number"
-                                step="0.01"
+                                type="text"
                                 value={item.saleRate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'saleRate', e.target.value)}
@@ -2544,8 +2706,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                             </td>
                             <td className="py-2.5 px-3">
                               <input 
-                                type="number"
-                                step="0.01"
+                                type="text"
                                 value={item.mrp}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'mrp', e.target.value)}
@@ -2559,6 +2720,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                 onChange={(e) => updateScannedItem(item.id, 'gstRate', e.target.value)}
                                 className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green bg-white"
                               >
+                                <option value="">Select GST</option>
                                 <option value="0">0%</option>
                                 <option value="5">5%</option>
                                 <option value="12">12%</option>

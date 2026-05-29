@@ -2615,7 +2615,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                   <option value="new" className="text-amber-650 font-bold">✨ Add as New Medicine</option>
                                   {localMedicines.map((m) => (
                                     <option key={m.id} value={m.id}>
-                                      {m.name} {m.genericName ? `(${m.genericName})` : ""}
+                                      {m.name} {m.genericName ? "(" + m.genericName + ")" : ""}
                                     </option>
                                   ))}
                                 </select>

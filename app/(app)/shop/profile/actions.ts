@@ -93,7 +93,7 @@ export async function updateShopProfile(formData: FormData) {
   }
 
   // Only allow admin roles to update shop profiles
-  if (user.role !== "shop_admin" && user.role !== "super_admin") {
+  if (user.role !== "shop_admin" && user.role !== "stockist_admin" && user.role !== "super_admin") {
     return { error: "Permissions denied. Only store owners can update shop settings." };
   }
 

@@ -1271,6 +1271,18 @@ export async function createSale(tenantId: string, input: unknown) {
         where: { id: line.inventoryId },
         data: { quantity: { decrement: line.quantity } }
       });
+
+      await tx.stockMovement.create({
+        data: {
+          id: uid("mov"),
+          tenantId,
+          inventoryId: line.inventoryId,
+          adjustmentType: "sale",
+          quantityDelta: -line.quantity,
+          reason: `POS Sale Invoice ${invoiceNo}`,
+          referenceNo: invoiceNo
+        }
+      });
     }
 
     // Map and bulk insert Schedule H register records if any controlled drugs exist
@@ -1730,6 +1742,17 @@ export async function createSaleReturn(tenantId: string, input: {
         }
       });
       await tx.inventoryItem.update({ where: { id: item.inventoryId }, data: { quantity: { increment: item.quantity } } });
+      await tx.stockMovement.create({
+        data: {
+          id: uid("mov"),
+          tenantId,
+          inventoryId: item.inventoryId,
+          adjustmentType: "return_in",
+          quantityDelta: item.quantity,
+          reason: `POS Sale Return ${returnNo}`,
+          referenceNo: returnNo
+        }
+      });
     }
 
     // Only decrement customer outstanding if the original sale was on credit
@@ -1800,6 +1823,17 @@ export async function createPurchaseReturn(tenantId: string, input: {
         }
       });
       await tx.inventoryItem.update({ where: { id: item.inventoryId }, data: { quantity: { decrement: item.quantity } } });
+      await tx.stockMovement.create({
+        data: {
+          id: uid("mov"),
+          tenantId,
+          inventoryId: item.inventoryId,
+          adjustmentType: "return_out",
+          quantityDelta: -item.quantity,
+          reason: `Purchase Return to Supplier ${returnNo}`,
+          referenceNo: returnNo
+        }
+      });
     }
 
     // Decrement supplier balance, clamped to 0 minimum

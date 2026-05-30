@@ -44,5 +44,9 @@ scripts/copy-ocr.js
 scripts/seed-supabase.ts
 scripts/verify-supabase.ts
 
+# Windows Deployment/Setup Batches with Credentials
+SETUP_VERCEL_ENV.bat
+DEPLOY.bat
+
 # IDE / misc
 .kiro/

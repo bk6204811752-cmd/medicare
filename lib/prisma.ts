@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
+import { AsyncLocalStorage } from "node:async_hooks";
+
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -71,11 +73,28 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = basePrisma;
 }
 
-export const prisma = basePrisma.$extends({
+const transactionStorage = new AsyncLocalStorage<boolean>();
+
+const extendedPrisma = basePrisma.$extends({
   query: {
     $allOperations({ model, operation, args, query }) {
+      if (transactionStorage.getStore()) {
+        return query(args);
+      }
       return withRetry(() => query(args));
     },
   },
-}) as any;
+});
+
+// Wrap $transaction to set the AsyncLocalStorage context
+const originalTransaction = extendedPrisma.$transaction.bind(extendedPrisma);
+
+extendedPrisma.$transaction = function (arg1: any, arg2: any) {
+  return transactionStorage.run(true, () => {
+    return originalTransaction(arg1, arg2);
+  });
+} as any;
+
+export const prisma = extendedPrisma as any;
+
 

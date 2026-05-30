@@ -72,7 +72,9 @@ export async function getRefillReminders(tenantId: string): Promise<RefillRemind
   const now = new Date();
 
   for (const [key, items] of purchaseGroups.entries()) {
-    const [customerId, medicineName] = key.split("_");
+    const firstUnderscoreIdx = key.indexOf("_");
+    const customerId = key.substring(0, firstUnderscoreIdx);
+    const medicineName = key.substring(firstUnderscoreIdx + 1);
     const customer = customerMap.get(customerId);
     const latestSaleDate = latestSaleMap.get(key)!;
 

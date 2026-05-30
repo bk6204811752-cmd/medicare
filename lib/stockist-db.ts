@@ -320,7 +320,7 @@ export async function createB2BSale(tenantId: string, input: {
           id: uid("mv"),
           tenantId,
           inventoryId: item.inventoryId,
-          adjustmentType: "return_out",
+          adjustmentType: "sale",
           quantityDelta: -totalDeduction,
           reason: `B2B Sale Invoice ${invoiceNo}`,
           referenceNo: invoiceNo,
@@ -393,7 +393,15 @@ export async function getB2BSalesWithItems(tenantId: string) {
       where: { tenantId },
       include: {
         party: true,
-        items: true,
+        items: {
+          include: {
+            inventory: {
+              include: {
+                medicine: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { invoiceDate: "desc" },
     })

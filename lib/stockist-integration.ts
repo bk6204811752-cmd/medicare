@@ -397,19 +397,24 @@ export async function confirmDelivery(
         }
       });
 
-      // 4. Deduct stock from Stockist's inventory if matching stock is found
-      const stockistInv = await tx.inventoryItem.findFirst({
-        where: {
-          tenantId: order.stockistTenantId,
-          medicineId: medicine.id,
-          isActive: true,
-          quantity: { gt: 0 }
-        },
-        orderBy: { expiryDate: "asc" } // FIFO
-      });
+      // 4. Deduct stock from Stockist's inventory if matching stock is found (FIFO)
+      let remainingDeductQty = item.quantity;
+      while (remainingDeductQty > 0) {
+        const stockistInv = await tx.inventoryItem.findFirst({
+          where: {
+            tenantId: order.stockistTenantId,
+            medicineId: medicine.id,
+            isActive: true,
+            quantity: { gt: 0 }
+          },
+          orderBy: { expiryDate: "asc" } // FIFO
+        });
 
-      if (stockistInv) {
-        const deductQty = Math.min(item.quantity, stockistInv.quantity);
+        if (!stockistInv) {
+          break;
+        }
+
+        const deductQty = Math.min(remainingDeductQty, stockistInv.quantity);
         if (deductQty > 0) {
           await tx.inventoryItem.update({
             where: { id: stockistInv.id },
@@ -428,6 +433,10 @@ export async function confirmDelivery(
               notes: `Delivered to Chemist ${order.chemistName}`
             }
           });
+
+          remainingDeductQty -= deductQty;
+        } else {
+          break;
         }
       }
     }

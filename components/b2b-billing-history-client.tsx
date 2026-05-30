@@ -44,6 +44,7 @@ type B2BSaleItem = {
   taxablePaisa: number;
   totalPaisa: number;
   schemeDetails?: string | null;
+  inventory?: any;
 };
 
 type B2BSaleWithItems = {
@@ -412,11 +413,11 @@ export function B2BBillingHistoryClient({
     const mappedItems = sale.items.map((i) => ({
       medicineName: i.medicineName,
       batchNo: i.batchNo,
-      hsnCode: "", // default fallback
-      manufacturer: "",
-      mfgDate: "",
+      hsnCode: i.inventory?.hsnCode || i.inventory?.medicine?.hsnCode || "",
+      manufacturer: i.inventory?.medicine?.manufacturer || "",
+      mfgDate: i.inventory?.mfgDate ? (typeof i.inventory.mfgDate === "string" ? i.inventory.mfgDate.slice(0, 10) : new Date(i.inventory.mfgDate).toISOString().slice(0, 10)) : "",
       expiryDate: typeof i.expiryDate === "string" ? i.expiryDate : new Date(i.expiryDate).toISOString().slice(0, 10),
-      packSize: "",
+      packSize: i.inventory?.medicine?.packSize || "",
       quantity: i.quantity,
       freeQuantity: i.freeQuantity,
       ptrPaisa: i.saleRatePaisa,
@@ -1083,14 +1084,14 @@ export function B2BBillingHistoryClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
           <style dangerouslySetInnerHTML={{ __html: `
             @media print {
-              body * {
+              body {
                 visibility: hidden !important;
               }
               #b2b-print-target, #b2b-print-target * {
                 visibility: visible !important;
               }
               #b2b-print-target {
-                position: fixed !important;
+                position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
                 width: 100% !important;

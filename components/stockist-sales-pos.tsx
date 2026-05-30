@@ -119,6 +119,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
   // Premium B2B Invoice & Receipt print modal states
   const [completedInvoice, setCompletedInvoice] = useState<any>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">("a4");
   
   const [isPending, startTransition] = useTransition();
@@ -462,6 +463,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           items: snapshotItems,
           calculations: { ...calculations },
         });
+        setShowPrintModal(true);
 
         setBillingSuccess(`B2B POS ${invoiceType === "challan" ? "Delivery Challan" : "Invoice"} generated successfully!`);
         setGeneratedInvoiceNo(result.invoiceNo || null);
@@ -911,7 +913,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
           {generatedInvoiceNo && completedInvoice && (
             <button
-              onClick={() => setCompletedInvoice(completedInvoice)}
+              onClick={() => setShowPrintModal(true)}
               className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white font-bold text-slate-700 shadow-sm hover:bg-slate-50 active:scale-95 transition-all text-xs animate-pulse"
             >
               <Printer className="h-4 w-4 text-slate-500" /> Open Print Console ({generatedInvoiceNo})
@@ -931,18 +933,18 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
     </div>
 
-    {completedInvoice && (
+    {showPrintModal && completedInvoice && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
-            body * {
+            body {
               visibility: hidden !important;
             }
             #b2b-print-target, #b2b-print-target * {
               visibility: visible !important;
             }
             #b2b-print-target {
-              position: fixed !important;
+              position: absolute !important;
               left: 0 !important;
               top: 0 !important;
               width: 100% !important;
@@ -975,7 +977,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               <p className="text-xs text-slate-400 font-semibold mt-0.5">Invoice Ref: <code className="font-mono text-slate-350">{completedInvoice.invoiceNo}</code></p>
             </div>
             <button 
-              onClick={() => setCompletedInvoice(null)}
+              onClick={() => setShowPrintModal(false)}
               className="rounded-lg p-1.5 hover:bg-slate-850 transition-colors text-slate-400 hover:text-white"
             >
               <X className="h-5 w-5" />
@@ -1336,7 +1338,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           {/* Modal Footer / Triggers */}
           <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 no-print">
             <button
-              onClick={() => setCompletedInvoice(null)}
+              onClick={() => setShowPrintModal(false)}
               className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:bg-slate-750 hover:text-white transition-colors text-xs active:scale-[0.98]"
             >
               Close & Return to POS

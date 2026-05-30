@@ -1180,14 +1180,14 @@ export function B2BBillingHistoryClient({
               </div>
 
               {/* View Target Frame (Right) */}
-              <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm overflow-x-auto overflow-y-visible flex justify-center">
+              <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm overflow-x-auto overflow-y-visible flex justify-start">
                 
                 {/* DYNAMIC DOCUMENT TARGET */}
                 <div 
                   id="b2b-print-target"
                   className={printFormat === "a4" 
-                    ? "w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-800 p-6 flex flex-col justify-between"
-                    : "w-[80mm] bg-white text-slate-800 p-3 font-mono text-[11px] leading-snug flex flex-col justify-start"
+                    ? "w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-800 p-6 flex flex-col justify-between mx-auto"
+                    : "w-[80mm] bg-white text-slate-800 p-3 font-mono text-[11px] leading-snug flex flex-col justify-start mx-auto"
                   }
                   style={printFormat === "a4" ? { minWidth: "750px" } : { width: "80mm" }}
                 >
@@ -1502,6 +1502,7 @@ export function B2BBillingHistoryClient({
 
 // Utility function to convert numbers to Indian Rupees Words
 function numberToRupeesWords(paisa: number): string {
+  if (isNaN(paisa) || paisa < 0) return "Zero Rupees Only";
   const totalRupees = Math.floor(paisa / 100);
   if (totalRupees === 0) return "Zero Rupees Only";
 

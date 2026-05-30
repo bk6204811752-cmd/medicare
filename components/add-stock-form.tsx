@@ -2631,21 +2631,21 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                 </div>
 
                 <div className="flex-1 overflow-x-auto overflow-y-auto border border-slate-200 rounded-xl bg-slate-50/20 max-h-[50vh]">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                  <table className="min-w-[1450px] w-full text-left border-collapse text-xs">
+                    <thead className="bg-slate-100/80 sticky top-0 z-10 border-b border-slate-200 backdrop-blur-sm">
                       <tr>
-                        <th className="py-3 px-3 text-slate-650 font-bold w-12 text-center">Import?</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold min-w-[200px]">Medicine Match</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-48">Manufacturer / Supplier</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-28">Batch No</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-32">MFG Date</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-36">Expiry Date <span className="text-red-500">*</span></th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Qty (Loose)</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Cost Rate (₹)</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-24">Sale Rate (₹)</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-24">MRP (₹)</th>
-                        <th className="py-3 px-3 text-slate-650 font-bold w-20">GST (%)</th>
-                        <th className="py-3 px-3 text-slate-600 font-bold w-28 text-center">Status / Actions</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[50px] w-12">Import?</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider min-w-[240px]">Medicine Match</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider min-w-[200px] w-48">Manufacturer / Supplier</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[110px] w-28">Batch No</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[110px] w-32">MFG Date</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[120px] w-36">Expiry Date <span className="text-red-500">*</span></th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[100px] w-24">Qty (Loose)</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[100px] w-24">Cost Rate (₹)</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[100px] w-24">Sale Rate (₹)</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[100px] w-24">MRP (₹)</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[100px] w-20">GST (%)</th>
+                        <th className="py-3 px-3 text-slate-700 font-extrabold text-[11px] uppercase tracking-wider text-center min-w-[150px] w-28">Status / Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-150 bg-white">
@@ -2654,8 +2654,8 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                         const isSelected = selectedRowIds.includes(item.id);
                         
                         return (
-                          <tr key={item.id} className={`hover:bg-slate-50/50 transition-colors ${status === 'success' ? 'bg-emerald-50/20' : ''}`}>
-                            <td className="py-2.5 px-3 text-center">
+                          <tr key={item.id} className={`hover:bg-slate-50/60 transition-colors ${status === 'success' ? 'bg-emerald-50/20' : ''}`}>
+                            <td className="py-3 px-3 text-center">
                               <input 
                                 type="checkbox"
                                 checked={isSelected}
@@ -2667,16 +2667,16 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                     setSelectedRowIds(prev => prev.filter(id => id !== item.id));
                                   }
                                 }}
-                                className="h-4.5 w-4.5 rounded border-slate-350 text-emerald-600 focus:ring-emerald-500"
+                                className="h-4.5 w-4.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
-                              <div className="space-y-1">
+                            <td className="py-3 px-3">
+                              <div className="space-y-1.5">
                                 <select
                                   value={item.medicineId}
                                   disabled={status === 'success' || status === 'saving'}
                                   onChange={(e) => updateScannedItem(item.id, 'medicineId', e.target.value)}
-                                  className="h-8.5 w-full rounded border border-slate-300 bg-white px-2 font-semibold text-slate-800 text-[11px] outline-none focus:ring-1 focus:ring-med-green"
+                                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 font-semibold text-slate-800 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
                                 >
                                   <option value="new" className="text-amber-650 font-bold">✨ Add as New Medicine</option>
                                   {localMedicines.map((m) => (
@@ -2693,29 +2693,31 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                     placeholder="Enter Brand name..."
                                     disabled={status === 'success' || status === 'saving'}
                                     onChange={(e) => updateScannedItem(item.id, 'name', e.target.value)}
-                                    className="h-8 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                    className="h-9 w-full rounded-lg border border-slate-200 px-2.5 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
                                   />
                                 )}
                               </div>
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               {item.detectedManufacturerName ? (
                                 // Show detected manufacturer from CSV with status badge
                                 <div className="space-y-1">
-                                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold border ${
+                                  <div className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border ${
                                     item.detectedManufacturerIsNew
                                       ? "bg-amber-50 border-amber-200 text-amber-800"
                                       : "bg-emerald-50 border-emerald-200 text-emerald-800"
                                   }`}>
-                                    <span className="truncate">{item.detectedManufacturerName}</span>
+                                    <span className="truncate max-w-[120px]" title={item.detectedManufacturerName}>
+                                      {item.detectedManufacturerName}
+                                    </span>
                                     {item.detectedManufacturerIsNew ? (
-                                      <span className="shrink-0 text-[9px] font-black bg-amber-200 text-amber-800 px-1 py-0.5 rounded uppercase tracking-wide">New</span>
+                                      <span className="shrink-0 text-[9px] font-black bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded uppercase tracking-wide">New</span>
                                     ) : (
-                                      <span className="shrink-0 text-[9px] font-black bg-emerald-200 text-emerald-800 px-1 py-0.5 rounded uppercase tracking-wide">✓</span>
+                                      <span className="shrink-0 text-[9px] font-black bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded uppercase tracking-wide">✓</span>
                                     )}
                                   </div>
                                   {item.detectedManufacturerIsNew && (
-                                    <p className="text-[9px] text-amber-600 font-medium leading-tight px-1">
+                                    <p className="text-[9px] text-amber-600 font-semibold leading-tight px-1">
                                       Will be auto-created on import
                                     </p>
                                   )}
@@ -2726,7 +2728,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                   value={item.supplierId || ""}
                                   disabled={status === 'success' || status === 'saving'}
                                   onChange={(e) => updateScannedItem(item.id, 'supplierId', e.target.value)}
-                                  className="h-8.5 w-full rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 text-[11px] outline-none focus:ring-1 focus:ring-med-green"
+                                  className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2.5 font-semibold text-slate-700 text-xs outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer"
                                 >
                                   <option value="">No Supplier</option>
                                   {localSuppliers.map((s) => (
@@ -2737,78 +2739,82 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                 </select>
                               )}
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <input 
                                 type="text"
                                 value={item.batchNo}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'batchNo', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-mono uppercase font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                className="h-9 w-full text-center rounded-lg border border-slate-200 px-2 text-xs font-mono uppercase font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <input 
                                 type="text"
                                 value={item.mfgDate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'mfgDate', e.target.value)}
                                 placeholder="MM/YYYY"
-                                className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                className="h-9 w-full text-center rounded-lg border border-slate-200 px-1 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <input 
                                 type="text"
                                 value={item.expiryDate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'expiryDate', e.target.value)}
                                 placeholder="MM/YYYY"
-                                className={`h-8.5 w-full rounded border px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 ${!item.expiryDate ? 'border-red-300 bg-red-50/50 focus:ring-red-450' : 'border-slate-300 focus:ring-med-green'}`}
+                                className={`h-9 w-full text-center rounded-lg border px-1 text-xs font-bold text-slate-800 outline-none focus:ring-2 transition-all ${
+                                  !item.expiryDate 
+                                    ? 'border-red-300 bg-red-50/30 focus:border-red-500 focus:ring-red-500/20' 
+                                    : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 bg-white'
+                                }`}
                                 title="Expiry Date (required)"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <input 
                                 type="text"
                                 value={item.quantity}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'quantity', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                className="h-9 w-full text-center rounded-lg border border-slate-200 px-2 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <input 
                                 type="text"
                                 value={item.purchaseRate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'purchaseRate', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                className="h-9 w-full text-center rounded-lg border border-slate-200 px-2 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <input 
                                 type="text"
                                 value={item.saleRate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'saleRate', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                className="h-9 w-full text-center rounded-lg border border-slate-200 px-2 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <input 
                                 type="text"
                                 value={item.mrp}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'mrp', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 px-2 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green"
+                                className="h-9 w-full text-center rounded-lg border border-slate-200 px-2 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white"
                               />
                             </td>
-                            <td className="py-2.5 px-3">
+                            <td className="py-3 px-3">
                               <select
                                 value={item.gstRate}
                                 disabled={status === 'success' || status === 'saving'}
                                 onChange={(e) => updateScannedItem(item.id, 'gstRate', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 px-1 text-[11px] font-bold text-slate-800 outline-none focus:ring-1 focus:ring-med-green bg-white"
+                                className="h-9 w-full text-center rounded-lg border border-slate-200 px-1 text-xs font-bold text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all bg-white cursor-pointer"
                               >
                                 <option value="">Select GST</option>
                                 <option value="0">0%</option>
@@ -2818,14 +2824,14 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                 <option value="28">28%</option>
                               </select>
                             </td>
-                            <td className="py-2.5 px-3 text-center">
-                              <div className="flex items-center justify-center gap-1.5">
+                            <td className="py-3 px-3 text-center">
+                              <div className="flex items-center justify-center gap-2">
                                 {status === 'idle' && (
                                   <>
                                     <button
                                       type="button"
                                       onClick={() => saveSingleItem(item)}
-                                      className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-sm transition-all"
+                                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-sm hover:shadow transition-all"
                                     >
                                       Import
                                     </button>
@@ -2833,20 +2839,20 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                       type="button"
                                       onClick={() => handleConfirmScannedSingle(item)}
                                       title="Populate in Main Form"
-                                      className="px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 text-slate-700 text-[10px] font-bold transition-all"
+                                      className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-bold transition-all"
                                     >
                                       Edit
                                     </button>
                                   </>
                                 )}
                                 {status === 'saving' && (
-                                  <span className="flex items-center gap-1 text-[10px] font-semibold text-blue-600">
+                                  <span className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-600">
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                     <span>Saving...</span>
                                   </span>
                                 )}
                                 {status === 'success' && (
-                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-250 px-2 py-0.5 rounded-full">
+                                  <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
                                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                                     <span>Added ✓</span>
                                   </span>
@@ -2855,7 +2861,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                                   <button
                                     type="button"
                                     onClick={() => saveSingleItem(item)}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-red-650 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full hover:bg-red-100 transition-colors"
+                                    className="flex items-center gap-1 text-[11px] font-bold text-red-650 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full hover:bg-red-100 transition-colors"
                                     title="Retry Import"
                                   >
                                     <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-500" />

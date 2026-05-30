@@ -17,6 +17,7 @@ type BillDetailClientProps = {
 
 // ── Convert number to Indian currency words ──
 function numberToWords(amount: number): string {
+  if (isNaN(amount) || amount < 0) return "Zero Rupees Only";
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
     "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
     "Seventeen", "Eighteen", "Nineteen"];
@@ -39,13 +40,52 @@ function numberToWords(amount: number): string {
   return (result || "Zero") + " Only";
 }
 
-export function BillDetailClient({ sale, items, tenant, initialFormat, autoSharePDF }: BillDetailClientProps) {
+export function BillDetailClient({ sale: initialSale, items: initialItems, tenant, initialFormat, autoSharePDF }: BillDetailClientProps) {
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">(initialFormat || "a4");
   const [lastInitial, setLastInitial] = useState(initialFormat);
   const [sharingPdf, setSharingPdf] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [pdfReady, setPdfReady] = useState(false);
+
+  // Support both snake_case (online) and camelCase (offline/prisma mapped) formats safely
+  const sale = {
+    id: initialSale?.id,
+    invoice_no: initialSale?.invoice_no ?? initialSale?.invoiceNo ?? "Draft",
+    invoice_date: initialSale?.invoice_date ?? initialSale?.invoiceDate ?? initialSale?.created_at ?? initialSale?.createdAt ?? new Date().toISOString(),
+    customer_name: initialSale?.customer_name ?? initialSale?.customerName ?? "Walk-in Customer",
+    customer_phone: initialSale?.customer_phone ?? initialSale?.customerPhone ?? "",
+    doctor_name: initialSale?.doctor_name ?? initialSale?.doctorName ?? "Self / OTC",
+    prescription_no: initialSale?.prescription_no ?? initialSale?.prescriptionNo ?? "N/A",
+    payment_mode: initialSale?.payment_mode ?? initialSale?.paymentMode ?? "Cash",
+    total_paisa: initialSale?.total_paisa ?? initialSale?.totalPaisa ?? initialSale?.netPaisa ?? 0,
+    subtotal_paisa: initialSale?.subtotal_paisa ?? initialSale?.subtotalPaisa ?? 0,
+    discount_paisa: initialSale?.discount_paisa ?? initialSale?.discountPaisa ?? 0,
+    taxable_paisa: initialSale?.taxable_paisa ?? initialSale?.taxablePaisa ?? 0,
+    cgst_paisa: initialSale?.cgst_paisa ?? initialSale?.cgstPaisa ?? 0,
+    sgst_paisa: initialSale?.sgst_paisa ?? initialSale?.sgstPaisa ?? 0,
+    round_off_paisa: initialSale?.round_off_paisa ?? initialSale?.roundOffPaisa ?? 0,
+    created_at: initialSale?.created_at ?? initialSale?.createdAt ?? new Date().toISOString(),
+    prescriptionImages: initialSale?.prescriptionImages ?? []
+  };
+
+  const items = (initialItems || []).map((item) => ({
+    id: item.id,
+    medicine_name: item.medicine_name ?? item.medicineName,
+    hsn_code: item.hsn_code ?? item.hsnCode,
+    batch_no: item.batch_no ?? item.batchNo,
+    expiry_date: item.expiry_date ?? item.expiryDate,
+    quantity: item.quantity,
+    mrp_paisa: item.mrp_paisa ?? item.mrpPaisa,
+    discount_percent: item.discount_percent ?? item.discountPercent,
+    gst_rate: item.gst_rate ?? item.gstRate,
+    total_paisa: item.total_paisa ?? item.totalPaisa,
+    schedule: item.schedule,
+    taxable_paisa: item.taxable_paisa ?? item.taxablePaisa,
+    cgst_paisa: item.cgst_paisa ?? item.cgstPaisa,
+    sgst_paisa: item.sgst_paisa ?? item.sgstPaisa,
+    gst_paisa: item.gst_paisa ?? item.gstPaisa
+  }));
 
   if (initialFormat !== lastInitial) {
     setPrintFormat(initialFormat || "a4");

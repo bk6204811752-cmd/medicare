@@ -616,7 +616,14 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                       className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-emerald-50/50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
                     >
                       <div>
-                        <p className="font-bold text-slate-850 text-xs">{item.medicine.name}</p>
+                        <p className="font-bold text-slate-850 text-xs">
+                          {item.medicine.name}
+                          {item.medicine.manufacturer && (
+                            <span className="text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1 rounded ml-1.5 font-bold">
+                              {item.medicine.manufacturer}
+                            </span>
+                          )}
+                        </p>
                         <p className="text-[9px] text-slate-400 font-mono mt-0.5">Batch: {item.batchNo} • Exp: {item.expiryDate}</p>
                       </div>
                       <div className="text-right font-mono font-semibold">
@@ -925,7 +932,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
     </div>
 
     {completedInvoice && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 no-print overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
             body * {
@@ -958,29 +965,29 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           }
         `}} />
         
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
           {/* Modal Header */}
-          <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-emerald-50/20 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
             <div>
-              <h3 className="font-display text-base font-black text-slate-800 flex items-center gap-2">
-                <Printer className="h-5 w-5 text-emerald-600 animate-pulse" /> Wholesale Invoice Generated
+              <h3 className="font-display text-base font-black text-white flex items-center gap-2">
+                <Printer className="h-5 w-5 text-emerald-500 animate-pulse" /> Wholesale Invoice Generated
               </h3>
-              <p className="text-xs text-slate-400 font-semibold mt-0.5">Invoice Ref: <code className="font-mono text-slate-600">{completedInvoice.invoiceNo}</code></p>
+              <p className="text-xs text-slate-400 font-semibold mt-0.5">Invoice Ref: <code className="font-mono text-slate-350">{completedInvoice.invoiceNo}</code></p>
             </div>
             <button 
               onClick={() => setCompletedInvoice(null)}
-              className="rounded-lg p-1.5 hover:bg-slate-150 transition-colors text-slate-400 hover:text-slate-600"
+              className="rounded-lg p-1.5 hover:bg-slate-850 transition-colors text-slate-400 hover:text-white"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
           
           {/* Modal Body / Selector & Invoice Preview Container */}
-          <div className="flex-1 overflow-y-auto p-6 bg-slate-50 flex flex-col md:flex-row gap-6">
+          <div className="flex-1 overflow-y-auto p-6 bg-slate-950/40 flex flex-col md:flex-row gap-6">
             
             {/* Left Selector Options Panel */}
             <div className="w-full md:w-64 space-y-4 shrink-0">
-              <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-xs space-y-3.5">
+              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-3.5">
                 <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Print Configuration</p>
                 
                 {/* Format Toggle Buttons */}
@@ -989,8 +996,8 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     onClick={() => setPrintFormat("a4")}
                     className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
                       printFormat === "a4"
-                        ? "bg-med-navy text-white border-med-navy shadow-sm"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                        : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
                     }`}
                   >
                     <FileText className="h-4 w-4" /> A4 Tax Invoice Sheet
@@ -999,51 +1006,59 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     onClick={() => setPrintFormat("thermal")}
                     className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
                       printFormat === "thermal"
-                        ? "bg-med-navy text-white border-med-navy shadow-sm"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                        : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
                     }`}
                   >
                     <Printer className="h-4 w-4" /> 3" Thermal Receipt
                   </button>
                 </div>
                 
-                <div className="border-t border-slate-100 pt-3 text-[10px] text-slate-400 leading-relaxed font-semibold">
-                  <span className="text-emerald-700 font-bold block mb-1">💡 Pro-Tip:</span>
+                <div className="border-t border-slate-800 pt-3 text-[10px] text-slate-450 leading-relaxed font-semibold">
+                  <span className="text-emerald-500 font-bold block mb-1">💡 Pro-Tip:</span>
                   Select your layout first, then click "Trigger System Print" to open the browser print dialog.
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-xs space-y-2.5">
+              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-2.5">
                 <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Transaction Snapshot</p>
-                <div className="text-xs space-y-1 font-semibold text-slate-500">
-                  <p className="flex justify-between"><span>Chemist:</span> <span className="text-slate-800 font-bold">{completedInvoice.partyName}</span></p>
-                  <p className="flex justify-between"><span>Mode:</span> <span className="text-slate-800 uppercase font-bold">{completedInvoice.paymentMode}</span></p>
-                  <p className="flex justify-between"><span>Items:</span> <span className="text-slate-800 font-mono font-bold">{completedInvoice.items.length} meds</span></p>
-                  <p className="flex justify-between border-t border-slate-100 pt-2 mt-1 font-bold">
-                    <span>Total:</span> <span className="text-emerald-600 font-mono font-black">{formatCurrency(completedInvoice.calculations.totalPaisa)}</span>
+                <div className="text-xs space-y-1.5 font-semibold text-slate-400">
+                  <p className="flex justify-between items-center"><span>Chemist:</span> <span className="text-slate-100 font-bold max-w-[120px] truncate">{completedInvoice.partyName}</span></p>
+                  <p className="flex justify-between items-center">
+                    <span>Mode:</span> 
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                      completedInvoice.paymentMode === "credit"
+                        ? "bg-amber-950/85 text-amber-400 border border-amber-800/40"
+                        : "bg-emerald-950/85 text-emerald-400 border border-emerald-800/40"
+                    }`}>
+                      {completedInvoice.paymentMode === "credit" ? "Trade Credit" : completedInvoice.paymentMode}
+                    </span>
                   </p>
+                  <p className="flex justify-between items-center"><span>Items:</span> <span className="text-slate-100 font-mono font-bold">{completedInvoice.items.length} meds</span></p>
+                  <div className="border-t border-slate-800 pt-2.5 mt-1">
+                    <p className="text-[10px] font-extrabold uppercase text-slate-450 tracking-wider">NET PAYABLE</p>
+                    <p className="text-emerald-400 font-mono font-black text-lg mt-0.5">{formatCurrency(completedInvoice.calculations.totalPaisa)}</p>
+                  </div>
                 </div>
               </div>
             </div>
             
             {/* Right Real-time Dynamic View Target */}
-            <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm overflow-x-auto overflow-y-visible flex justify-start">
+            <div className="flex-1 bg-slate-950 border border-slate-850 rounded-xl p-4 md:p-6 shadow-inner overflow-x-auto overflow-y-visible flex justify-start [background-image:radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]">
               
               {/* INVOICE CONTAINER TO PRINT */}
               <div 
                 id="b2b-print-target"
                 className={printFormat === "a4" 
-                  ? "w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-800 p-6 flex flex-col justify-between mx-auto"
-                  : "w-[80mm] bg-white text-slate-800 p-3 font-mono text-[11px] leading-snug flex flex-col justify-start mx-auto"
+                  ? "w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-800 p-6 flex flex-col justify-between mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-800/10 rounded-sm"
+                  : "w-[80mm] bg-white text-slate-800 p-3 font-mono text-[11px] leading-snug flex flex-col justify-start mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-800/10 rounded-sm"
                 }
                 style={printFormat === "a4" ? { minWidth: "750px" } : { width: "80mm" }}
               >
                 
                 {/* layout renderer */}
                 {printFormat === "a4" ? (
-                  // ────────────────────────────────────────────────────────
                   // 1. CLASSIC A4 B2B TAX INVOICE
-                  // ────────────────────────────────────────────────────────
                   <div className="space-y-5 flex-1 flex flex-col justify-between">
                     <div>
                       {/* Title Bar */}
@@ -1056,7 +1071,6 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                       
                       {/* Two Column Business Details */}
                       <div className="grid grid-cols-2 gap-6 mt-4 border-b border-slate-350 pb-4 text-[11px]">
-                        {/* Seller Details (Left) */}
                         <div className="space-y-1.5 border-r border-slate-200 pr-4">
                           <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">B2B SUPPLIER DETAILS</p>
                           <h4 className="font-extrabold text-slate-900 text-sm">MEDICARE PHARMACEUTICALS</h4>
@@ -1065,7 +1079,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                             New Delhi, Delhi - 110020
                           </p>
                           <p className="font-bold text-slate-700 mt-1">📞 Helpline: <span className="font-mono text-slate-800">+91 99999 88888</span></p>
-                          <p className="font-bold text-slate-500 font-mono mt-1">
+                          <p className="font-bold text-slate-505 font-mono mt-1">
                             GSTIN: <span className="font-black text-slate-900">07AAAAA1111A1Z1</span>
                           </p>
                           <p className="font-semibold text-slate-600 text-[10px] leading-tight">
@@ -1073,7 +1087,6 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                           </p>
                         </div>
                         
-                        {/* Buyer Details (Right) */}
                         <div className="space-y-1.5 pl-2">
                           <p className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">RETAIL CHEMIST (BUYER)</p>
                           <h4 className="font-black text-slate-900 text-sm">{completedInvoice.partyName}</h4>
@@ -1083,7 +1096,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                           {completedInvoice.partyPhone && (
                             <p className="font-bold text-slate-700 mt-1">📞 Contact: <span className="font-mono text-slate-800">{completedInvoice.partyPhone}</span></p>
                           )}
-                          <p className="font-bold text-slate-500 font-mono mt-1">
+                          <p className="font-bold text-slate-505 font-mono mt-1">
                             GSTIN: <span className="font-black text-slate-900">{completedInvoice.partyGstin || "UNREGISTERED (URP)"}</span>
                           </p>
                           <p className="font-semibold text-slate-600 text-[10px]">
@@ -1093,7 +1106,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                       </div>
                       
                       {/* Invoice Metadata Banner */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 grid grid-cols-4 gap-4 mt-4 text-[11px] font-semibold text-slate-500">
+                      <div className="bg-slate-55 border border-slate-200 rounded-lg p-3 grid grid-cols-4 gap-4 mt-4 text-[11px] font-semibold text-slate-500">
                         <div>
                           <span className="block text-[9px] font-bold text-slate-400 uppercase">Invoice Number</span>
                           <span className="font-bold text-slate-850 font-mono text-xs">{completedInvoice.invoiceNo}</span>
@@ -1119,7 +1132,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                       {/* Billing Items Table */}
                       <table className="w-full text-left text-[11px] border-collapse mt-5">
                         <thead>
-                          <tr className="bg-slate-800 text-white font-bold uppercase tracking-wider text-[9px]">
+                          <tr className="bg-slate-900 text-white font-bold uppercase tracking-wider text-[9px]">
                             <th className="px-3 py-2 border border-slate-700 text-center w-[4%]">S.No</th>
                             <th className="px-3 py-2 border border-slate-700 w-[24%]">Medicine Billed Lot & Pack</th>
                             <th className="px-3 py-2 border border-slate-700 text-center w-[8%] font-mono">HSN</th>
@@ -1136,7 +1149,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                         </thead>
                         <tbody className="divide-y divide-slate-200">
                           {completedInvoice.items.map((item: any, idx: number) => (
-                            <tr key={idx} className="font-semibold text-slate-700">
+                            <tr key={idx} className={`font-semibold text-slate-700 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}>
                               <td className="px-3 py-2 border border-slate-200 text-center font-mono">{idx + 1}</td>
                               <td className="px-3 py-2 border border-slate-200">
                                 <p className="font-extrabold text-slate-900 leading-tight">{item.medicineName}</p>
@@ -1161,8 +1174,6 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                       
                       {/* Financial Summaries & Tax Breakdowns */}
                       <div className="grid grid-cols-12 gap-6 mt-6">
-                        
-                        {/* GST Slab Summary Table (Left Column) */}
                         <div className="col-span-7 space-y-2 border border-slate-200 rounded-lg p-3 bg-slate-50/50">
                           <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Detailed GST Tax Breakdowns</p>
                           <table className="w-full text-left text-[10px] border-collapse">
@@ -1194,8 +1205,6 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                             </tbody>
                           </table>
                         </div>
-                        
-                        {/* Financial Summary Totals (Right Column) */}
                         <div className="col-span-5 space-y-2 border border-slate-200 rounded-lg p-3 bg-white font-semibold text-slate-650 text-xs">
                           <div className="flex justify-between">
                             <span>Invoice Subtotal:</span>
@@ -1216,7 +1225,6 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                         </div>
                       </div>
 
-                      {/* Words representation */}
                       <div className="mt-4 border-t border-slate-200 pt-3 text-[10px] text-slate-550 font-semibold italic">
                         <strong className="text-[9px] uppercase font-black text-slate-400 not-italic block mb-0.5">Amount Billed in Words</strong>
                         {numberToRupeesWords(completedInvoice.calculations.totalPaisa)}
@@ -1225,29 +1233,26 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     
                     {/* Footer & Signature Section */}
                     <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-200 text-[10px] font-semibold text-slate-400 mt-8">
-                      {/* Terms */}
-                      <div className="col-span-2 space-y-1 text-slate-400 leading-normal pr-4">
+                      <div className="col-span-2 space-y-1 text-slate-450 leading-normal pr-4">
                         <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Standard B2B Terms & Conditions</p>
                         <p>1. Pharmaceutical goods once billed and shipped cannot be returned or swapped.</p>
                         <p>2. Outstandings on trade credit must be settled within active distributor terms ({completedInvoice.paymentMode === "credit" ? "As Mapped" : "Immediate"}).</p>
                         <p>3. Subject to local business jurisdiction laws only.</p>
                       </div>
                       
-                      {/* Signatures */}
                       <div className="flex flex-col justify-between items-center h-20 text-center pl-2">
-                        <div className="w-full border-b border-slate-350 pb-8 mt-2 italic font-serif font-black text-slate-700 text-xs">
-                          Medicare Distributors
+                        <div className="w-full text-center mt-2 relative">
+                          <span className="font-serif italic font-black text-slate-800 text-sm tracking-wide block mb-0.5">Medicare Distributors</span>
+                          <span className="block text-[10px] font-mono text-slate-400 font-normal select-none pointer-events-none opacity-40 leading-none">authorized electronic copy</span>
+                          <div className="w-full border-b border-dashed border-slate-350 mt-2"></div>
                         </div>
                         <span className="text-[9px] uppercase font-bold tracking-wider">Authorized Signatory</span>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  // ────────────────────────────────────────────────────────
                   // 2. 3-INCH THERMAL RECEIPT
-                  // ────────────────────────────────────────────────────────
                   <div className="flex flex-col justify-start w-full">
-                    {/* Store Header */}
                     <div className="text-center space-y-0.5">
                       <h3 className="font-black text-xs text-slate-900">MEDICARE DISTRIBUTORS</h3>
                       <p className="text-[9px] text-slate-505">B2B Wholesale Pharma Hub</p>
@@ -1258,7 +1263,6 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     
                     <p className="my-2 border-b border-dashed border-slate-800"></p>
                     
-                    {/* Invoice Details */}
                     <div className="space-y-0.5 text-[10px] text-slate-700">
                       <p className="font-mono"><strong>Ref:</strong> {completedInvoice.invoiceNo}</p>
                       <p><strong>Date:</strong> {new Date(completedInvoice.date).toLocaleString("en-IN")}</p>
@@ -1270,8 +1274,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     
                     <p className="my-2 border-b border-dashed border-slate-800"></p>
                     
-                    {/* Items List */}
-                    <div className="space-y-1.5 text-slate-800 font-semibold">
+                    <div className="space-y-1.5 text-slate-850 font-semibold">
                       <div className="flex justify-between font-bold text-[9px] uppercase">
                         <span className="w-[50%]">Item Lot</span>
                         <span className="w-[20%] text-right font-mono">Qty</span>
@@ -1296,7 +1299,6 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     
                     <p className="my-2 border-b border-dashed border-slate-800"></p>
                     
-                    {/* Totals Summary */}
                     <div className="space-y-1 font-mono text-right text-[10px] text-slate-700">
                       <p className="flex justify-between">
                         <span>Subtotal:</span>
@@ -1318,8 +1320,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     
                     <p className="my-2 border-b border-dashed border-slate-800"></p>
                     
-                    {/* Footer Message */}
-                    <div className="text-center space-y-1 text-[9px] font-sans text-slate-500">
+                    <div className="text-center space-y-1 text-[9px] font-sans text-slate-550">
                       <p className="font-bold text-slate-800">Thank you for your business!</p>
                       <p>Please reconcile invoice outstandings within mapped trade billing cycles.</p>
                       <p className="text-[8px] font-mono text-slate-300 mt-2">Powered by Medicare B2B</p>
@@ -1333,10 +1334,10 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           </div>
           
           {/* Modal Footer / Triggers */}
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 no-print">
+          <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 no-print">
             <button
               onClick={() => setCompletedInvoice(null)}
-              className="h-10 px-4 rounded-xl border border-slate-200 bg-white font-bold text-slate-600 hover:bg-slate-100 transition-colors text-xs"
+              className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:bg-slate-750 hover:text-white transition-colors text-xs active:scale-[0.98]"
             >
               Close & Return to POS
             </button>
@@ -1350,7 +1351,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                   )}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="h-10 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white text-xs flex items-center gap-2 shadow-sm active:scale-95 transition-all"
+                  className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] active:scale-[0.98] transition-all"
                 >
                   <Send className="h-4 w-4" /> WhatsApp Bill
                 </a>

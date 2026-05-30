@@ -409,6 +409,13 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-slate-800 text-sm leading-tight">{item.medicine.name}</p>
                       <p className="text-[10px] text-slate-500 mt-0.5 truncate">{item.medicine.composition || "Composition unlisted"}</p>
+                      {item.medicine.manufacturer && (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                            Mfg: {item.medicine.manufacturer}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       {isExpired ? (
@@ -519,12 +526,19 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
                           <p className="font-semibold text-med-navy text-sm leading-snug">
                             {item.medicine.name}
                           </p>
-                          <p className="text-[10px] text-slate-450 font-bold mt-0.5 max-w-xs truncate">
+                          <p className="text-[10px] text-slate-455 font-bold mt-0.5 max-w-xs truncate">
                             {item.medicine.composition || "Composition unlisted"}
                           </p>
-                          <p className="text-[9px] text-slate-400 mt-1 font-extrabold bg-slate-100 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-0.5">
-                            Loc: {item.rackLocation || "MAIN_WH"}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {item.medicine.manufacturer && (
+                              <span className="text-[9px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                                Mfg: {item.medicine.manufacturer}
+                              </span>
+                            )}
+                            <span className="text-[9px] text-slate-400 font-extrabold bg-slate-100 px-1.5 py-0.5 rounded">
+                              Loc: {item.rackLocation || "MAIN_WH"}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-3.5">
                           <p className="font-mono font-bold text-slate-700 text-xs">Batch: {item.batchNo}</p>

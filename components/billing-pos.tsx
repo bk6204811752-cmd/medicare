@@ -55,6 +55,7 @@ type BillingLine = SaleLine & {
   maxQuantity: number;
   medicineId?: string;
   genericName?: string | null;
+  manufacturer?: string | null;
 };
 
 const SEVERE_INTERACTIONS: Record<string, Record<string, string>> = {
@@ -282,7 +283,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
                       schedule: matched.medicine.schedule,
                       maxQuantity: Number(matched.quantity),
                       medicineId: matched.medicineId,
-                      genericName: matched.medicine.genericName
+                      genericName: matched.medicine.genericName,
+                      manufacturer: matched.medicine.manufacturer
                     });
                   }
                 } catch (e) {
@@ -470,7 +472,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
           schedule: item.medicine.schedule,
           maxQuantity: Number(item.quantity),
           medicineId: item.medicineId,
-          genericName: item.medicine.genericName
+          genericName: item.medicine.genericName,
+          manufacturer: item.medicine.manufacturer
         }
       ];
     });
@@ -541,7 +544,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
           mrpPaisa: Number(nextItem.mrpPaisa),
           saleRatePaisa: Number(nextItem.saleRatePaisa),
           maxQuantity: Number(nextItem.quantity),
-          quantity: Math.min(line.quantity, Number(nextItem.quantity))
+          quantity: Math.min(line.quantity, Number(nextItem.quantity)),
+          manufacturer: nextItem.medicine.manufacturer
         };
       })
     );
@@ -1203,10 +1207,17 @@ export function BillingPos({ tenant }: { tenant: any }) {
                   <tr key={line.inventoryId} className={`border-b border-slate-100 transition-colors hover:bg-emerald-50/30 ${isEven ? 'bg-white' : 'bg-slate-50/40'}`}>
                     <td className="px-2.5 py-2.5 font-semibold text-med-navy text-xs">
                       <span className="block leading-tight font-bold">{line.medicineName}</span>
-                      {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
-                        <span className="inline-block mt-0.5 rounded bg-orange-100 border border-orange-200 px-1.5 py-0.5 text-[9px] font-black text-orange-700 uppercase">Sch {line.schedule}</span>
-                      )}
-                      <span className="block text-[10px] text-slate-400 mt-0.5">MRP {formatCurrency(line.mrpPaisa)}</span>
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {line.manufacturer && (
+                          <span className="inline-block rounded bg-indigo-50 border border-indigo-150 px-1 py-0.5 text-[9px] font-bold text-indigo-700">
+                            {line.manufacturer}
+                          </span>
+                        )}
+                        {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
+                          <span className="inline-block rounded bg-orange-100 border border-orange-200 px-1.5 py-0.5 text-[9px] font-black text-orange-700 uppercase">Sch {line.schedule}</span>
+                        )}
+                      </div>
+                      <span className="block text-[10px] text-slate-400 mt-1">MRP {formatCurrency(line.mrpPaisa)}</span>
                     </td>
                     <td className="px-2.5 py-2.5">
                       {availableBatches[line.medicineId ?? ""] && availableBatches[line.medicineId ?? ""].length > 1 ? (
@@ -1284,6 +1295,9 @@ export function BillingPos({ tenant }: { tenant: any }) {
                   
                   {/* Badges / Expiries */}
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                    {line.manufacturer && (
+                      <span className="rounded bg-indigo-50 border border-indigo-150 px-2 py-0.5 text-[10px] font-bold text-indigo-700">{line.manufacturer}</span>
+                    )}
                     {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
                       <span className="rounded bg-orange-50 border border-orange-150 px-2 py-0.5 text-[10px] font-bold text-orange-700 uppercase tracking-wide">{line.schedule}</span>
                     )}

@@ -248,6 +248,13 @@ export function InventoryTable({ rows }: { rows: LocalInventoryRow[] }) {
                         {row.medicine.name}
                       </Link>
                       <p className="text-xs text-slate-500">{row.medicine.composition ?? row.medicine.genericName ?? ""}</p>
+                      {row.medicine.manufacturer && (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded font-bold">
+                            {row.medicine.manufacturer}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs">{row.batchNo}</td>
                     <td className="px-3 py-2.5">{formatDate(row.expiryDate)}</td>

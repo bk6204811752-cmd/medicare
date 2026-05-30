@@ -1080,7 +1080,7 @@ export function B2BBillingHistoryClient({
 
       {/* ─── REAL-TIME PRINT CONSOLE OVERLAY MODAL ─── */}
       {completedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 no-print overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
           <style dangerouslySetInnerHTML={{ __html: `
             @media print {
               body * {
@@ -1113,37 +1113,37 @@ export function B2BBillingHistoryClient({
             }
           `}} />
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
+          <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 to-emerald-50/20 border-b border-slate-100 flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
               <div>
-                <h3 className="font-display text-base font-black text-slate-850 flex items-center gap-2">
-                  <Printer className="h-5 w-5 text-emerald-600 animate-pulse" /> B2B Wholesaler Print Console
+                <h3 className="font-display text-base font-black text-white flex items-center gap-2">
+                  <Printer className="h-5 w-5 text-emerald-500 animate-pulse" /> B2B Wholesaler Print Console
                 </h3>
-                <p className="text-xs text-slate-400 font-semibold mt-0.5">Ref No: <code className="font-mono text-slate-600">{completedInvoice.invoiceNo}</code></p>
+                <p className="text-xs text-slate-400 font-semibold mt-0.5">Ref No: <code className="font-mono text-slate-350">{completedInvoice.invoiceNo}</code></p>
               </div>
               <button 
                 onClick={() => setCompletedInvoice(null)}
-                className="rounded-lg p-1.5 hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+                className="rounded-lg p-1.5 hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Modal Body / Selector & Preview Panel */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 flex flex-col md:flex-row gap-6">
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-950/40 flex flex-col md:flex-row gap-6">
               
               {/* Configuration panel (Left) */}
               <div className="w-full md:w-64 space-y-4 shrink-0 font-semibold">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-3.5">
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-3.5">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Select Print Layout</p>
                   <div className="space-y-2">
                     <button
                       onClick={() => setPrintFormat("a4")}
                       className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
                         printFormat === "a4"
-                          ? "bg-med-navy text-white border-med-navy shadow-sm"
-                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                          : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
                       }`}
                     >
                       <FileText className="h-4 w-4" /> A4 Tax Invoice Sheet
@@ -1152,42 +1152,52 @@ export function B2BBillingHistoryClient({
                       onClick={() => setPrintFormat("thermal")}
                       className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
                         printFormat === "thermal"
-                          ? "bg-med-navy text-white border-med-navy shadow-sm"
-                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                          ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                          : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
                       }`}
                     >
                       <Printer className="h-4 w-4" /> 3" Thermal Receipt
                     </button>
                   </div>
                   
-                  <div className="border-t border-slate-100 pt-3 text-[10px] text-slate-400 leading-relaxed font-semibold">
+                  <div className="border-t border-slate-800 pt-3 text-[10px] text-slate-450 leading-relaxed font-semibold">
                     <span className="text-emerald-700 font-bold block mb-1">💡 Professional Printing:</span>
                     Trigger the browser layout print dialog, and select "Save as PDF" or route to your physical printer console.
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl border border-slate-200/60 shadow-xs space-y-2.5">
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-2.5">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Bill Financials</p>
-                  <div className="text-xs space-y-1 font-semibold text-slate-500">
-                    <p className="flex justify-between"><span>Chemist:</span> <span className="text-slate-800 font-bold max-w-[120px] truncate text-right">{completedInvoice.partyName}</span></p>
-                    <p className="flex justify-between"><span>Payment:</span> <span className="text-slate-800 uppercase font-bold">{completedInvoice.paymentMode === "credit" ? "Trade Credit" : completedInvoice.paymentMode}</span></p>
-                    <p className="flex justify-between"><span>Lots Billed:</span> <span className="text-slate-800 font-mono font-bold">{completedInvoice.items.length} items</span></p>
-                    <p className="flex justify-between border-t border-slate-100 pt-2 mt-1 font-bold">
-                      <span>Total bill:</span> <span className="text-emerald-600 font-mono font-black">{formatCurrency(completedInvoice.calculations.totalPaisa)}</span>
+                  <div className="text-xs space-y-1.5 font-semibold text-slate-405 font-medium">
+                    <p className="flex justify-between items-center"><span>Chemist:</span> <span className="text-slate-100 font-bold max-w-[120px] truncate text-right">{completedInvoice.partyName}</span></p>
+                    <p className="flex justify-between items-center">
+                      <span>Payment:</span> 
+                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                        completedInvoice.paymentMode === "credit"
+                          ? "bg-amber-955/85 text-amber-400 border border-amber-800/40"
+                          : "bg-emerald-955/85 text-emerald-400 border border-emerald-800/40"
+                      }`}>
+                        {completedInvoice.paymentMode === "credit" ? "Trade Credit" : completedInvoice.paymentMode}
+                      </span>
                     </p>
+                    <p className="flex justify-between items-center"><span>Lots Billed:</span> <span className="text-slate-100 font-mono font-bold">{completedInvoice.items.length} items</span></p>
+                    <div className="border-t border-slate-800 pt-2.5 mt-1 font-semibold">
+                      <p className="text-[10px] font-extrabold uppercase text-slate-455 tracking-wider">NET PAYABLE</p>
+                      <p className="text-emerald-400 font-mono font-black text-lg mt-0.5">{formatCurrency(completedInvoice.calculations.totalPaisa)}</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* View Target Frame (Right) */}
-              <div className="flex-1 bg-white border border-slate-200 rounded-xl p-4 md:p-6 shadow-sm overflow-x-auto overflow-y-visible flex justify-start">
+              <div className="flex-1 bg-slate-950 border border-slate-850 rounded-xl p-4 md:p-6 shadow-inner overflow-x-auto overflow-y-visible flex justify-start [background-image:radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]">
                 
                 {/* DYNAMIC DOCUMENT TARGET */}
                 <div 
                   id="b2b-print-target"
                   className={printFormat === "a4" 
-                    ? "w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-800 p-6 flex flex-col justify-between mx-auto"
-                    : "w-[80mm] bg-white text-slate-800 p-3 font-mono text-[11px] leading-snug flex flex-col justify-start mx-auto"
+                    ? "w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-800 p-6 flex flex-col justify-between mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-800/10 rounded-sm"
+                    : "w-[80mm] bg-white text-slate-800 p-3 font-mono text-[11px] leading-snug flex flex-col justify-start mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-slate-800/10 rounded-sm"
                   }
                   style={printFormat === "a4" ? { minWidth: "750px" } : { width: "80mm" }}
                 >
@@ -1213,7 +1223,7 @@ export function B2BBillingHistoryClient({
                           <div className="space-y-1.5 border-r border-slate-200 pr-4">
                             <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">B2B SUPPLIER DETAILS</p>
                             <h4 className="font-extrabold text-slate-900 text-sm uppercase">{tenant?.name || "MEDICARE WHOLESALE DISTRIBUTORS"}</h4>
-                            <p className="text-slate-500 font-semibold leading-relaxed">
+                            <p className="text-slate-505 font-semibold leading-relaxed">
                               {tenant?.address || "B2B Block, Phase-1 Warehouse, Industrial Estate"}
                             </p>
                             <p className="font-bold text-slate-700 mt-1">📞 Helpline: <span className="font-mono text-slate-850">{tenant?.phone || "+91 99999 88888"}</span></p>
@@ -1229,7 +1239,7 @@ export function B2BBillingHistoryClient({
                           <div className="space-y-1.5 pl-2">
                             <p className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">RETAIL CHEMIST (BUYER)</p>
                             <h4 className="font-black text-slate-900 text-sm uppercase">{completedInvoice.partyName}</h4>
-                            <p className="text-slate-500 font-semibold leading-relaxed">
+                            <p className="text-slate-505 font-semibold leading-relaxed">
                               {completedInvoice.partyAddress || "No registered party address configured."}
                             </p>
                             {completedInvoice.partyPhone && (
@@ -1245,7 +1255,7 @@ export function B2BBillingHistoryClient({
                         </div>
 
                         {/* Invoice Metadata Banner */}
-                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 grid grid-cols-4 gap-4 mt-4 text-[11px] font-semibold text-slate-500">
+                        <div className="bg-slate-55 border border-slate-200 rounded-lg p-3 grid grid-cols-4 gap-4 mt-4 text-[11px] font-semibold text-slate-500">
                           <div>
                             <span className="block text-[9px] font-bold text-slate-400 uppercase">Document Number</span>
                             <span className="font-bold text-slate-850 font-mono text-xs">{completedInvoice.invoiceNo}</span>
@@ -1271,7 +1281,7 @@ export function B2BBillingHistoryClient({
                         {/* Billing Items Table */}
                         <table className="w-full text-left text-[11px] border-collapse mt-5">
                           <thead>
-                            <tr className="bg-slate-800 text-white font-bold uppercase tracking-wider text-[9px]">
+                            <tr className="bg-slate-900 text-white font-bold uppercase tracking-wider text-[9px]">
                               <th className="px-3 py-2 border border-slate-700 text-center w-[4%]">S.No</th>
                               <th className="px-3 py-2 border border-slate-700 w-[30%]">Medicine Description</th>
                               <th className="px-3 py-2 border border-slate-700 text-center w-[12%]">Batch</th>
@@ -1286,7 +1296,7 @@ export function B2BBillingHistoryClient({
                           </thead>
                           <tbody className="divide-y divide-slate-200">
                             {completedInvoice.items.map((item: any, idx: number) => (
-                              <tr key={idx} className="font-semibold text-slate-700">
+                              <tr key={idx} className={`font-semibold text-slate-700 ${idx % 2 === 0 ? "bg-white" : "bg-slate-50/50"}`}>
                                 <td className="px-3 py-2 border border-slate-200 text-center font-mono">{idx + 1}</td>
                                 <td className="px-3 py-2 border border-slate-200">
                                   <p className="font-extrabold text-slate-900 leading-tight">{item.medicineName}</p>
@@ -1341,7 +1351,7 @@ export function B2BBillingHistoryClient({
                           </div>
 
                           {/* Financial Summary Totals (Right) */}
-                          <div className="col-span-5 space-y-2 border border-slate-200 rounded-lg p-3 bg-white font-semibold text-slate-650 text-xs shadow-xs">
+                          <div className="col-span-5 space-y-2 border border-slate-200 rounded-lg p-3 bg-white font-semibold text-slate-655 text-xs shadow-xs">
                             <div className="flex justify-between">
                               <span>Invoice Subtotal:</span>
                               <span className="font-mono text-slate-900">₹{(completedInvoice.calculations.subtotalPaisa / 100).toFixed(2)}</span>
@@ -1371,7 +1381,7 @@ export function B2BBillingHistoryClient({
                       {/* Footer Terms & Signatures */}
                       <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-200 text-[10px] font-semibold text-slate-400 mt-8">
                         {/* Terms */}
-                        <div className="col-span-2 space-y-1 text-slate-400 leading-normal pr-4 font-medium">
+                        <div className="col-span-2 space-y-1 text-slate-450 leading-normal pr-4 font-medium">
                           <p className="text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">Standard B2B Terms & Conditions</p>
                           <p>1. Pharmaceutical B2B goods once billed cannot be returned or swapped.</p>
                           <p>2. Outstandings on trade credit must be settled within active distributor terms.</p>
@@ -1380,8 +1390,10 @@ export function B2BBillingHistoryClient({
                         
                         {/* Signature */}
                         <div className="flex flex-col justify-between items-center h-20 text-center pl-2">
-                          <div className="w-full border-b border-slate-350 pb-8 mt-2 italic font-serif font-black text-slate-700 text-xs">
-                            {tenant?.name || "Medicare Distributors"}
+                          <div className="w-full text-center mt-2 relative">
+                            <span className="font-serif italic font-black text-slate-800 text-sm tracking-wide block mb-0.5">{tenant?.name || "Medicare Distributors"}</span>
+                            <span className="block text-[10px] font-mono text-slate-400 font-normal select-none pointer-events-none opacity-40 leading-none">authorized electronic copy</span>
+                            <div className="w-full border-b border-dashed border-slate-350 mt-2"></div>
                           </div>
                           <span className="text-[9px] uppercase font-bold tracking-wider">Authorized Signatory</span>
                         </div>
@@ -1478,20 +1490,36 @@ export function B2BBillingHistoryClient({
             </div>
             
             {/* Modal Footer / Triggers */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 no-print">
+            <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 no-print">
               <button
                 onClick={() => setCompletedInvoice(null)}
-                className="h-10 px-4 rounded-xl border border-slate-200 bg-white font-bold text-slate-650 hover:bg-slate-100 transition-colors text-xs active:scale-95"
+                className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:bg-slate-750 hover:text-white transition-colors text-xs active:scale-[0.98]"
               >
                 Close Print Console
               </button>
               
-              <button
-                onClick={() => window.print()}
-                className="h-10 px-6 rounded-xl bg-med-green font-bold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all text-xs flex items-center gap-2"
-              >
-                <Printer className="h-4 w-4" /> Trigger System Print
-              </button>
+              <div className="flex items-center gap-2">
+                {/* WhatsApp Share */}
+                {completedInvoice?.partyPhone && (
+                  <a
+                    href={`https://wa.me/${completedInvoice.partyPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                      `B2B Invoice: ${completedInvoice.invoiceNo}\nChemist: ${completedInvoice.partyName}\nTotal: ₹${(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}\nPayment: ${completedInvoice.paymentMode.toUpperCase()}\nMedicines: ${completedInvoice.items.map((i: any) => `${i.medicineName} (Qty:${i.quantity})`).join(", ")}\nThank you!`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] active:scale-[0.98] transition-all"
+                  >
+                    <Send className="h-4 w-4" /> WhatsApp Bill
+                  </a>
+                )}
+
+                <button
+                  onClick={() => window.print()}
+                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] hover:from-emerald-505 hover:to-teal-505 active:scale-[0.98] transition-all text-xs flex items-center gap-2"
+                >
+                  <Printer className="h-4 w-4" /> Trigger System Print
+                </button>
+              </div>
             </div>
           </div>
         </div>

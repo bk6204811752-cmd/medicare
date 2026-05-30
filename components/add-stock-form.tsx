@@ -38,6 +38,9 @@ type ScannedItem = {
   gstRate: string;
   hsnCode: string;
   supplierId?: string;
+  // CSV-detected manufacturer info (per-row)
+  detectedManufacturerName?: string; // raw name from CSV column
+  detectedManufacturerIsNew?: boolean; // true = doesn't exist in system yet
 };
 
 export function parseWebFlexDate(value: string, type: 'mfg' | 'exp'): string {
@@ -1017,7 +1020,6 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
     // Column index mapping from header
     let colMap: Record<string, number>;
-    let detectedSupplierName = ""; // auto-detect supplier from CSV header/column
     if (hasHeader) {
       colMap = { name: -1, batch: -1, mfgDate: -1, expiry: -1, qty: -1, rate: -1, mrp: -1, gst: -1, hsn: -1, saleRate: -1, supplier: -1 };
       const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
@@ -1052,7 +1054,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     }
 
     for (const line of dataLines) {
-      const cols = line.split(delimiter).map(c => c.trim().replace(/^["\']+|["\']+$/g, ""));
+      const cols = line.split(delimiter).map(c => c.trim().replace(/^["']+|["']+$/g, ""));
       if (cols.length < 2) continue;
 
       const rawName = colMap.name >= 0 ? (cols[colMap.name] || "") : "";
@@ -1115,9 +1117,24 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       const gstVal = colMap.gst >= 0 ? cleanPriceStr(cols[colMap.gst] || "") : "";
       const qtyVal = colMap.qty >= 0 ? cleanPriceStr(cols[colMap.qty] || "") : "";
 
-      // Auto-detect supplier name from column (first non-empty value wins)
-      if (!detectedSupplierName && colMap.supplier >= 0 && cols[colMap.supplier]?.trim()) {
-        detectedSupplierName = cols[colMap.supplier].trim();
+      // ── Per-row manufacturer detection from CSV column ──
+      const rawManufacturerName = colMap.supplier >= 0 ? (cols[colMap.supplier]?.trim() || "") : "";
+      let resolvedSupplierId = supplierId || "";
+      let detectedManufacturerIsNew = false;
+      if (rawManufacturerName) {
+        // Check if this manufacturer already exists in localSuppliers
+        const existingSup = localSuppliers.find(
+          s => s.name.toLowerCase() === rawManufacturerName.toLowerCase() ||
+               s.name.toLowerCase().includes(rawManufacturerName.toLowerCase()) ||
+               rawManufacturerName.toLowerCase().includes(s.name.toLowerCase())
+        );
+        if (existingSup) {
+          resolvedSupplierId = existingSup.id;
+          detectedManufacturerIsNew = false;
+        } else {
+          resolvedSupplierId = "";
+          detectedManufacturerIsNew = true;
+        }
       }
 
       items.push({
@@ -1133,14 +1150,12 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         saleRate: saleRateVal || mrpVal,
         gstRate: gstVal,
         hsnCode: colMap.hsn >= 0 ? (cols[colMap.hsn] || "") : "",
-        supplierId: supplierId || "",
+        supplierId: resolvedSupplierId,
+        detectedManufacturerName: rawManufacturerName || undefined,
+        detectedManufacturerIsNew: rawManufacturerName ? detectedManufacturerIsNew : undefined,
       });
     }
-    // Attach detected supplier name to first item for auto-creation later
-    if (detectedSupplierName && items.length > 0) {
-      (items as any)._detectedSupplierName = detectedSupplierName;
-    }
-    return items as ScannedItem[] & { _detectedSupplierName?: string };
+    return items;
   }
 
   // ─── Bulk File Upload Handler (CSV/TXT/PDF) ───
@@ -1189,38 +1204,22 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
       if (isStructuredCsv) {
         parsed = parseCsvTextToItems(text);
-        // ── Auto-create Supplier if detected from CSV column ──
-        const detectedSupName = (parsed as any)._detectedSupplierName as string | undefined;
-        if (detectedSupName) {
-          // Check if already exists locally
-          const existingSup = localSuppliers.find(s => s.name.toLowerCase() === detectedSupName.toLowerCase());
-          if (existingSup) {
-            setSupplierId(existingSup.id);
-            toast.success(`✅ Auto-selected supplier: ${existingSup.name}`);
-          } else {
-            // Create new supplier via API
-            try {
-              setBulkFileStep("🏭 Auto-registering supplier/manufacturer from CSV...");
-              const supRes = await fetch("/api/suppliers", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  name: detectedSupName,
-                  creditDays: 30,
-                  balancePaisa: 0
-                })
-              });
-              const supResult = await supRes.json();
-              if (supRes.ok && supResult.data) {
-                const newSup: SelectItem = { id: supResult.data.id, name: supResult.data.name };
-                setLocalSuppliers(prev => [newSup, ...prev]);
-                setSupplierId(supResult.data.id);
-                toast.success(`✅ Auto-created & selected manufacturer: "${detectedSupName}". Edit details later in Suppliers.`);
-              }
-            } catch (err) {
-              console.warn("Supplier auto-create failed:", err);
-            }
-          }
+        // ── Show summary of manufacturer detection from CSV ──
+        const newManufacturers = [...new Set(
+          parsed
+            .filter(item => item.detectedManufacturerName && item.detectedManufacturerIsNew)
+            .map(item => item.detectedManufacturerName!)
+        )];
+        const existingManufacturers = [...new Set(
+          parsed
+            .filter(item => item.detectedManufacturerName && !item.detectedManufacturerIsNew)
+            .map(item => item.detectedManufacturerName!)
+        )];
+        if (existingManufacturers.length > 0) {
+          toast.success(`✅ Matched manufacturer(s): ${existingManufacturers.join(", ")}`);
+        }
+        if (newManufacturers.length > 0) {
+          toast.info(`🏭 New manufacturer(s) detected: ${newManufacturers.join(", ")} — will be auto-created on import.`, { duration: 5000 });
         }
         if (parsed.length === 0) {
           // Fallback to raw text parsing
@@ -1444,6 +1443,41 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
   async function saveSingleItem(item: ScannedItem): Promise<boolean> {
     setRowStatuses(prev => ({ ...prev, [item.id]: 'saving' }));
     let actualMedicineId = item.medicineId;
+    let actualSupplierId = item.supplierId || supplierId || "";
+
+    // ── Step 0: Auto-create manufacturer if detected from CSV and not yet in system ──
+    if (item.detectedManufacturerName && item.detectedManufacturerIsNew) {
+      try {
+        const supRes = await fetch("/api/suppliers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: item.detectedManufacturerName.trim(),
+            creditDays: 30,
+            balancePaisa: 0
+          })
+        });
+        const supResult = await supRes.json();
+        if (supRes.ok && supResult.data) {
+          const newSup: SelectItem = { id: supResult.data.id, name: supResult.data.name };
+          setLocalSuppliers(prev => {
+            if (prev.some(s => s.id === supResult.data.id)) return prev;
+            return [newSup, ...prev];
+          });
+          actualSupplierId = supResult.data.id;
+          // Update this item's detectedManufacturerIsNew to false so it won't be recreated on retry
+          setScannedItems(prev => prev.map(x =>
+            x.id === item.id
+              ? { ...x, supplierId: supResult.data.id, detectedManufacturerIsNew: false }
+              : x
+          ));
+          toast.success(`✅ Auto-registered manufacturer: "${item.detectedManufacturerName}"`);
+        }
+      } catch (err) {
+        console.warn("Manufacturer auto-create failed:", err);
+        // Non-blocking: continue saving stock even if manufacturer creation fails
+      }
+    }
 
     if (item.medicineId === "new") {
       const name = item.name.trim();
@@ -1468,7 +1502,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
           body: JSON.stringify({
             name,
             genericName: "", 
-            manufacturer: "",
+            manufacturer: item.detectedManufacturerName || "",
             category: "Other",
             composition: "",
             dosageForm: "Tablet",
@@ -1535,7 +1569,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
     const payload = {
       medicineId: actualMedicineId,
-      supplierId: String(item.supplierId || supplierId || ""),
+      supplierId: String(actualSupplierId || ""),
       batchNo: String(item.batchNo).trim(),
       mfgDate: parsedMfg,
       expiryDate: parsedExpiry,
@@ -2580,30 +2614,6 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                     <span>Auto-Detected Form Fields</span>
                   </span>
                   <div className="flex items-center gap-3">
-                    {/* Bulk Supplier Change */}
-                    <div className="flex items-center gap-1.5 border border-purple-100 bg-purple-50/50 rounded px-2 py-0.5">
-                      <span className="text-[10px] text-purple-700 font-bold uppercase tracking-wider">Bulk Supplier:</span>
-                      <select
-                        onChange={(e) => {
-                          const newSupId = e.target.value;
-                          if (!newSupId) return;
-                          setScannedItems(prev => prev.map(item => {
-                            if (selectedRowIds.includes(item.id)) {
-                              return { ...item, supplierId: newSupId };
-                            }
-                            return item;
-                          }));
-                          toast.success("Updated supplier/manufacturer for all selected rows!");
-                        }}
-                        className="h-7 rounded border border-purple-200 bg-white px-1.5 text-[10px] font-semibold text-purple-750 outline-none"
-                      >
-                        <option value="">Set Manufacturer</option>
-                        {localSuppliers.map((s) => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
                     <button
                       type="button"
                       onClick={() => {
@@ -2613,7 +2623,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                           setSelectedRowIds(scannedItems.map(x => x.id));
                         }
                       }}
-                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-250 bg-emerald-50 px-2.5 py-1 rounded transition-colors"
+                      className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors"
                     >
                       {selectedRowIds.length === scannedItems.length ? "Deselect All" : "Select All"}
                     </button>
@@ -2689,19 +2699,43 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                               </div>
                             </td>
                             <td className="py-2.5 px-3">
-                              <select
-                                value={item.supplierId || ""}
-                                disabled={status === 'success' || status === 'saving'}
-                                onChange={(e) => updateScannedItem(item.id, 'supplierId', e.target.value)}
-                                className="h-8.5 w-full rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 text-[11px] outline-none focus:ring-1 focus:ring-med-green"
-                              >
-                                <option value="">No Supplier</option>
-                                {localSuppliers.map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {item.detectedManufacturerName ? (
+                                // Show detected manufacturer from CSV with status badge
+                                <div className="space-y-1">
+                                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold border ${
+                                    item.detectedManufacturerIsNew
+                                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                                      : "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                  }`}>
+                                    <span className="truncate">{item.detectedManufacturerName}</span>
+                                    {item.detectedManufacturerIsNew ? (
+                                      <span className="shrink-0 text-[9px] font-black bg-amber-200 text-amber-800 px-1 py-0.5 rounded uppercase tracking-wide">New</span>
+                                    ) : (
+                                      <span className="shrink-0 text-[9px] font-black bg-emerald-200 text-emerald-800 px-1 py-0.5 rounded uppercase tracking-wide">✓</span>
+                                    )}
+                                  </div>
+                                  {item.detectedManufacturerIsNew && (
+                                    <p className="text-[9px] text-amber-600 font-medium leading-tight px-1">
+                                      Will be auto-created on import
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                // No manufacturer in CSV — show dropdown to manually select
+                                <select
+                                  value={item.supplierId || ""}
+                                  disabled={status === 'success' || status === 'saving'}
+                                  onChange={(e) => updateScannedItem(item.id, 'supplierId', e.target.value)}
+                                  className="h-8.5 w-full rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 text-[11px] outline-none focus:ring-1 focus:ring-med-green"
+                                >
+                                  <option value="">No Supplier</option>
+                                  {localSuppliers.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
                             </td>
                             <td className="py-2.5 px-3">
                               <input 

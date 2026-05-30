@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
-import { Camera, CameraOff, ChevronDown, ChevronUp, Database, FileImage, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Sparkles, Trash2, Upload, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X, ShoppingCart, Users } from "lucide-react";
+import { Camera, CameraOff, ChevronDown, ChevronUp, Database, FileImage, Keyboard, Loader2, Minus, PackagePlus, Plus, Printer, RotateCcw, Save, Search, Send, Sparkles, Trash2, Upload, AlertTriangle, Clock, Zap, Flashlight, FlashlightOff, UserPlus, X, ShoppingCart, Users, Phone, User, Stethoscope, ClipboardList, Download, Share2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { calculateBillTotals } from "@/lib/gst";
 import type { SaleLine } from "@/lib/types";
@@ -1186,28 +1186,29 @@ export function BillingPos({ tenant }: { tenant: any }) {
         )}
 
         {/* ─── Bill Items — Desktop Table ─── */}
-        <div className="mt-4 hidden md:block overflow-x-auto">
+        <div className="mt-4 hidden md:block overflow-x-auto rounded-xl border border-slate-200">
           <table className="w-full border-separate border-spacing-0 text-sm">
             <thead>
-              <tr className="bg-slate-50 text-left text-slate-500">
-                {["Medicine", "Batch", "Qty", "Rate", "Disc%", "GST", "Amt", ""].map((head) => (
-                  <th key={head} className="border-b border-slate-200 px-2 py-2.5 font-medium text-xs">{head}</th>
+              <tr className="bg-slate-800 text-left text-white">
+                {["Medicine / Schedule", "Batch", "Qty", "Rate (₹)", "Disc%", "GST", "Amount", ""].map((head) => (
+                  <th key={head} className="px-2.5 py-3 font-black text-[10px] uppercase tracking-wider first:rounded-tl-xl last:rounded-tr-xl">{head}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {lines.map((line, index) => {
                 const total = totals.lineTotals[index];
+                const isEven = index % 2 === 0;
                 return (
-                  <tr key={line.inventoryId} className="border-b border-slate-100">
-                    <td className="px-2 py-2 font-medium text-med-navy text-xs">
-                      <span className="block leading-tight">{line.medicineName}</span>
+                  <tr key={line.inventoryId} className={`border-b border-slate-100 transition-colors hover:bg-emerald-50/30 ${isEven ? 'bg-white' : 'bg-slate-50/40'}`}>
+                    <td className="px-2.5 py-2.5 font-semibold text-med-navy text-xs">
+                      <span className="block leading-tight font-bold">{line.medicineName}</span>
                       {(line.schedule === "H" || line.schedule === "H1" || line.schedule === "X") && (
-                        <span className="ml-0 rounded bg-orange-100 px-1.5 py-0.5 text-[10px] text-orange-700">{line.schedule}</span>
+                        <span className="inline-block mt-0.5 rounded bg-orange-100 border border-orange-200 px-1.5 py-0.5 text-[9px] font-black text-orange-700 uppercase">Sch {line.schedule}</span>
                       )}
                       <span className="block text-[10px] text-slate-400 mt-0.5">MRP {formatCurrency(line.mrpPaisa)}</span>
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-2.5 py-2.5">
                       {availableBatches[line.medicineId ?? ""] && availableBatches[line.medicineId ?? ""].length > 1 ? (
                         <select
                           value={line.inventoryId}
@@ -1215,7 +1216,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
                             const selected = availableBatches[line.medicineId ?? ""].find((b) => b.id === e.target.value);
                             if (selected) switchBatch(line.inventoryId, selected);
                           }}
-                          className="h-7 rounded border border-slate-250 bg-white px-1 text-[10px] font-mono text-slate-800 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green"
+                          className="h-7 rounded-lg border border-slate-200 bg-white px-1.5 text-[10px] font-mono text-slate-800 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green"
                         >
                           {availableBatches[line.medicineId ?? ""].map((b) => (
                             <option key={b.id} value={b.id}>
@@ -1224,29 +1225,34 @@ export function BillingPos({ tenant }: { tenant: any }) {
                           ))}
                         </select>
                       ) : (
-                        <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-600">
+                        <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10px] text-slate-700 font-semibold">
                           {line.batchNo}
                         </span>
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-2.5 py-2.5">
                       <div className="flex items-center gap-0.5">
-                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
-                        <input className="h-7 w-10 rounded border text-center text-xs" type="number" min={0} max={line.maxQuantity} value={line.quantity === 0 ? "" : line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} />
-                        <button className="rounded border p-1" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3 w-3" /></button>
+                        <button className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors" onClick={() => updateLine(line.inventoryId, { quantity: Math.max(0, line.quantity - 1) })}><Minus className="h-3 w-3" /></button>
+                        <input className="h-7 w-10 rounded-md border border-slate-200 text-center text-xs font-bold outline-none focus:border-med-green focus:ring-1 focus:ring-med-green" type="number" min={0} max={line.maxQuantity} value={line.quantity === 0 ? "" : line.quantity} onChange={(event) => updateLine(line.inventoryId, { quantity: event.target.value === "" ? 0 : Number(event.target.value) })} />
+                        <button className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-colors" onClick={() => updateLine(line.inventoryId, { quantity: line.quantity + 1 })}><Plus className="h-3 w-3" /></button>
                       </div>
-                      <p className="mt-0.5 text-[10px] text-slate-400">Avl {line.maxQuantity}</p>
+                      <p className="mt-0.5 text-[9px] text-slate-400 font-semibold">Avl: {line.maxQuantity}</p>
                     </td>
-                    <td className="px-2 py-2">
-                      <input className="h-7 w-20 rounded border px-1.5 text-xs" type="number" value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} />
+                    <td className="px-2.5 py-2.5">
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">₹</span>
+                        <input className="h-7 w-20 rounded-md border border-slate-200 pl-5 pr-1 text-xs font-bold outline-none focus:border-med-green focus:ring-1 focus:ring-med-green" type="number" value={line.saleRatePaisa === 0 ? "" : line.saleRatePaisa / 100} onChange={(event) => updateLine(line.inventoryId, { saleRatePaisa: event.target.value === "" ? 0 : Math.round(Number(event.target.value) * 100) })} />
+                      </div>
                     </td>
-                    <td className="px-2 py-2">
-                      <input className="h-7 w-12 rounded border px-1 text-xs" type="number" value={line.discountPercent === 0 ? "" : line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} />
+                    <td className="px-2.5 py-2.5">
+                      <div className="relative">
+                        <input className="h-7 w-12 rounded-md border border-slate-200 px-1 text-xs font-bold outline-none focus:border-med-green focus:ring-1 focus:ring-med-green" type="number" value={line.discountPercent === 0 ? "" : line.discountPercent} onChange={(event) => updateLine(line.inventoryId, { discountPercent: event.target.value === "" ? 0 : Number(event.target.value) })} />
+                      </div>
                     </td>
-                    <td className="px-2 py-2 text-xs">{line.gstRate}%</td>
-                    <td className="px-2 py-2 font-semibold text-xs">{formatCurrency(total.totalPaisa)}</td>
-                    <td className="px-1 py-2">
-                      <button className="rounded p-1.5 text-red-600 hover:bg-red-50" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
+                    <td className="px-2.5 py-2.5 text-xs font-semibold text-slate-600">{line.gstRate}%</td>
+                    <td className="px-2.5 py-2.5 font-black text-xs text-slate-900 font-mono">{formatCurrency(total.totalPaisa)}</td>
+                    <td className="px-1.5 py-2.5">
+                      <button className="flex h-7 w-7 items-center justify-center rounded-lg text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors" onClick={() => setLines((current) => current.filter((item) => item.inventoryId !== line.inventoryId))} aria-label="Remove item">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </td>
@@ -1571,124 +1577,249 @@ export function BillingPos({ tenant }: { tenant: any }) {
       <aside className={`space-y-4 no-print ${
         mobileTab === "checkout" ? "block animate-fade-in" : "hidden xl:block"
       }`}>
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 className="font-display text-lg font-semibold text-med-navy">Customer</h2>
-          {/* Quick-select chips */}
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <button type="button" onClick={() => { setCustomerName("Walk-in Customer"); setCustomerPhone(""); setDoctorName(""); setShowCustomerDropdown(false); }} className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${customerName === "Walk-in Customer" ? "bg-med-green text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
-              Walk-in Customer
-            </button>
-            <button type="button" onClick={() => { setCustomerName(""); setCustomerPhone(""); setDoctorName(""); searchInputRef.current?.focus(); }} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200">
-              <Plus className="mr-1 inline h-3 w-3" /> New
-            </button>
+
+        {/* ─── Premium Customer Info Card ─── */}
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {/* Card Header */}
+          <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-slate-300" />
+              <h2 className="font-display text-sm font-bold text-white tracking-wide">Customer Details</h2>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => { setCustomerName("Walk-in Customer"); setCustomerPhone(""); setDoctorName(""); setPrescriptionNo(""); setShowCustomerDropdown(false); }}
+                className={`rounded-full px-2.5 py-1 text-[10px] font-bold transition-colors border ${
+                  customerName === "Walk-in Customer"
+                    ? "bg-med-green border-med-green text-white"
+                    : "border-slate-500 text-slate-300 hover:border-slate-300 hover:text-white"
+                }`}
+              >
+                Walk-in
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCustomerName(""); setCustomerPhone(""); setDoctorName(""); searchInputRef.current?.focus(); }}
+                className="rounded-full border border-slate-500 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:border-slate-300 hover:text-white transition-colors"
+              >
+                <Plus className="inline h-2.5 w-2.5 mr-0.5" />New
+              </button>
+            </div>
           </div>
-          {/* Customer name with autocomplete dropdown */}
-          <div className="relative mt-3" ref={customerDropdownRef}>
-            <input
-              className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20"
-              placeholder="Customer name (optional)"
-              value={customerName}
-              onChange={(event) => { setCustomerName(event.target.value); setShowCustomerDropdown(true); setCustomerSearch(event.target.value); }}
-              onFocus={() => setShowCustomerDropdown(true)}
-            />
-            {showCustomerDropdown && filteredCustomers.length > 0 && customerName !== "Walk-in Customer" && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-                {filteredCustomers.map((c) => (
-                  <button key={c.id} type="button" onClick={() => { setCustomerName(c.name); setCustomerPhone(c.phone ?? ""); setDoctorName(c.doctorName ?? ""); setShowCustomerDropdown(false); setCustomerSearch(""); }} className="flex w-full items-center gap-3 border-b border-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-med-greenSoft">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-med-green/10 text-xs font-bold text-med-green">
-                      {c.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-med-navy">{c.name}</p>
-                      <p className="truncate text-xs text-slate-500">
-                        {c.phone || "No phone"}{c.doctorName ? ` • Dr. ${c.doctorName}` : ""}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+
+          {/* Customer Form Fields */}
+          <div className="p-4 space-y-3">
+            {/* Customer Name with autocomplete */}
+            <div className="relative" ref={customerDropdownRef}>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  className="h-10 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/15 font-medium text-slate-800 placeholder:text-slate-400 transition-all"
+                  placeholder="Customer name"
+                  value={customerName}
+                  onChange={(event) => { setCustomerName(event.target.value); setShowCustomerDropdown(true); setCustomerSearch(event.target.value); }}
+                  onFocus={() => setShowCustomerDropdown(true)}
+                />
               </div>
-            )}
+              {showCustomerDropdown && filteredCustomers.length > 0 && customerName !== "Walk-in Customer" && (
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+                  {filteredCustomers.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setCustomerName(c.name); setCustomerPhone(c.phone ?? ""); setDoctorName(c.doctorName ?? ""); setShowCustomerDropdown(false); setCustomerSearch(""); }}
+                      className="flex w-full items-center gap-3 border-b border-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-emerald-50"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-black text-emerald-700">
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-slate-900">{c.name}</p>
+                        <p className="truncate text-xs text-slate-500">
+                          {c.phone || "No phone"}{c.doctorName ? ` • Dr. ${c.doctorName}` : ""}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Phone */}
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                className="h-10 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/15 font-medium text-slate-800 placeholder:text-slate-400 transition-all"
+                placeholder="Phone number"
+                value={customerPhone}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setCustomerPhone(val);
+                  setCustomerSearch(val);
+                  if (val.replace(/\D/g, "").length >= 10) {
+                    const match = customers.find(c => c.phone?.replace(/\D/g, "").endsWith(val.replace(/\D/g, "").slice(-10)));
+                    if (match) {
+                      setCustomerName(match.name);
+                      setDoctorName(match.doctorName ?? "");
+                      setShowCustomerDropdown(false);
+                      toast.success(`Customer: ${match.name}`, { duration: 2000 });
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            {/* Doctor Name */}
+            <div className="relative">
+              <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                className="h-10 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/15 font-medium text-slate-800 placeholder:text-slate-400 transition-all"
+                placeholder="Doctor name"
+                value={doctorName}
+                onChange={(event) => setDoctorName(event.target.value)}
+              />
+            </div>
+
+            {/* Prescription No */}
+            <div className="relative">
+              <ClipboardList className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <input
+                className="h-10 w-full rounded-lg border border-slate-300 pl-9 pr-3 text-sm outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/15 font-mono text-slate-800 placeholder:text-slate-400 placeholder:font-sans transition-all"
+                placeholder="Prescription No."
+                value={prescriptionNo}
+                onChange={(event) => setPrescriptionNo(event.target.value)}
+              />
+            </div>
           </div>
-          <input
-            className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20"
-            placeholder="Phone (type to search)"
-            value={customerPhone}
-            onChange={(event) => {
-              const val = event.target.value;
-              setCustomerPhone(val);
-              setCustomerSearch(val);
-              // Auto-fill customer name+doctor when phone matches
-              if (val.replace(/\D/g, "").length >= 10) {
-                const match = customers.find(c => c.phone?.replace(/\D/g, "").endsWith(val.replace(/\D/g, "").slice(-10)));
-                if (match) {
-                  setCustomerName(match.name);
-                  setDoctorName(match.doctorName ?? "");
-                  setShowCustomerDropdown(false);
-                  toast.success(`Customer: ${match.name}`, { duration: 2000 });
-                }
-              }
-            }}
-          />
-          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20" placeholder="Doctor name" value={doctorName} onChange={(event) => setDoctorName(event.target.value)} />
-          <input className="mt-3 h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20" placeholder="Prescription number" value={prescriptionNo} onChange={(event) => setPrescriptionNo(event.target.value)} />
         </section>
 
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-semibold text-med-navy">Bill Summary</h2>
-            {lines.length > 0 && (
-              <span className="rounded-full bg-med-green px-2.5 py-0.5 text-xs font-bold text-white">
-                {totalItems} item{totalItems !== 1 ? "s" : ""}
-              </span>
-            )}
+        {/* ─── Premium Bill Summary Card ─── */}
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          {/* Total Display Banner */}
+          <div className="bg-gradient-to-br from-emerald-700 to-emerald-600 px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-emerald-200 text-[10px] font-bold uppercase tracking-widest">Grand Total</p>
+                <p className="font-mono text-3xl font-black text-white mt-0.5 tracking-tight">
+                  {formatCurrency(totals.totalPaisa)}
+                </p>
+              </div>
+              {lines.length > 0 && (
+                <div className="text-right">
+                  <span className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white/15 border border-white/25 text-white font-black text-sm">
+                    {totalItems}
+                  </span>
+                  <p className="text-emerald-200 text-[9px] font-semibold mt-0.5">item{totalItems !== 1 ? "s" : ""}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Mode Badge */}
+            <div className="mt-3 flex items-center gap-2">
+              <select
+                className="h-8 flex-1 rounded-lg bg-white/15 border border-white/25 px-2 text-xs font-bold text-white outline-none focus:ring-1 focus:ring-white/50 [&>option]:text-slate-900 [&>option]:bg-white"
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+              >
+                <option value="cash">💵 Cash</option>
+                <option value="upi">📱 UPI / QR</option>
+                <option value="card">💳 Card</option>
+                <option value="credit">📝 Credit</option>
+              </select>
+            </div>
           </div>
-          <div className="mt-4 space-y-2 text-sm">
+
+          {/* GST Breakdown */}
+          <div className="px-4 pt-3 pb-2 space-y-1.5">
             <Summary label="Subtotal" value={totals.subtotalPaisa} />
             {totals.discountPaisa > 0 && <Summary label="Discount" value={-totals.discountPaisa} />}
             <Summary label="Taxable" value={totals.taxablePaisa} />
-            <Summary label="CGST" value={totals.cgstPaisa} />
-            <Summary label="SGST" value={totals.sgstPaisa} />
-            {totals.roundOffPaisa !== 0 && <Summary label="Round off" value={totals.roundOffPaisa} />}
-            <div className="flex items-center justify-between border-t border-slate-200 pt-3 text-lg font-bold text-med-navy">
-              <span>Total</span>
-              <span>{formatCurrency(totals.totalPaisa)}</span>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">CGST + SGST</span>
+              <span className="font-medium text-med-navy font-mono">{formatCurrency(totals.cgstPaisa + totals.sgstPaisa)}</span>
             </div>
+            {totals.roundOffPaisa !== 0 && <Summary label="Round off" value={totals.roundOffPaisa} />}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <button onClick={() => saveBill("none")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-300 bg-slate-50 font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60 transition-all active:scale-[0.97]">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
+
+          {/* Action Buttons */}
+          <div className="px-4 pb-4 space-y-2">
+            {/* Row 1: Save + Print A4 */}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => saveBill("none")}
+                disabled={saving || !lines.length}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white font-bold text-slate-700 text-sm hover:bg-slate-50 hover:border-slate-300 disabled:opacity-50 transition-all active:scale-[0.97] shadow-sm"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save
+              </button>
+              <button
+                onClick={() => saveBill("print-a4")}
+                disabled={saving || !lines.length}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-900 font-bold text-white text-sm disabled:opacity-50 transition-all active:scale-[0.97] shadow-sm"
+              >
+                <Printer className="h-4 w-4" />
+                Print A4
+                <span className="text-[9px] opacity-60 font-normal">F8</span>
+              </button>
+            </div>
+
+            {/* Thermal Print */}
+            <button
+              onClick={() => saveBill("print-thermal")}
+              disabled={saving || !lines.length}
+              className="w-full inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-700 font-bold text-white text-sm disabled:opacity-50 transition-all active:scale-[0.97] shadow-sm"
+            >
+              <Printer className="h-4 w-4" />
+              Print Thermal Receipt
+              <span className="text-[9px] opacity-60 font-normal">F9</span>
             </button>
-            <button onClick={() => saveBill("print-a4")} disabled={saving || !lines.length} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-med-green font-semibold text-white hover:bg-med-greenDark disabled:opacity-60 transition-all active:scale-[0.97]">
-              <Printer className="h-4 w-4" /> Print A4 <span className="text-[10px] opacity-70">(F8)</span>
+
+            {/* Share on WhatsApp — Primary CTA */}
+            <button
+              onClick={() => saveBill("share")}
+              disabled={saving || !lines.length}
+              className="w-full inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-700 hover:to-emerald-600 font-bold text-white text-sm disabled:opacity-50 transition-all active:scale-[0.97] shadow-md shadow-emerald-500/20"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+              Save & Share PDF on WhatsApp
             </button>
-            <button onClick={() => saveBill("print-thermal")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-sky-600 font-semibold text-white hover:bg-sky-700 disabled:opacity-60 transition-all active:scale-[0.97]">
-              <Printer className="h-4 w-4" /> Print Thermal Roll <span className="text-[10px] opacity-70">(F9)</span>
-            </button>
-            <button onClick={() => saveBill("share")} disabled={saving || !lines.length} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 font-semibold text-emerald-700 hover:bg-emerald-100/70 disabled:opacity-60 transition-all active:scale-[0.97]">
-              <Send className="h-4 w-4" /> Save & Share on WhatsApp
-            </button>
+
+            {/* Clear Bill */}
             {lines.length > 0 && (
               <button
                 onClick={() => { if (window.confirm(`Clear all ${lines.length} items from this bill?`)) { setLines([]); toast.info("Bill cleared."); } }}
-                className="col-span-2 inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50 transition-all"
+                className="w-full inline-flex min-h-8 items-center justify-center gap-2 rounded-xl border border-red-200 text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 transition-all"
               >
-                <Trash2 className="h-3.5 w-3.5" /> Clear Bill
+                <Trash2 className="h-3 w-3" /> Clear Bill
               </button>
             )}
           </div>
-          {lastInvoice ? (
-            <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm">
-              <p className="font-semibold text-emerald-800">Saved {lastInvoice.invoiceNo}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Link href={`/shop/billing/${encodeURIComponent(lastInvoice.id || lastInvoice.invoiceNo)}`} className="rounded-md bg-white px-3 py-2 font-semibold text-med-greenDark shadow-sm">
-                  View invoice
+
+          {/* Last Invoice Saved Banner */}
+          {lastInvoice && (
+            <div className="mx-4 mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                <p className="text-xs font-bold text-emerald-800">Saved: {lastInvoice.invoiceNo}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link
+                  href={`/shop/billing/${encodeURIComponent(lastInvoice.id || lastInvoice.invoiceNo)}`}
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-sm border border-emerald-200 hover:bg-emerald-50 transition-colors"
+                >
+                  View Invoice
                 </Link>
-                <Link href="/shop/billing/history" className="rounded-md bg-white px-3 py-2 font-semibold text-med-navy shadow-sm">
-                  Bill history
+                <Link
+                  href="/shop/billing/history"
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm border border-slate-200 hover:bg-slate-50 transition-colors"
+                >
+                  Bill History
                 </Link>
               </div>
             </div>
-          ) : null}
+          )}
         </section>
       </aside>
     </div>

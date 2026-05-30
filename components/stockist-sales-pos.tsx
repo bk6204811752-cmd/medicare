@@ -2,7 +2,7 @@
 
 
 import { useState, useTransition, useMemo, useEffect, useCallback, useRef } from "react";
-import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X } from "lucide-react";
+import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X, Send } from "lucide-react";
 import { createB2BSaleAction } from "@/app/stockist-actions";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -935,16 +935,25 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               visibility: visible !important;
             }
             #b2b-print-target {
-              position: absolute !important;
+              position: fixed !important;
               left: 0 !important;
               top: 0 !important;
               width: 100% !important;
+              height: auto !important;
               padding: 0 !important;
               margin: 0 !important;
               box-shadow: none !important;
               border: none !important;
+              border-radius: 0 !important;
               background: white !important;
               color: black !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              overflow: visible !important;
+            }
+            @page {
+              margin: 8mm;
+              size: A4 portrait;
             }
           }
         `}} />
@@ -1324,20 +1333,36 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           </div>
           
           {/* Modal Footer / Triggers */}
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 no-print">
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 no-print">
             <button
               onClick={() => setCompletedInvoice(null)}
               className="h-10 px-4 rounded-xl border border-slate-200 bg-white font-bold text-slate-600 hover:bg-slate-100 transition-colors text-xs"
             >
               Close & Return to POS
             </button>
-            
-            <button
-              onClick={() => window.print()}
-              className="h-10 px-6 rounded-xl bg-med-green font-bold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all text-xs flex items-center gap-2"
-            >
-              <Printer className="h-4 w-4" /> Trigger System Print
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* WhatsApp Share */}
+              {completedInvoice?.partyPhone && (
+                <a
+                  href={`https://wa.me/${completedInvoice.partyPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                    `B2B Invoice: ${completedInvoice.invoiceNo}\nChemist: ${completedInvoice.partyName}\nTotal: ₹${(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}\nPayment: ${completedInvoice.paymentMode.toUpperCase()}\nMedicines: ${completedInvoice.items.map((i: any) => `${i.medicineName} (Qty:${i.quantity})`).join(", ")}\nThank you!`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="h-10 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 font-bold text-white text-xs flex items-center gap-2 shadow-sm active:scale-95 transition-all"
+                >
+                  <Send className="h-4 w-4" /> WhatsApp Bill
+                </a>
+              )}
+
+              <button
+                onClick={() => window.print()}
+                className="h-10 px-6 rounded-xl bg-med-green font-bold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all text-xs flex items-center gap-2"
+              >
+                <Printer className="h-4 w-4" /> Trigger System Print
+              </button>
+            </div>
           </div>
         </div>
       </div>

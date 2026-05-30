@@ -5,9 +5,11 @@ import Link from "next/link";
 import { 
   ChevronLeft, ChevronRight, Download, Filter, Search, 
   ShieldCheck, Package, TrendingUp, HelpCircle, AlertTriangle, 
-  CalendarClock, ArrowRightLeft, DollarSign, Percent
+  CalendarClock, ArrowRightLeft, DollarSign, Percent, Trash2
 } from "lucide-react";
 import { daysUntil, formatCurrency, formatDate, parseUnitsPerPack } from "@/lib/utils";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 type StockStatus = "all" | "healthy" | "low" | "expiring" | "expired";
 const PAGE_SIZE = 50;
@@ -40,12 +42,17 @@ interface StockistInventoryRow {
 }
 
 export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [manufacturer, setManufacturer] = useState("all");
   const [supplier, setSupplier] = useState("all");
   const [status, setStatus] = useState<StockStatus>("all");
   const [page, setPage] = useState(0);
+
+  // Delete confirmation state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string; batchNo: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const categories = useMemo(() => {
     return Array.from(
@@ -83,9 +90,9 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
     };
   }, [rowsWithExpiry]);
 
-  // Filter logic matching the user's need for comprehensive search
+  // Multi-word token search: each word must match somewhere in the haystack
   const filteredRows = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
+    const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     return rowsWithExpiry
       .filter((row) => {
         const days = row._days;
@@ -107,7 +114,8 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
           .join(" ")
           .toLowerCase();
 
-        if (normalized && !haystack.includes(normalized)) return false;
+        // Every token must be present in the haystack (multi-word AND search)
+        if (tokens.length > 0 && !tokens.every(t => haystack.includes(t))) return false;
         if (category !== "all" && row.medicine.category !== category) return false;
         if (manufacturer !== "all" && row.medicine.manufacturer !== manufacturer) return false;
         if (supplier !== "all" && row.supplier?.name !== supplier) return false;
@@ -127,6 +135,23 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
       });
   }, [category, query, rowsWithExpiry, status, manufacturer, supplier]);
 
+  async function handleDeleteBatch() {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/inventory?id=${deleteConfirm.id}`, { method: "DELETE" });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to delete");
+      toast.success(`✅ Batch "${deleteConfirm.batchNo}" of "${deleteConfirm.name}" deleted from stock.`);
+      setDeleteConfirm(null);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete batch");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   // Pagination bounds checking
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);
@@ -134,6 +159,51 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
 
   return (
     <section className="space-y-6">
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4 animate-scale-in">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-display font-bold text-slate-900 text-base">Delete Medicine Batch?</h3>
+                <p className="text-xs text-slate-500 mt-0.5">This action cannot be undone</p>
+              </div>
+            </div>
+            <div className="bg-red-50 border border-red-100 rounded-xl p-4 space-y-1">
+              <p className="text-sm font-bold text-red-900">Do you really want to delete this medicine from your stock?</p>
+              <p className="text-xs text-red-700 font-semibold">Medicine: <span className="font-black">{deleteConfirm.name}</span></p>
+              <p className="text-xs text-red-700 font-semibold">Batch No: <span className="font-mono font-black">{deleteConfirm.batchNo}</span></p>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                ⚠️ The stock quantity will be set to zero and this batch will be permanently hidden. This change is logged as a stock adjustment.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl border border-slate-200 bg-white font-semibold text-slate-600 hover:bg-slate-50 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteBatch}
+                disabled={deleting}
+                className="flex-1 h-10 rounded-xl bg-red-600 font-bold text-white hover:bg-red-700 active:scale-95 transition-all text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                {deleting ? "Deleting..." : "Yes, Delete Batch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* 📊 Metrics Dashboard Grid */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <div className="glass-card p-4 flex flex-col justify-between h-24 bg-white shadow-xs hover:scale-102 hover:shadow transition-all duration-200">
@@ -264,12 +334,13 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
                 <th className="px-4 py-3 text-right">MRP</th>
                 <th className="px-4 py-3 text-right">Margin</th>
                 <th className="px-4 py-3 text-right">Qty (Lots)</th>
+                <th className="px-4 py-3 text-center w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
               {paginatedRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400 bg-slate-50/50 border-dashed border-slate-200">
+                  <td colSpan={9} className="p-8 text-center text-slate-400 bg-slate-50/50 border-dashed border-slate-200">
                     No matching distribution batches found. Search or filter again.
                   </td>
                 </tr>
@@ -337,6 +408,15 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
                           {item.quantity}
                         </span>
                         <span className="text-[10px] text-slate-400 block font-medium">Reorder: {item.reorderLevel}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
+                        <button
+                          onClick={() => setDeleteConfirm({ id: item.id, name: item.medicine.name, batchNo: item.batchNo })}
+                          title="Delete this batch"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </td>
                     </tr>
                   );

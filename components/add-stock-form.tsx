@@ -1017,27 +1017,38 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
     // Column index mapping from header
     let colMap: Record<string, number>;
+    let detectedSupplierName = ""; // auto-detect supplier from CSV header/column
     if (hasHeader) {
-      colMap = { name: -1, batch: -1, mfgDate: -1, expiry: -1, qty: -1, rate: -1, mrp: -1, gst: -1, hsn: -1, saleRate: -1 };
+      colMap = { name: -1, batch: -1, mfgDate: -1, expiry: -1, qty: -1, rate: -1, mrp: -1, gst: -1, hsn: -1, saleRate: -1, supplier: -1 };
       const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
       headers.forEach((h, i) => {
         if (/med|name|medicine|drug|product|brand/i.test(h)) colMap.name = i;
         else if (/batch|lot|b\.?no|b\/n/i.test(h)) colMap.batch = i;
-        else if (/mfg|manufactur/i.test(h)) colMap.mfgDate = i;
+        else if (/mfg|manufactur(?:er|ing)?\s*date/i.test(h)) colMap.mfgDate = i;
         else if (/exp|expiry/i.test(h)) colMap.expiry = i;
         else if (/qty|quantity|units|stock/i.test(h)) colMap.qty = i;
-        else if (/purchase\s*rate|pur\s*rate|cost\s*rate|pts|cost|purchase|buy|pur_rate|purrate/i.test(h)) colMap.rate = i;
-        else if (/sale\s*rate|retail\s*rate|ptr|retail|sale|salerate/i.test(h)) colMap.saleRate = i;
-        else if (/mrp|max\s*retail|retail\s*price|price/i.test(h)) colMap.mrp = i;
+        // Purchase rate - match cost/purchase rate BEFORE sale/sell rate
+        else if (/purchase\s*rate|pur\s*rate|cost\s*rate|pts|pur_rate|purrate|p\.?rate/i.test(h)) colMap.rate = i;
+        // Sale rate - match 'sell rate', 'selling rate', 'sale rate', 'ptr', 'retail rate'
+        else if (/sell(?:ing)?\s*rate|sale\s*rate|retail\s*rate|ptr|salerate|sell_rate/i.test(h)) colMap.saleRate = i;
+        else if (/mrp|max\s*retail|retail\s*price/i.test(h)) colMap.mrp = i;
         else if (/gst|tax|cgst|sgst|igst|tax\s*rate/i.test(h)) colMap.gst = i;
         else if (/hsn/i.test(h)) colMap.hsn = i;
-        else if (/rate/i.test(h)) {
+        // Supplier/manufacturer column
+        else if (/supplier|manufacturer|company|vendor|mfr|manuf(?:acturer)?/i.test(h)) colMap.supplier = i;
+        else if (/^rate$/i.test(h)) {
+          // Standalone 'rate' column - assign to purchase rate if not yet set
+          if (colMap.rate === -1) colMap.rate = i;
+        } else if (/retail|sale/i.test(h)) {
+          // catch-all 'retail' or 'sale' as saleRate if not yet set
+          if (colMap.saleRate === -1) colMap.saleRate = i;
+        } else if (/cost|purchase/i.test(h)) {
           if (colMap.rate === -1) colMap.rate = i;
         }
       });
     } else {
       // Default order fallback if no header
-      colMap = { name: 0, batch: 1, mfgDate: -1, expiry: 2, qty: 3, rate: 4, mrp: 5, gst: 6, hsn: 7, saleRate: -1 };
+      colMap = { name: 0, batch: 1, mfgDate: -1, expiry: 2, qty: 3, rate: 4, mrp: 5, gst: 6, hsn: 7, saleRate: -1, supplier: -1 };
     }
 
     for (const line of dataLines) {
@@ -1097,9 +1108,17 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
       const mrpVal = colMap.mrp >= 0 ? cleanPriceStr(cols[colMap.mrp] || "") : "";
       const rateVal = colMap.rate >= 0 ? cleanPriceStr(cols[colMap.rate] || "") : "";
-      const saleRateVal = colMap.saleRate >= 0 ? cleanPriceStr(cols[colMap.saleRate] || "") : mrpVal;
+      // Sale rate: use saleRate column if present; else fall back to MRP; never leave blank
+      const saleRateVal = colMap.saleRate >= 0 && cols[colMap.saleRate]
+        ? cleanPriceStr(cols[colMap.saleRate])
+        : mrpVal;
       const gstVal = colMap.gst >= 0 ? cleanPriceStr(cols[colMap.gst] || "") : "";
       const qtyVal = colMap.qty >= 0 ? cleanPriceStr(cols[colMap.qty] || "") : "";
+
+      // Auto-detect supplier name from column (first non-empty value wins)
+      if (!detectedSupplierName && colMap.supplier >= 0 && cols[colMap.supplier]?.trim()) {
+        detectedSupplierName = cols[colMap.supplier].trim();
+      }
 
       items.push({
         id: Math.random().toString(36).substring(2, 9),
@@ -1117,7 +1136,11 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         supplierId: supplierId || "",
       });
     }
-    return items;
+    // Attach detected supplier name to first item for auto-creation later
+    if (detectedSupplierName && items.length > 0) {
+      (items as any)._detectedSupplierName = detectedSupplierName;
+    }
+    return items as ScannedItem[] & { _detectedSupplierName?: string };
   }
 
   // ─── Bulk File Upload Handler (CSV/TXT/PDF) ───
@@ -1166,6 +1189,39 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
       if (isStructuredCsv) {
         parsed = parseCsvTextToItems(text);
+        // ── Auto-create Supplier if detected from CSV column ──
+        const detectedSupName = (parsed as any)._detectedSupplierName as string | undefined;
+        if (detectedSupName) {
+          // Check if already exists locally
+          const existingSup = localSuppliers.find(s => s.name.toLowerCase() === detectedSupName.toLowerCase());
+          if (existingSup) {
+            setSupplierId(existingSup.id);
+            toast.success(`✅ Auto-selected supplier: ${existingSup.name}`);
+          } else {
+            // Create new supplier via API
+            try {
+              setBulkFileStep("🏭 Auto-registering supplier/manufacturer from CSV...");
+              const supRes = await fetch("/api/suppliers", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: detectedSupName,
+                  creditDays: 30,
+                  balancePaisa: 0
+                })
+              });
+              const supResult = await supRes.json();
+              if (supRes.ok && supResult.data) {
+                const newSup: SelectItem = { id: supResult.data.id, name: supResult.data.name };
+                setLocalSuppliers(prev => [newSup, ...prev]);
+                setSupplierId(supResult.data.id);
+                toast.success(`✅ Auto-created & selected manufacturer: "${detectedSupName}". Edit details later in Suppliers.`);
+              }
+            } catch (err) {
+              console.warn("Supplier auto-create failed:", err);
+            }
+          }
+        }
         if (parsed.length === 0) {
           // Fallback to raw text parsing
           parsed = parseInvoiceText(text, localMedicines);

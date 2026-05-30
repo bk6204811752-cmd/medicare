@@ -3,11 +3,11 @@
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { 
-  ChevronLeft, ChevronRight, Download, Filter, Search, 
-  ShieldCheck, Package, TrendingUp, HelpCircle, AlertTriangle, 
-  CalendarClock, ArrowRightLeft, DollarSign, Percent, Trash2
+  ChevronLeft, ChevronRight, Filter, Search, 
+  AlertTriangle, CalendarClock, DollarSign, Percent, Trash2,
+  Grid3X3, List
 } from "lucide-react";
-import { daysUntil, formatCurrency, formatDate, parseUnitsPerPack } from "@/lib/utils";
+import { daysUntil, formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -49,6 +49,8 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
   const [supplier, setSupplier] = useState("all");
   const [status, setStatus] = useState<StockStatus>("all");
   const [page, setPage] = useState(0);
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [showFilters, setShowFilters] = useState(false);
 
   // Delete confirmation state
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string; batchNo: string } | null>(null);
@@ -157,8 +159,15 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
   const safePage = Math.min(page, totalPages - 1);
   const paginatedRows = filteredRows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
+  const activeFilterCount = [
+    category !== "all",
+    manufacturer !== "all",
+    supplier !== "all",
+    status !== "all",
+  ].filter(Boolean).length;
+
   return (
-    <section className="space-y-6">
+    <section className="space-y-4 sm:space-y-6">
       {/* Delete Confirmation Dialog */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
@@ -184,14 +193,14 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
               <button
                 onClick={() => setDeleteConfirm(null)}
                 disabled={deleting}
-                className="flex-1 h-10 rounded-xl border border-slate-200 bg-white font-semibold text-slate-600 hover:bg-slate-50 transition-colors text-sm"
+                className="flex-1 h-11 rounded-xl border border-slate-200 bg-white font-semibold text-slate-600 hover:bg-slate-50 transition-colors text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteBatch}
                 disabled={deleting}
-                className="flex-1 h-10 rounded-xl bg-red-600 font-bold text-white hover:bg-red-700 active:scale-95 transition-all text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex-1 h-11 rounded-xl bg-red-600 font-bold text-white hover:bg-red-700 active:scale-95 transition-all text-sm disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {deleting ? (
                   <span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -204,36 +213,37 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
           </div>
         </div>
       )}
+
       {/* 📊 Metrics Dashboard Grid */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <div className="glass-card p-4 flex flex-col justify-between h-24 bg-white shadow-xs hover:scale-102 hover:shadow transition-all duration-200">
-          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Visible Lots</span>
-          <span className="text-2xl font-black text-slate-800 mt-1">{filteredRows.length} <span className="text-xs text-slate-400 font-bold">batches</span></span>
+      <div className="grid gap-3 grid-cols-2 sm:gap-4 lg:grid-cols-4">
+        <div className="glass-card p-3 sm:p-4 flex flex-col justify-between h-20 sm:h-24 bg-white shadow-xs hover:shadow transition-all duration-200">
+          <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Visible Lots</span>
+          <span className="text-xl sm:text-2xl font-black text-slate-800 mt-1">{filteredRows.length} <span className="text-xs text-slate-400 font-bold">batches</span></span>
           <span className="text-[9px] text-slate-450 font-bold flex items-center gap-1">
             <Search className="h-3 w-3 text-emerald-500" /> Filtered dynamically
           </span>
         </div>
 
-        <div className="glass-card p-4 flex flex-col justify-between h-24 bg-white shadow-xs hover:scale-102 hover:shadow transition-all duration-200">
-          <span className="text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Low Stock Lots</span>
-          <span className={`text-2xl font-black mt-1 ${lowCount > 0 ? "text-orange-600" : "text-emerald-650"}`}>{lowCount}</span>
+        <div className="glass-card p-3 sm:p-4 flex flex-col justify-between h-20 sm:h-24 bg-white shadow-xs hover:shadow transition-all duration-200">
+          <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-455 uppercase tracking-wider">Low Stock Lots</span>
+          <span className={`text-xl sm:text-2xl font-black mt-1 ${lowCount > 0 ? "text-orange-600" : "text-emerald-650"}`}>{lowCount}</span>
           <span className="text-[9px] text-slate-450 font-bold flex items-center gap-1">
-            <AlertTriangle className="h-3 w-3 text-orange-500" /> Requires distributor reorder
+            <AlertTriangle className="h-3 w-3 text-orange-500" /> <span className="hidden sm:inline">Requires distributor reorder</span><span className="sm:hidden">Reorder needed</span>
           </span>
         </div>
 
-        <div className="glass-card p-4 flex flex-col justify-between h-24 bg-white shadow-xs hover:scale-102 hover:shadow transition-all duration-200">
-          <span className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Expiry / Near Risk</span>
-          <span className={`text-2xl font-black mt-1 ${expiryCount > 0 ? "text-rose-600" : "text-emerald-650"}`}>{expiryCount}</span>
+        <div className="glass-card p-3 sm:p-4 flex flex-col justify-between h-20 sm:h-24 bg-white shadow-xs hover:shadow transition-all duration-200">
+          <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Expiry / Near Risk</span>
+          <span className={`text-xl sm:text-2xl font-black mt-1 ${expiryCount > 0 ? "text-rose-600" : "text-emerald-650"}`}>{expiryCount}</span>
           <span className="text-[9px] text-slate-450 font-bold flex items-center gap-1">
             <CalendarClock className="h-3 w-3 text-rose-500" /> Expiring in &lt;60 days
           </span>
         </div>
 
-        <div className="glass-card p-4 flex flex-col justify-between h-24 bg-white shadow-xs hover:scale-102 hover:shadow transition-all duration-200">
-          <span className="text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Distribution Valuation</span>
+        <div className="glass-card p-3 sm:p-4 flex flex-col justify-between h-20 sm:h-24 bg-white shadow-xs hover:shadow transition-all duration-200 col-span-2 lg:col-span-1">
+          <span className="text-[9px] sm:text-[10px] font-extrabold text-slate-450 uppercase tracking-wider">Distribution Valuation</span>
           <div className="mt-1 flex flex-col">
-            <span className="text-lg font-black text-slate-800 leading-tight">PTR: {formatCurrency(ptrValue)}</span>
+            <span className="text-base sm:text-lg font-black text-slate-800 leading-tight">PTR: {formatCurrency(ptrValue)}</span>
             <span className="text-[10px] text-slate-400 font-bold">PTS (Cost): {formatCurrency(ptsValue)}</span>
           </div>
           <span className="text-[9px] text-emerald-600 font-bold flex items-center gap-1">
@@ -242,188 +252,335 @@ export function StockistInventoryTable({ rows }: { rows: StockistInventoryRow[] 
         </div>
       </div>
 
-      {/* 🔍 Search & Advanced Filter Bar */}
-      <div className="glass-card p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-[1.5fr_1.2fr_1.2fr_1.2fr_1.1fr]">
-        <label className="relative block">
-          <Search className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
-          <input
-            className="h-11 w-full rounded-lg border border-slate-200 pl-10 pr-4 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green/20 text-sm font-semibold text-slate-700 placeholder:text-slate-400 bg-slate-50/50"
-            placeholder="Search by drug name, composition, batch, or manufacturer..."
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setPage(0);
-            }}
-          />
-        </label>
-        
-        <label className="relative block">
-          <Filter className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-          <select 
-            className="h-11 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs font-bold text-slate-700 bg-white" 
-            value={category} 
-            onChange={(e) => {
-              setCategory(e.target.value);
-              setPage(0);
-            }}
+      {/* 🔍 Search Bar */}
+      <div className="glass-card p-3 sm:p-4">
+        <div className="flex gap-2 mb-3">
+          <label className="relative flex-1 block">
+            <Search className="absolute left-3 top-3 h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+            <input
+              className="h-10 sm:h-11 w-full rounded-lg border border-slate-200 pl-9 sm:pl-10 pr-4 outline-none focus:border-med-green focus:ring-1 focus:ring-med-green/20 text-sm font-semibold text-slate-700 placeholder:text-slate-400 bg-slate-50/50"
+              placeholder="Search drug, batch, composition..."
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(0);
+              }}
+            />
+          </label>
+          <button
+            onClick={() => setShowFilters(f => !f)}
+            className={`h-10 sm:h-11 px-3 rounded-lg border flex items-center gap-1.5 text-xs font-bold transition-all ${showFilters || activeFilterCount > 0 ? "border-med-green bg-med-green/10 text-med-green" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
           >
-            <option value="all">All categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </label>
+            <Filter className="h-4 w-4" />
+            <span className="hidden sm:inline">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="h-5 w-5 rounded-full bg-med-green text-white text-[10px] font-black flex items-center justify-center">{activeFilterCount}</span>
+            )}
+          </button>
+          {/* View toggle - hidden on mobile, show on md+ */}
+          <div className="hidden md:flex border border-slate-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setViewMode("table")}
+              className={`h-10 sm:h-11 px-3 flex items-center gap-1.5 text-xs font-bold transition-all ${viewMode === "table" ? "bg-slate-800 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`h-10 sm:h-11 px-3 flex items-center gap-1.5 text-xs font-bold transition-all ${viewMode === "cards" ? "bg-slate-800 text-white" : "bg-white text-slate-500 hover:bg-slate-50"}`}
+            >
+              <Grid3X3 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
-        {/* Manufacturer Filter */}
-        <select 
-          className="h-11 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 bg-white" 
-          value={manufacturer} 
-          onChange={(e) => {
-            setManufacturer(e.target.value);
-            setPage(0);
-          }}
-        >
-          <option value="all">All Manufacturers</option>
-          {manufacturers.map((m) => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
+        {/* Advanced Filters - Collapsible */}
+        {showFilters && (
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 pt-3 border-t border-slate-100 animate-slide-up">
+            <label className="relative block">
+              <Filter className="pointer-events-none absolute left-3 top-3 h-3.5 w-3.5 text-slate-400" />
+              <select 
+                className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-xs font-bold text-slate-700 bg-white" 
+                value={category} 
+                onChange={(e) => {
+                  setCategory(e.target.value);
+                  setPage(0);
+                }}
+              >
+                <option value="all">All categories</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </label>
 
-        {/* Supplier Filter */}
-        <select 
-          className="h-11 rounded-lg border border-slate-205 px-3 text-xs font-bold text-slate-700 bg-white" 
-          value={supplier} 
-          onChange={(e) => {
-            setSupplier(e.target.value);
-            setPage(0);
-          }}
-        >
-          <option value="all">All Suppliers</option>
-          {suppliers.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+            <select 
+              className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 bg-white" 
+              value={manufacturer} 
+              onChange={(e) => {
+                setManufacturer(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="all">All Manufacturers</option>
+              {manufacturers.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
 
-        <select 
-          className="h-11 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 bg-white" 
-          value={status} 
-          onChange={(e) => {
-            setStatus(e.target.value as StockStatus);
-            setPage(0);
-          }}
-        >
-          <option value="all">All stock status</option>
-          <option value="healthy">Healthy Stock</option>
-          <option value="low">Low Stock</option>
-          <option value="expiring">Expiring Soon</option>
-          <option value="expired">Expired Batches</option>
-        </select>
+            <select 
+              className="h-10 rounded-lg border border-slate-205 px-3 text-xs font-bold text-slate-700 bg-white" 
+              value={supplier} 
+              onChange={(e) => {
+                setSupplier(e.target.value);
+                setPage(0);
+              }}
+            >
+              <option value="all">All Suppliers</option>
+              {suppliers.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+
+            <select 
+              className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 bg-white" 
+              value={status} 
+              onChange={(e) => {
+                setStatus(e.target.value as StockStatus);
+                setPage(0);
+              }}
+            >
+              <option value="all">All stock status</option>
+              <option value="healthy">Healthy Stock</option>
+              <option value="low">Low Stock</option>
+              <option value="expiring">Expiring Soon</option>
+              <option value="expired">Expired Batches</option>
+            </select>
+
+            {activeFilterCount > 0 && (
+              <button
+                onClick={() => {
+                  setCategory("all");
+                  setManufacturer("all");
+                  setSupplier("all");
+                  setStatus("all");
+                  setPage(0);
+                }}
+                className="h-10 rounded-lg border border-red-200 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors sm:col-span-2 lg:col-span-1"
+              >
+                Clear All Filters
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 📋 Distribution Stocks Table */}
-      <div className="glass-card p-4 sm:p-5 overflow-hidden">
-        <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-xs bg-white">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100 font-display font-bold text-slate-500 uppercase tracking-wider text-[10px]">
-                <th className="px-4 py-3">Medicine / Formulation</th>
-                <th className="px-4 py-3">Batch & Expiry</th>
-                <th className="px-4 py-3 text-center">Picking Sequence</th>
-                <th className="px-4 py-3 text-right">PTS (Cost)</th>
-                <th className="px-4 py-3 text-right">PTR (Wholesale)</th>
-                <th className="px-4 py-3 text-right">MRP</th>
-                <th className="px-4 py-3 text-right">Margin</th>
-                <th className="px-4 py-3 text-right">Qty (Lots)</th>
-                <th className="px-4 py-3 text-center w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-              {paginatedRows.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-400 bg-slate-50/50 border-dashed border-slate-200">
-                    No matching distribution batches found. Search or filter again.
-                  </td>
-                </tr>
-              ) : (
-                paginatedRows.map((item, index) => {
-                  const days = item._days;
-                  const isExpired = days < 0;
-                  const isExpiring = days >= 0 && days <= 60;
-                  const isFefoPick = index < 3 && item.quantity > 0;
-                  
-                  // Calculate Margin between PTS (our cost) and PTR (retailer selling price)
-                  const cost = item.ptsPaisa || item.purchaseRatePaisa;
-                  const sell = item.ptrPaisa;
-                  const profit = sell - cost;
-                  const marginPct = sell > 0 ? Math.round((profit / sell) * 100) : 0;
+      {/* 📋 Distribution Stocks — Desktop Table View */}
+      <div className={`glass-card overflow-hidden ${viewMode === "cards" ? "hidden md:block" : ""}`}>
+        {/* Mobile Card View (always shown on mobile) */}
+        <div className="md:hidden p-3 space-y-3">
+          {paginatedRows.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              No matching distribution batches found.
+            </div>
+          ) : (
+            paginatedRows.map((item, index) => {
+              const days = item._days;
+              const isExpired = days < 0;
+              const isExpiring = days >= 0 && days <= 60;
+              const isFefoPick = index < 3 && item.quantity > 0;
+              const cost = item.ptsPaisa || item.purchaseRatePaisa;
+              const sell = item.ptrPaisa;
+              const profit = sell - cost;
+              const marginPct = sell > 0 ? Math.round((profit / sell) * 100) : 0;
+              const isLow = item.quantity <= item.reorderLevel;
 
-                  return (
-                    <tr key={item.id} className="hover:bg-emerald-50/10 transition-colors">
-                      <td className="px-4 py-3.5">
-                        <p className="font-semibold text-med-navy text-sm sm:text-base leading-snug">
-                          {item.medicine.name}
-                        </p>
-                        <p className="text-[10px] text-slate-450 font-bold mt-0.5 max-w-xs truncate">
-                          {item.medicine.composition || "Composition unlisted"}
-                        </p>
-                        <p className="text-[9px] text-slate-400 mt-1 font-extrabold bg-slate-100 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-0.5">
-                          Loc: {item.rackLocation || "MAIN_WH"}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <p className="font-mono font-bold text-slate-700 text-xs">Batch: {item.batchNo}</p>
-                        <p className={`text-[10px] font-bold mt-0.5 ${isExpired ? "text-red-500" : isExpiring ? "text-orange-500" : "text-slate-400"}`}>
-                          Exp: {formatDate(item.expiryDate.toISOString())}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        {isExpired ? (
-                          <span className="inline-flex text-[9px] font-extrabold uppercase tracking-wider text-red-650 bg-red-50 border border-red-100/50 px-2 py-0.5 rounded-full">🔴 Expired</span>
-                        ) : isFefoPick ? (
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100/70 animate-pulse">
-                            ⭐ FEFO Pick {index + 1}
-                          </span>
-                        ) : (
-                          <span className="inline-flex text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Pick {index + 1}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono text-slate-500 font-bold">
-                        {formatCurrency(cost)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-800">
-                        {formatCurrency(sell)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right font-mono text-slate-450 text-xs">
-                        {formatCurrency(item.mrpPaisa)}
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <span className={`inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded ${
-                          marginPct > 15 ? "text-emerald-700 bg-emerald-50" : marginPct > 5 ? "text-sky-700 bg-sky-50" : "text-amber-700 bg-amber-50"
-                        }`}>
-                          <Percent className="h-2.5 w-2.5 shrink-0" /> {marginPct}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <span className={`font-mono font-bold text-sm ${item.quantity <= item.reorderLevel ? "text-orange-500 font-extrabold" : "text-slate-800"}`}>
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-xl border p-3.5 bg-white shadow-xs transition-all ${
+                    isExpired ? "border-red-200 bg-red-50/30" : 
+                    isLow ? "border-orange-200 bg-orange-50/20" : 
+                    isExpiring ? "border-yellow-200 bg-yellow-50/10" : 
+                    "border-slate-100"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-800 text-sm leading-tight">{item.medicine.name}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 truncate">{item.medicine.composition || "Composition unlisted"}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isExpired ? (
+                        <span className="text-[9px] font-extrabold uppercase tracking-wide text-red-700 bg-red-100 border border-red-200 px-2 py-0.5 rounded-full">Expired</span>
+                      ) : isFefoPick ? (
+                        <span className="text-[9px] font-extrabold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200 animate-pulse">FEFO Pick</span>
+                      ) : null}
+                      <button
+                        onClick={() => setDeleteConfirm({ id: item.id, name: item.medicine.name, batchNo: item.batchNo })}
+                        title="Delete this batch"
+                        className="h-8 w-8 flex items-center justify-center rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Batch</span>
+                      <p className="font-mono font-bold text-slate-700 text-xs">{item.batchNo}</p>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Expiry</span>
+                      <p className={`text-xs font-bold ${isExpired ? "text-red-500" : isExpiring ? "text-orange-500" : "text-slate-700"}`}>
+                        {formatDate(item.expiryDate.toISOString())}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">PTS (Cost)</span>
+                      <p className="font-mono text-xs text-slate-600 font-bold">{formatCurrency(cost)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">PTR (Wholesale)</span>
+                      <p className="font-mono text-xs text-slate-800 font-bold">{formatCurrency(sell)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">MRP</span>
+                      <p className="font-mono text-xs text-slate-500">{formatCurrency(item.mrpPaisa)}</p>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase">Margin</span>
+                      <span className={`inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded ${
+                        marginPct > 15 ? "text-emerald-700 bg-emerald-50" : marginPct > 5 ? "text-sky-700 bg-sky-50" : "text-amber-700 bg-amber-50"
+                      }`}>
+                        <Percent className="h-2.5 w-2.5 shrink-0" /> {marginPct}%
+                      </span>
+                    </div>
+                    <div className="col-span-2 flex items-center justify-between border-t border-slate-100 pt-1.5 mt-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Qty (Lots)</span>
+                        <span className={`font-mono font-bold text-base ${isLow ? "text-orange-500 font-extrabold" : "text-slate-800"}`}>
                           {item.quantity}
                         </span>
-                        <span className="text-[10px] text-slate-400 block font-medium">Reorder: {item.reorderLevel}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-center">
-                        <button
-                          onClick={() => setDeleteConfirm({ id: item.id, name: item.medicine.name, batchNo: item.batchNo })}
-                          title="Delete this batch"
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        <span className="text-[9px] text-slate-400 font-medium">/ Reorder: {item.reorderLevel}</span>
+                      </div>
+                      <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                        {item.rackLocation || "MAIN_WH"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table View */}
+        <div className="hidden md:block p-4 sm:p-5 overflow-hidden">
+          <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-xs bg-white">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100 font-display font-bold text-slate-500 uppercase tracking-wider text-[10px]">
+                  <th className="px-4 py-3">Medicine / Formulation</th>
+                  <th className="px-4 py-3">Batch & Expiry</th>
+                  <th className="px-4 py-3 text-center">Picking Sequence</th>
+                  <th className="px-4 py-3 text-right">PTS (Cost)</th>
+                  <th className="px-4 py-3 text-right">PTR (Wholesale)</th>
+                  <th className="px-4 py-3 text-right">MRP</th>
+                  <th className="px-4 py-3 text-right">Margin</th>
+                  <th className="px-4 py-3 text-right">Qty (Lots)</th>
+                  <th className="px-4 py-3 text-center w-10"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                {paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-slate-400 bg-slate-50/50 border-dashed border-slate-200">
+                      No matching distribution batches found. Search or filter again.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((item, index) => {
+                    const days = item._days;
+                    const isExpired = days < 0;
+                    const isExpiring = days >= 0 && days <= 60;
+                    const isFefoPick = index < 3 && item.quantity > 0;
+                    
+                    // Calculate Margin between PTS (our cost) and PTR (retailer selling price)
+                    const cost = item.ptsPaisa || item.purchaseRatePaisa;
+                    const sell = item.ptrPaisa;
+                    const profit = sell - cost;
+                    const marginPct = sell > 0 ? Math.round((profit / sell) * 100) : 0;
+
+                    return (
+                      <tr key={item.id} className="hover:bg-emerald-50/10 transition-colors">
+                        <td className="px-4 py-3.5">
+                          <p className="font-semibold text-med-navy text-sm leading-snug">
+                            {item.medicine.name}
+                          </p>
+                          <p className="text-[10px] text-slate-450 font-bold mt-0.5 max-w-xs truncate">
+                            {item.medicine.composition || "Composition unlisted"}
+                          </p>
+                          <p className="text-[9px] text-slate-400 mt-1 font-extrabold bg-slate-100 px-1.5 py-0.5 rounded w-fit inline-flex items-center gap-0.5">
+                            Loc: {item.rackLocation || "MAIN_WH"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <p className="font-mono font-bold text-slate-700 text-xs">Batch: {item.batchNo}</p>
+                          <p className={`text-[10px] font-bold mt-0.5 ${isExpired ? "text-red-500" : isExpiring ? "text-orange-500" : "text-slate-400"}`}>
+                            Exp: {formatDate(item.expiryDate.toISOString())}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          {isExpired ? (
+                            <span className="inline-flex text-[9px] font-extrabold uppercase tracking-wider text-red-650 bg-red-50 border border-red-100/50 px-2 py-0.5 rounded-full">🔴 Expired</span>
+                          ) : isFefoPick ? (
+                            <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100/70 animate-pulse">
+                              ⭐ FEFO Pick {index + 1}
+                            </span>
+                          ) : (
+                            <span className="inline-flex text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Pick {index + 1}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-mono text-slate-500 font-bold">
+                          {formatCurrency(cost)}
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-800">
+                          {formatCurrency(sell)}
+                        </td>
+                        <td className="px-4 py-3.5 text-right font-mono text-slate-450 text-xs">
+                          {formatCurrency(item.mrpPaisa)}
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <span className={`inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded ${
+                            marginPct > 15 ? "text-emerald-700 bg-emerald-50" : marginPct > 5 ? "text-sky-700 bg-sky-50" : "text-amber-700 bg-amber-50"
+                          }`}>
+                            <Percent className="h-2.5 w-2.5 shrink-0" /> {marginPct}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 text-right">
+                          <span className={`font-mono font-bold text-sm ${item.quantity <= item.reorderLevel ? "text-orange-500 font-extrabold" : "text-slate-800"}`}>
+                            {item.quantity}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block font-medium">Reorder: {item.reorderLevel}</span>
+                        </td>
+                        <td className="px-4 py-3.5 text-center">
+                          <button
+                            onClick={() => setDeleteConfirm({ id: item.id, name: item.medicine.name, batchNo: item.batchNo })}
+                            title="Delete this batch"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-100 text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

@@ -323,12 +323,13 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
 
       {/* Mobile bottom nav */}
       {!isAdmin && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden h-16 no-print">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden h-[60px] no-print">
           {(isStockist ? [
             { label: "Dashboard", href: "/stockist/dashboard", icon: <Home className="h-5 w-5" /> },
             { label: "B2B Sales", href: "/stockist/sales", icon: <ShoppingCart className="h-5 w-5" /> },
             { label: "Inventory", href: "/stockist/inventory", icon: <Package className="h-5 w-5" /> },
             { label: "Parties", href: "/stockist/parties", icon: <Users className="h-5 w-5" /> },
+            { label: "Orders", href: "/stockist/orders", icon: <ClipboardList className="h-5 w-5" /> },
           ] : [
             { label: "Dashboard", href: "/shop/dashboard", icon: <Home className="h-5 w-5" /> },
             { label: "Billing", href: "/shop/billing", icon: <ShoppingCart className="h-5 w-5" /> },
@@ -338,22 +339,22 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-1 flex-col items-center justify-center h-full transition-transform ${
+              className={`flex flex-1 flex-col items-center justify-center h-full transition-all ${
                 (pathname === item.href || pathname.startsWith(item.href + "/"))
-                  ? "text-med-green border-t-2 border-med-green font-semibold scale-105"
-                  : "text-slate-400 border-t-2 border-transparent"
+                  ? "text-med-green border-t-2 border-med-green font-semibold"
+                  : "text-slate-400 border-t-2 border-transparent hover:text-slate-600"
               }`}
             >
               {item.icon}
-              <span className="text-[10px] mt-1">{item.label}</span>
+              <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
             </Link>
           ))}
           <button
             onClick={openMobile}
-            className="flex flex-1 flex-col items-center justify-center h-full text-slate-400 border-t-2 border-transparent"
+            className="flex flex-1 flex-col items-center justify-center h-full text-slate-400 border-t-2 border-transparent hover:text-slate-600"
           >
             <Menu className="h-5 w-5" />
-            <span className="text-[10px] mt-1">More</span>
+            <span className="text-[10px] mt-0.5 font-medium">More</span>
           </button>
         </nav>
       )}

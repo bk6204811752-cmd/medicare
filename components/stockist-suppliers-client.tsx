@@ -157,34 +157,36 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
     <div className="space-y-6">
       
       {/* ─── SEARCH & FILTER CONTROLLER ─── */}
-      <div className="glass-card p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-5 w-5 text-med-green shrink-0" />
-          <div>
-            <h3 className="text-sm font-extrabold text-slate-800 leading-tight">Manufacturers & CFA Catalog</h3>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Quickly select, filter and search through active bulk supply accounts</p>
+      <div className="glass-card p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-5 w-5 text-med-green shrink-0" />
+            <div>
+              <h3 className="text-sm font-extrabold text-slate-800 leading-tight">Manufacturers & CFA Catalog</h3>
+              <p className="text-[10px] text-slate-400 font-semibold mt-0.5 hidden sm:block">Quickly select, filter and search through active bulk supply accounts</p>
+            </div>
           </div>
-        </div>
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search manufacturer, phone, or GSTIN..."
-            value={supplierSearch}
-            onChange={(e) => setSupplierSearch(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 py-2 pl-10 pr-4 text-xs font-semibold focus:outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 placeholder:text-slate-400 bg-white shadow-2xs"
-          />
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 sm:h-4.5 sm:w-4.5 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search manufacturer, phone, or GSTIN..."
+              value={supplierSearch}
+              onChange={(e) => setSupplierSearch(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 py-2.5 pl-10 pr-4 text-xs font-semibold focus:outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 placeholder:text-slate-400 bg-white shadow-2xs"
+            />
+          </div>
         </div>
       </div>
 
       {/* ─── GRID LAYOUT: MANUFACTURERS LIST + NEW FORM ─── */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full items-start">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full items-start">
         
         {/* Left Side: Registered Manufacturers Grid List */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-display text-base sm:text-lg font-semibold text-med-navy flex items-center gap-2">
-              <Box className="h-5 w-5 text-med-green" /> Registered Manufacturers ({filteredSuppliers.length})
+            <h2 className="font-display text-sm sm:text-base sm:text-lg font-semibold text-med-navy flex items-center gap-2">
+              <Box className="h-4 w-4 sm:h-5 sm:w-5 text-med-green" /> Manufacturers ({filteredSuppliers.length})
             </h2>
             <p className="text-xs text-slate-450 font-medium italic hidden sm:block">💡 Click any card to view full profile & B2B ledger</p>
           </div>
@@ -194,14 +196,14 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
               No registered manufacturers match your search.
             </div>
           ) : (
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
               {filteredSuppliers.map((sup) => {
                 const hasOutstanding = sup.balancePaisa > 0;
                 return (
                   <button
                     key={sup.id}
                     onClick={() => handleSelectSupplier(sup)}
-                    className="text-left rounded-2xl border p-4.5 flex flex-col justify-between h-44 transition-all duration-250 hover:scale-[1.01] active:scale-99 cursor-pointer shadow-sm relative overflow-hidden bg-white border-slate-200 hover:border-slate-350 hover:shadow w-full"
+                    className="text-left rounded-2xl border p-4 flex flex-col justify-between min-h-[160px] sm:h-44 transition-all duration-250 hover:scale-[1.01] active:scale-99 cursor-pointer shadow-sm relative overflow-hidden bg-white border-slate-200 hover:border-slate-350 hover:shadow w-full"
                   >
                     {/* Header Row */}
                     <div className="flex gap-3 items-center min-w-0">
@@ -243,29 +245,29 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
         </div>
 
         {/* Sidebar Registration Form Panel */}
-        <div className="glass-card p-5">
-          <h2 className="font-display text-base sm:text-lg font-bold text-med-navy flex items-center gap-2 mb-4">
-            <Plus className="h-5 w-5 text-med-green" /> Register Manufacturer
+        <div className="glass-card p-4 sm:p-5">
+          <h2 className="font-display text-sm sm:text-base font-bold text-med-navy flex items-center gap-2 mb-3 sm:mb-4">
+            <Plus className="h-4 w-4 sm:h-5 sm:w-5 text-med-green" /> Register Manufacturer
           </h2>
 
-          <form action={createStockistSupplierAction} className="space-y-4">
+          <form action={createStockistSupplierAction} className="space-y-3 sm:space-y-4">
             <label className="block space-y-1">
               <span className="text-xs font-semibold text-slate-500">Manufacturer / Supplier Name *</span>
               <input 
                 name="name" 
                 required 
-                className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green focus:ring-1 focus:ring-med-green/20 transition-colors font-semibold text-slate-700 placeholder:text-slate-400" 
+                className="h-10 sm:h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green focus:ring-1 focus:ring-med-green/20 transition-colors font-semibold text-slate-700 placeholder:text-slate-400" 
                 placeholder="e.g. Cipla Healthcare Ltd" 
               />
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <label className="block space-y-1">
                 <span className="text-xs font-semibold text-slate-500">Phone</span>
                 <input 
                   name="phone" 
                   className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green focus:ring-1 focus:ring-med-green/20 transition-colors text-slate-700 placeholder:text-slate-400" 
-                  placeholder="Contact number" 
+                  placeholder="Contact" 
                 />
               </label>
               <label className="block space-y-1">
@@ -274,7 +276,7 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
                   name="email" 
                   type="email" 
                   className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green focus:ring-1 focus:ring-med-green/20 transition-colors text-slate-700 placeholder:text-slate-400" 
-                  placeholder="Email address" 
+                  placeholder="Email" 
                 />
               </label>
             </div>
@@ -288,7 +290,7 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
               />
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <label className="block space-y-1">
                 <span className="text-xs font-semibold text-slate-500">GSTIN No.</span>
                 <input 
@@ -310,7 +312,7 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
               </label>
             </div>
 
-            <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-med-green font-semibold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all mt-6 text-sm">
+            <button type="submit" className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-med-green font-semibold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all mt-4 sm:mt-6 text-sm">
               <UserCheck className="h-4.5 w-4.5" /> Save Manufacturer
             </button>
           </form>

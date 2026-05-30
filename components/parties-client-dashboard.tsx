@@ -708,32 +708,34 @@ export function PartiesClientDashboard({ initialParties, routes }: PartiesClient
       </div>
 
       {/* Filter Toolbar */}
-      <div className="glass-card p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search chemist party name, beat route, or phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-slate-700 placeholder:text-slate-400"
-          />
+      <div className="glass-card p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-2.5 sm:top-3 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search chemist, route, phone..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-10 w-full pl-10 pr-4 border border-slate-200 rounded-lg text-sm bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-slate-700 placeholder:text-slate-400"
+            />
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600 shrink-0 self-start sm:self-auto">
+            {filteredParties.length} chemists listed
+          </span>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-505 shrink-0">
-          {filteredParties.length} chemists listed
-        </span>
       </div>
 
       {/* Main content grid: list + register form side by side */}
       <div className="grid gap-6 min-w-0 w-full lg:grid-cols-[1fr_360px]">
 
         {/* Parties List Table */}
-        <div className="glass-card p-4 sm:p-5 min-w-0 w-full overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-base sm:text-lg font-semibold text-med-navy flex items-center gap-2">
-              <Users className="h-5 w-5 text-med-green" /> Registered Chemists ({filteredParties.length})
+        <div className="glass-card p-3 sm:p-4 sm:p-5 min-w-0 w-full overflow-hidden">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="font-display text-sm sm:text-base sm:text-lg font-semibold text-med-navy flex items-center gap-2">
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-med-green" /> Chemists ({filteredParties.length})
             </h2>
-            <p className="text-xs text-slate-400 font-medium italic hidden sm:block">💡 Click any row to view full profile & history</p>
+            <p className="text-xs text-slate-400 font-medium italic hidden sm:block">💡 Click any row to view profile & history</p>
           </div>
 
           {filteredParties.length === 0 ? (
@@ -741,88 +743,152 @@ export function PartiesClientDashboard({ initialParties, routes }: PartiesClient
               No matching chemist parties found. Search again or register in the sidebar.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-xs">
-              <table className="w-full text-left text-sm border-collapse bg-white">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 font-display font-bold text-slate-505 uppercase tracking-wider text-[10px]">
-                    <th className="px-4 py-3">Chemist Party</th>
-                    <th className="px-4 py-3">Beat / Route</th>
-                    <th className="px-4 py-3">GSTIN / DL No.</th>
-                    <th className="px-4 py-3 text-right">Credit Limit</th>
-                    <th className="px-4 py-3 text-right">Outstanding</th>
-                    <th className="px-4 py-3 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredParties.map((party) => {
-                    const outstandingPct = party.creditLimitPaisa > 0 ? (party.outstandingPaisa / party.creditLimitPaisa) * 100 : 0;
-                    const limitBlocked = party.creditLimitPaisa > 0 && party.outstandingPaisa >= party.creditLimitPaisa;
-                    const nearLimit = outstandingPct >= 80;
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-2">
+                {filteredParties.map((party) => {
+                  const outstandingPct = party.creditLimitPaisa > 0 ? (party.outstandingPaisa / party.creditLimitPaisa) * 100 : 0;
+                  const limitBlocked = party.creditLimitPaisa > 0 && party.outstandingPaisa >= party.creditLimitPaisa;
+                  const nearLimit = outstandingPct >= 80;
 
-                    return (
-                      <tr 
-                        key={party.id} 
-                        onClick={() => selectPartyForAudit(party)}
-                        className="hover:bg-emerald-50/20 cursor-pointer transition-colors group"
-                      >
-                        <td className="px-4 py-3.5">
-                          <p className="font-semibold text-med-navy text-sm sm:text-base leading-snug group-hover:text-emerald-700 transition-colors">
-                            {party.name}
-                          </p>
-                          <p className="text-xs text-slate-400 font-medium mt-0.5">
-                            {party.phone || "No contact"} • {party.email || "No email"}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3.5 text-slate-600 font-medium">
-                          {party.route ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-1 rounded-md border border-sky-100/50">
-                              <MapPin className="h-3 w-3 shrink-0" /> {party.route.name}
+                  return (
+                    <div
+                      key={party.id}
+                      onClick={() => selectPartyForAudit(party)}
+                      className="rounded-xl border border-slate-100 bg-white p-3.5 cursor-pointer hover:border-emerald-200 hover:bg-emerald-50/20 transition-all shadow-xs"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-800 text-sm leading-tight">{party.name}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{party.phone || "No contact"}</p>
+                        </div>
+                        {limitBlocked ? (
+                          <span className="text-[9px] font-extrabold uppercase tracking-wide text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full shrink-0">
+                            Blocked
+                          </span>
+                        ) : nearLimit ? (
+                          <span className="text-[9px] font-extrabold uppercase tracking-wide text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full shrink-0">
+                            Near Limit
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-extrabold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          {party.route && (
+                            <span className="text-[10px] font-semibold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                              <MapPin className="h-2.5 w-2.5 shrink-0" /> {party.route.name}
                             </span>
-                          ) : (
-                            <span className="text-xs text-slate-400">Not Assigned</span>
                           )}
-                        </td>
-                        <td className="px-4 py-3.5">
-                          <p className="text-xs font-bold text-slate-700 font-mono">GST: {party.gstin || "URP"}</p>
-                          <p className="text-[10px] font-bold text-slate-505 mt-0.5">DL: {party.drugLicenseNo || "N/A"}</p>
-                        </td>
-                        <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-700">
-                          {party.creditLimitPaisa > 0 ? formatCurrency(party.creditLimitPaisa) : "No Limit"}
-                        </td>
-                        <td className="px-4 py-3.5 text-right">
-                          <p className={`font-mono font-bold ${party.outstandingPaisa > 0 ? (limitBlocked ? "text-red-600" : (nearLimit ? "text-orange-600" : "text-med-navy")) : "text-slate-400"}`}>
+                          <span className="text-[10px] font-mono text-slate-500">{party.gstin ? `GST: ${party.gstin.slice(0, 8)}...` : "URP"}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-mono font-black text-sm ${party.outstandingPaisa > 0 ? (limitBlocked ? "text-red-600" : (nearLimit ? "text-orange-600" : "text-slate-800")) : "text-slate-400"}`}>
                             {formatCurrency(party.outstandingPaisa)}
                           </p>
-                          {party.creditLimitPaisa > 0 && (
-                            <div className="w-20 ml-auto mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ${limitBlocked ? "bg-red-500" : (nearLimit ? "bg-orange-400" : "bg-emerald-500")}`}
-                                style={{ width: `${Math.min(outstandingPct, 100)}%` }}
-                              />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          {limitBlocked ? (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wide text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
-                              <AlertCircle className="h-3 w-3" /> Blocked
-                            </span>
-                          ) : nearLimit ? (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wide text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">
-                              <AlertCircle className="h-3 w-3" /> Near Limit
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-                              <CheckCircle2 className="h-3 w-3" /> Active
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          <p className="text-[9px] text-slate-400">outstanding</p>
+                        </div>
+                      </div>
+                      {party.creditLimitPaisa > 0 && (
+                        <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${limitBlocked ? "bg-red-500" : (nearLimit ? "bg-orange-400" : "bg-emerald-500")}`}
+                            style={{ width: `${Math.min(outstandingPct, 100)}%` }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-100 shadow-xs">
+                <table className="w-full text-left text-sm border-collapse bg-white">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 font-display font-bold text-slate-505 uppercase tracking-wider text-[10px]">
+                      <th className="px-4 py-3">Chemist Party</th>
+                      <th className="px-4 py-3">Beat / Route</th>
+                      <th className="px-4 py-3">GSTIN / DL No.</th>
+                      <th className="px-4 py-3 text-right">Credit Limit</th>
+                      <th className="px-4 py-3 text-right">Outstanding</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredParties.map((party) => {
+                      const outstandingPct = party.creditLimitPaisa > 0 ? (party.outstandingPaisa / party.creditLimitPaisa) * 100 : 0;
+                      const limitBlocked = party.creditLimitPaisa > 0 && party.outstandingPaisa >= party.creditLimitPaisa;
+                      const nearLimit = outstandingPct >= 80;
+
+                      return (
+                        <tr 
+                          key={party.id} 
+                          onClick={() => selectPartyForAudit(party)}
+                          className="hover:bg-emerald-50/20 cursor-pointer transition-colors group"
+                        >
+                          <td className="px-4 py-3.5">
+                            <p className="font-semibold text-med-navy text-sm sm:text-base leading-snug group-hover:text-emerald-700 transition-colors">
+                              {party.name}
+                            </p>
+                            <p className="text-xs text-slate-400 font-medium mt-0.5">
+                              {party.phone || "No contact"} • {party.email || "No email"}
+                            </p>
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-600 font-medium">
+                            {party.route ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 bg-sky-50 px-2 py-1 rounded-md border border-sky-100/50">
+                                <MapPin className="h-3 w-3 shrink-0" /> {party.route.name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-slate-400">Not Assigned</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <p className="text-xs font-bold text-slate-700 font-mono">GST: {party.gstin || "URP"}</p>
+                            <p className="text-[10px] font-bold text-slate-505 mt-0.5">DL: {party.drugLicenseNo || "N/A"}</p>
+                          </td>
+                          <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-700">
+                            {party.creditLimitPaisa > 0 ? formatCurrency(party.creditLimitPaisa) : "No Limit"}
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            <p className={`font-mono font-bold ${party.outstandingPaisa > 0 ? (limitBlocked ? "text-red-600" : (nearLimit ? "text-orange-600" : "text-med-navy")) : "text-slate-400"}`}>
+                              {formatCurrency(party.outstandingPaisa)}
+                            </p>
+                            {party.creditLimitPaisa > 0 && (
+                              <div className="w-20 ml-auto mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden border border-slate-200/50">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${limitBlocked ? "bg-red-500" : (nearLimit ? "bg-orange-400" : "bg-emerald-500")}`}
+                                  style={{ width: `${Math.min(outstandingPct, 100)}%` }}
+                                />
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-center">
+                            {limitBlocked ? (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wide text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+                                <AlertCircle className="h-3 w-3" /> Blocked
+                              </span>
+                            ) : nearLimit ? (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wide text-orange-600 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full">
+                                <AlertCircle className="h-3 w-3" /> Near Limit
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 className="h-3 w-3" /> Active
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
 

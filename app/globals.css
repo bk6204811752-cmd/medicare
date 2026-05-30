@@ -331,6 +331,60 @@ html, body {
   transform: translateZ(0);
 }
 
+/* ─── Stockist Mobile Styles ─── */
+
+/* Main content area extra bottom padding on mobile for nav bar */
+@media (max-width: 1023px) {
+  main {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
+/* Slide-up animation for filter panel */
+@keyframes slideUpFilter {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUpFilter 0.2s ease-out;
+}
+
+/* Better table scroll indicator on mobile */
+.table-scroll-container {
+  position: relative;
+}
+
+.table-scroll-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.9));
+  pointer-events: none;
+  border-radius: 0 0.75rem 0.75rem 0;
+}
+
+@media (min-width: 768px) {
+  .table-scroll-container::after {
+    display: none;
+  }
+}
+
+/* Pull-to-refresh visual cue improvement */
+@media (hover: none) and (pointer: coarse) {
+  .glass-card {
+    /* Prevent accidental hover highlights on mobile */
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  button:active {
+    opacity: 0.8;
+  }
+}
+
 /* Ensure minimum touch targets on mobile */
 @media (hover: none) and (pointer: coarse) {
   button, a, select, [role="button"] {

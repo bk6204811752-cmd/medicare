@@ -727,7 +727,7 @@ export function PartiesClientDashboard({ initialParties, routes }: PartiesClient
       </div>
 
       {/* Main content grid: list + register form side by side */}
-      <div className="grid gap-6 min-w-0 w-full lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 min-w-0 w-full lg:grid-cols-[minmax(0,1fr)_360px]">
 
         {/* Parties List Table */}
         <div className="glass-card p-3 sm:p-4 sm:p-5 min-w-0 w-full overflow-hidden">

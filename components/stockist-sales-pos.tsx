@@ -506,10 +506,10 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
   return (
     <>
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full animate-fade-in no-print">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] min-w-0 w-full animate-fade-in no-print">
       
       {/* Left panel: Product Selector & Lines Table */}
-      <div className="glass-card p-4 sm:p-5 space-y-5 min-w-0 overflow-hidden w-full">
+      <div className="glass-card p-4 sm:p-5 space-y-5 min-w-0 w-full">
         <div className="flex flex-col sm:flex-row gap-4">
           
           {/* Party selector (Searchable Autocomplete Combobox) */}
@@ -733,8 +733,8 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         </div>
 
         {/* Invoicing Lines Table */}
-        <div className="overflow-hidden rounded-xl border border-slate-100 shadow-xs">
-          <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-xl border border-slate-100 shadow-xs w-full max-w-full">
+          <div className="overflow-x-auto w-full max-w-full">
           <table className="w-full text-left text-xs border-collapse bg-white min-w-[900px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 font-display font-bold text-slate-500 uppercase tracking-wider text-[9px]">
@@ -851,7 +851,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       </div>
 
       {/* Right panel: Summary, Pricing toggles, billing triggers */}
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0 w-full">
         
         {/* Billing parameters */}
         <div className="glass-card p-4 sm:p-5 space-y-4">

@@ -180,7 +180,7 @@ export function StockistSuppliersClient({ initialSuppliers }: StockistSuppliersC
       </div>
 
       {/* ─── GRID LAYOUT: MANUFACTURERS LIST + NEW FORM ─── */}
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full items-start">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_360px] min-w-0 w-full items-start">
         
         {/* Left Side: Registered Manufacturers Grid List */}
         <div className="space-y-3 sm:space-y-4">

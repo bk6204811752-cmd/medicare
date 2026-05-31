@@ -315,10 +315,10 @@ main {
   scrollbar-gutter: stable;
 }
 
-/* ─── Virtual Keyboard Open (max-height <= 550px) Optimization ─── */
-@media (max-height: 550px) {
+/* ─── Virtual Keyboard Open (max-height <= 640px) Optimization ─── */
+@media (max-height: 640px) and (pointer: coarse) {
   /* Hide the bottom navigation/taskbar when the virtual keyboard is open to prevent overlap */
-  nav.fixed.bottom-0.left-0.right-0.lg\:hidden {
+  nav.fixed.bottom-0.left-0.right-0.md\:hidden {
     display: none !important;
   }
   
@@ -351,7 +351,7 @@ html, body {
 /* ─── Stockist Mobile Styles ─── */
 
 /* Main content area extra bottom padding on mobile for nav bar */
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   main {
     padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)) !important;
   }

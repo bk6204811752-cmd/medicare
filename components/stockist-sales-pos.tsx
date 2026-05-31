@@ -509,7 +509,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full animate-fade-in no-print">
       
       {/* Left panel: Product Selector & Lines Table */}
-      <div className="glass-card p-4 sm:p-5 space-y-5">
+      <div className="glass-card p-4 sm:p-5 space-y-5 min-w-0 overflow-hidden w-full">
         <div className="flex flex-col sm:flex-row gap-4">
           
           {/* Party selector (Searchable Autocomplete Combobox) */}

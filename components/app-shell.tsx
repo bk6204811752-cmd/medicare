@@ -323,7 +323,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
 
       {/* Mobile bottom nav */}
       {!isAdmin && (
-        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] lg:hidden h-[60px] no-print">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-slate-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] md:hidden h-[60px] no-print">
           {(isStockist ? [
             { label: "Dashboard", href: "/stockist/dashboard", icon: <Home className="h-5 w-5" /> },
             { label: "B2B Sales", href: "/stockist/sales", icon: <ShoppingCart className="h-5 w-5" /> },

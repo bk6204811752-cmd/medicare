@@ -265,11 +265,11 @@ export function BillDetailClient({ sale: initialSale, items: initialItems, tenan
     html, body, .a4-print-container, .thermal-print-container, .force-desktop-A4 {
       color-scheme: light !important;
       background-color: #ffffff !important;
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
+      -webkit-print-color-adjust: economy !important;
+      print-color-adjust: economy !important;
     }
     .a4-print-container, .thermal-print-container, .force-desktop-A4 {
-      color: #0f172a !important;
+      color: #090d16 !important;
       opacity: 1 !important;
       filter: none !important;
       animation: none !important;
@@ -292,7 +292,7 @@ export function BillDetailClient({ sale: initialSale, items: initialItems, tenan
             .a4-print-container { display: none !important; }
           }`
         : `@media print {
-            @page { size: A4 portrait; margin: 0; }
+            @page { size: A4 portrait; margin: 10mm; }
             html, body { width: 1120px !important; min-width: 1120px !important; margin: 0 !important; padding: 0 !important; }
             .flex.h-screen, .flex-1.flex-col, main { height: auto !important; overflow: visible !important; display: block !important; padding: 0 !important; margin: 0 !important; }
             .fixed.inset-0, .relative.w-full { position: absolute !important; left: 0 !important; top: 0 !important; width: 1120px !important; max-width: 1120px !important; height: auto !important; max-height: none !important; overflow: visible !important; border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; }
@@ -300,6 +300,65 @@ export function BillDetailClient({ sale: initialSale, items: initialItems, tenan
             .a4-print-container { display: block !important; width: 1120px !important; min-width: 1120px !important; max-width: 1120px !important; margin: 0 auto !important; padding: 0 !important; border: none !important; box-shadow: none !important; background: #ffffff !important; }
             .thermal-print-container { display: none !important; }
             tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+
+            /* ECO INK-SAVER OVERRIDES */
+            .a4-header-banner {
+              background: #ffffff !important;
+              background-image: none !important;
+              color: #090d16 !important;
+              border: 1px dashed #64748b !important;
+              border-radius: 12px !important;
+              padding: 16px !important;
+            }
+            .a4-header-banner * {
+              color: #090d16 !important;
+            }
+            .a4-header-banner h2 {
+              color: #047857 !important; /* Premium brand accent, light on ink */
+            }
+            .a4-header-banner .bg-white\\/20,
+            .a4-header-banner .bg-white\\/15,
+            .a4-header-banner .border-white\\/30,
+            .a4-header-banner .border-white\\/25 {
+              background: #f8fafc !important;
+              border: 1px solid #cbd5e1 !important;
+              color: #090d16 !important;
+            }
+            
+            /* Remove solid background columns for tables and cards */
+            table thead tr.bg-slate-800 {
+              background: #f1f5f9 !important;
+              color: #090d16 !important;
+              border-bottom: 2px solid #334155 !important;
+            }
+            table thead tr.bg-slate-800 th {
+              color: #090d16 !important;
+              font-weight: 800 !important;
+              border-bottom: 2px solid #334155 !important;
+            }
+            
+            /* Box styling resets */
+            .bg-slate-50\\/60 {
+              background: #ffffff !important;
+              border: 1px solid #e2e8f0 !important;
+            }
+            
+            /* Slab & Summary Headers */
+            .bg-slate-800 {
+              background: #f1f5f9 !important;
+              color: #090d16 !important;
+              border-bottom: 1.5px solid #cbd5e1 !important;
+            }
+            .bg-slate-800 p {
+              color: #090d16 !important;
+              font-weight: 800 !important;
+            }
+            
+            /* Red schedule tags */
+            .bg-red-50 {
+              background: #ffffff !important;
+              border: 1px solid #ef4444 !important;
+            }
           }`
     }
     .force-desktop-A4 {

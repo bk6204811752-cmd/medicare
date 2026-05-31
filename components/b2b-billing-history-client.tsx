@@ -1104,9 +1104,9 @@ export function B2BBillingHistoryClient({
                 border: none !important;
                 border-radius: 0 !important;
                 background: white !important;
-                color: black !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+                color: #090d16 !important;
+                -webkit-print-color-adjust: economy !important;
+                print-color-adjust: economy !important;
                 overflow: visible !important;
               }
               ${printFormat === 'thermal' ? `
@@ -1114,8 +1114,40 @@ export function B2BBillingHistoryClient({
               html, body { width: 80mm !important; margin: 0 !important; }
               #b2b-print-target { width: 80mm !important; max-width: 80mm !important; }
               ` : `
-              @page { margin: 8mm; size: A4 portrait; }
+              @page { margin: 10mm; size: A4 portrait; }
               html, body { width: 210mm !important; margin: 0 !important; }
+
+              /* ECO INK-SAVER OVERRIDES */
+              #b2b-print-target thead tr,
+              #b2b-print-target thead tr.bg-slate-900 {
+                background: #f1f5f9 !important;
+                color: #090d16 !important;
+                border-bottom: 2px solid #334155 !important;
+              }
+              #b2b-print-target thead tr th {
+                color: #090d16 !important;
+                font-weight: 800 !important;
+                border: 1px solid #cbd5e1 !important;
+                border-bottom: 2px solid #334155 !important;
+              }
+              #b2b-print-target .bg-slate-55,
+              #b2b-print-target .bg-slate-50\\/50 {
+                background: #ffffff !important;
+                border: 1px solid #cbd5e1 !important;
+                color: #090d16 !important;
+              }
+              #b2b-print-target .bg-slate-200 {
+                background: #ffffff !important;
+                border: 1px solid #090d16 !important;
+                color: #090d16 !important;
+              }
+              #b2b-print-target .border-slate-350 {
+                border-color: #94a3b8 !important;
+              }
+              #b2b-print-target * {
+                box-shadow: none !important;
+                text-shadow: none !important;
+              }
               `}
             }
           `}} />

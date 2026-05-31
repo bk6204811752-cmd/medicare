@@ -574,11 +574,7 @@ input[type=number] {
     border-radius: 0 !important;
   }
 
-  /* Page setup */
-  @page {
-    margin: 8mm;
-    size: A4 portrait;
-  }
+
 
   /* Font scaling for print */
   #b2b-print-target {
@@ -622,7 +618,5 @@ input[type=number] {
     margin: 0 auto;
   }
 
-  @page {
-    size: 80mm auto;
-  }
+
 }

@@ -1107,10 +1107,14 @@ export function B2BBillingHistoryClient({
                 print-color-adjust: exact !important;
                 overflow: visible !important;
               }
-              @page {
-                margin: 8mm;
-                size: A4 portrait;
-              }
+              ${printFormat === 'thermal' ? `
+              @page { margin: 0; size: 80mm auto; }
+              html, body { width: 80mm !important; margin: 0 !important; }
+              #b2b-print-target { width: 80mm !important; max-width: 80mm !important; }
+              ` : `
+              @page { margin: 8mm; size: A4 portrait; }
+              html, body { width: 210mm !important; margin: 0 !important; }
+              `}
             }
           `}} />
 

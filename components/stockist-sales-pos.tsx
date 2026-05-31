@@ -2,7 +2,7 @@
 
 
 import { useState, useTransition, useMemo, useEffect, useCallback, useRef } from "react";
-import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X, Send } from "lucide-react";
+import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X, Send, Loader2, Sparkles } from "lucide-react";
 import { createB2BSaleAction } from "@/app/stockist-actions";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -116,6 +116,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [showAllPartiesOverride, setShowAllPartiesOverride] = useState(false);
   const partyDropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Premium B2B Invoice & Receipt print modal states
   const [completedInvoice, setCompletedInvoice] = useState<any>(null);
@@ -214,16 +215,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
     loadIndent();
   }, [indentId, parties, inventory]);
 
-  // Close party dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (partyDropdownRef.current && !partyDropdownRef.current.contains(e.target as Node)) {
-        setShowPartyDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
+
 
   // Reset party selection search input if cleared or synced
   useEffect(() => {
@@ -480,6 +472,38 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
     });
   };
 
+  // Close party dropdown on outside click & global hotkeys
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (partyDropdownRef.current && !partyDropdownRef.current.contains(e.target as Node)) {
+        setShowPartyDropdown(false);
+      }
+    }
+
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      // Focus search on '/'
+      if (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "SELECT" && document.activeElement?.tagName !== "TEXTAREA") {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+
+      // Save & Book Bill on F8
+      if (e.key === "F8") {
+        if (lines.length > 0 && !isPending && !creditBlocked) {
+          e.preventDefault();
+          handleBillSave();
+        }
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+    };
+  }, [isPending, creditBlocked, lines, selectedPartyId, selectedSalesmanId, paymentMode, invoiceType, notes]);
+
   return (
     <>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px] min-w-0 w-full animate-fade-in no-print">
@@ -490,7 +514,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           
           {/* Party selector (Searchable Autocomplete Combobox) */}
           <div className="flex-1 block space-y-1 relative" ref={partyDropdownRef}>
-            <span className="text-xs font-semibold text-slate-500">Retail Chemist (Party) *</span>
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1">🏫 Retail Chemist (Party) <span className="text-red-500">*</span></span>
             <div className="relative">
               <input
                 type="text"
@@ -504,20 +528,20 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     setSelectedPartyId("");
                   }
                 }}
-                className="h-11 w-full rounded-lg border border-slate-300 px-3 pr-10 text-sm focus:outline-none focus:border-med-green bg-white font-semibold text-slate-800 shadow-sm"
+                className="h-11 w-full rounded-lg border-2 border-slate-200 px-3 pr-24 text-sm focus:outline-none focus:border-emerald-500 bg-white font-bold text-slate-800 shadow-xs transition-all placeholder:text-slate-400"
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-slate-400">
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
                 {selectedParty ? (
-                  <span className="text-emerald-600 font-extrabold text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">Selected</span>
+                  <span className="text-emerald-700 font-extrabold text-[9px] uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-3xs">✓ Connected</span>
                 ) : (
-                  <Search className="h-4 w-4" />
+                  <Search className="h-4 w-4 text-slate-400" />
                 )}
               </div>
             </div>
 
             {/* Autocomplete Dropdown List */}
             {showPartyDropdown && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg space-y-0.5 animate-scale-in">
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl space-y-1 animate-scale-in">
                 {filteredParties.map((p) => (
                   <button
                     key={p.id}
@@ -527,19 +551,19 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                       setPartySearchQuery(p.name);
                       setShowPartyDropdown(false);
                     }}
-                    className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs hover:bg-slate-50 transition-colors ${
-                      selectedPartyId === p.id ? "bg-slate-100/70 font-bold" : ""
+                    className={`flex w-full items-center justify-between rounded-lg px-3.5 py-2.5 text-left text-xs transition-all hover:bg-slate-50 ${
+                      selectedPartyId === p.id ? "bg-emerald-50/50 border border-emerald-100 font-bold" : "border border-transparent"
                     }`}
                   >
                     <div>
-                      <p className="font-semibold text-slate-800 text-sm">{p.name}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        {p.phone ? `📞 ${p.phone}` : "No phone"} • {p.gstin ? `GST: ${p.gstin}` : "Unregistered"}
+                      <p className="font-extrabold text-slate-900 text-sm">{p.name}</p>
+                      <p className="text-[10px] text-slate-455 mt-0.5 font-semibold flex items-center gap-2">
+                        {p.phone ? `📞 ${p.phone}` : "No contact"} • {p.gstin ? `GST: ${p.gstin}` : "Unregistered"}
                       </p>
                     </div>
                     <div className="text-right text-[10px] text-slate-500 font-mono">
                       <p>Limit: {p.creditLimitPaisa > 0 ? formatCurrency(p.creditLimitPaisa) : "Unlimited"}</p>
-                      <p className={p.outstandingPaisa > 0 ? "text-amber-600 font-bold" : ""}>
+                      <p className={p.outstandingPaisa > 0 ? "text-rose-600 font-black" : ""}>
                         Due: {formatCurrency(p.outstandingPaisa)}
                       </p>
                     </div>
@@ -547,7 +571,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                 ))}
 
                 {filteredParties.length === 0 && (
-                  <div className="p-3 text-center text-slate-400 text-xs">
+                  <div className="p-3 text-center text-slate-450 text-xs font-semibold">
                     No matching Retailer Parties found.
                   </div>
                 )}
@@ -556,16 +580,16 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
             {/* Dynamic Beat/Route Filter Indicator */}
             {selectedSalesman && (
-              <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500 mt-1">
+              <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mt-1 px-1">
                 <span className="text-slate-400 flex items-center gap-0.5">
                   📍 Showing {selectedSalesman.name}'s Beats ({selectedSalesman.routeIds?.length || 0})
                 </span>
-                <label className="flex items-center gap-1 cursor-pointer text-med-green hover:underline">
+                <label className="flex items-center gap-1 cursor-pointer text-emerald-600 hover:underline">
                   <input
                     type="checkbox"
                     checked={showAllPartiesOverride}
                     onChange={(e) => setShowAllPartiesOverride(e.target.checked)}
-                    className="rounded border-slate-300 text-med-green focus:ring-med-green h-3 w-3"
+                    className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500 h-3 w-3"
                   />
                   Show all routes
                 </label>
@@ -575,14 +599,14 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
           {/* Salesman selector */}
           <label className="flex-1 block space-y-1">
-            <span className="text-xs font-semibold text-slate-500">Booking Executive (Salesman)</span>
+            <span className="text-xs font-bold text-slate-500 flex items-center gap-1">👤 Booking Executive (Salesman)</span>
             <select
               value={selectedSalesmanId}
               onChange={(e) => {
                 setSelectedSalesmanId(e.target.value);
                 setShowAllPartiesOverride(false); // Reset override on salesman change to prioritize route filter
               }}
-              className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:outline-none focus:border-med-green bg-white font-medium text-slate-800"
+              className="h-11 w-full rounded-lg border-2 border-slate-200 px-3 text-sm focus:outline-none focus:border-emerald-500 bg-white font-bold text-slate-800 shadow-xs transition-all"
             >
               <option value="">Office Direct Billing</option>
               {salesmen.map((sm) => (
@@ -592,22 +616,44 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           </label>
         </div>
 
+        {/* Selected Chemist Rich Badge Card */}
+        {selectedParty && (
+          <div className="p-4 bg-gradient-to-br from-emerald-50/40 to-teal-50/20 rounded-xl border border-emerald-100/70 shadow-xs flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-slate-600 items-center animate-scale-in">
+            <div className="flex items-center gap-1.5">
+              <UserCheck className="h-4.5 w-4.5 text-emerald-600" />
+              <span>Retail Chemist: <strong className="text-slate-900 font-extrabold text-sm">{selectedParty.name}</strong></span>
+            </div>
+            {selectedParty.phone && (
+              <span>📞 Phone: <strong className="text-slate-800 font-extrabold font-mono">{selectedParty.phone}</strong></span>
+            )}
+            <span>🪪 GSTIN: <strong className="text-slate-800 font-extrabold font-mono">{selectedParty.gstin || "URP (Unregistered)"}</strong></span>
+            {selectedParty.drugLicenseNo && (
+              <span>📜 DL No: <strong className="text-slate-800 font-extrabold font-mono">{selectedParty.drugLicenseNo}</strong></span>
+            )}
+          </div>
+        )}
+
         {/* Product Autocomplete Search */}
         <div className="relative space-y-1">
-          <span className="text-xs font-semibold text-slate-500">Wholesale Search (Type drug name or batch no)</span>
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-11 w-full rounded-lg border-2 border-slate-200 px-4 text-sm focus:outline-none focus:border-med-green bg-slate-50 focus:bg-white transition-all font-semibold"
-            placeholder="Search and add batches e.g. Azithral,GP1251..."
-          />
+          <span className="text-xs font-bold text-slate-500 flex items-center gap-1">📦 Wholesale Search (Type drug name or batch no)</span>
+          <div className="relative">
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-11 w-full rounded-lg border-2 border-slate-200 px-4 pl-10 pr-20 text-sm focus:outline-none focus:border-emerald-500 bg-slate-50 focus:bg-white transition-all font-bold text-slate-850 shadow-xs"
+              placeholder="Search and add batches e.g. Azithral, GP1251..."
+            />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
+            <kbd className="absolute right-3.5 top-1/2 -translate-y-1/2 px-2 py-0.5 text-[9px] font-mono font-black text-slate-400 bg-slate-100 border border-slate-250 rounded shadow-3xs">/ key</kbd>
+          </div>
 
           {(searchResults.length > 0 || drugMasterHits.length > 0) && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-lg space-y-3 animate-scale-in">
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl space-y-3 animate-scale-in">
               {/* Local Warehouse Inventory Stocks */}
               {searchResults.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 py-0.5 text-[9px] font-extrabold text-slate-400 bg-slate-50 rounded uppercase tracking-wider">
+                  <div className="px-2.5 py-1 text-[9px] font-extrabold text-slate-400 bg-slate-50 rounded uppercase tracking-wider">
                     In-Stock Batches
                   </div>
                   {searchResults.map((item) => (
@@ -615,22 +661,22 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                       key={item.id}
                       onClick={() => addLine(item)}
                       disabled={item.quantity <= 0}
-                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-emerald-50/50 disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all hover:bg-emerald-50/50 disabled:opacity-50 disabled:hover:bg-transparent"
                     >
                       <div>
-                        <p className="font-bold text-slate-850 text-xs">
+                        <p className="font-extrabold text-slate-900 text-sm">
                           {item.medicine.name}
                           {item.medicine.manufacturer && (
-                            <span className="text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1 rounded ml-1.5 font-bold">
+                            <span className="text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-1.5 py-0.2 rounded ml-2 font-bold uppercase tracking-wider">
                               {item.medicine.manufacturer}
                             </span>
                           )}
                         </p>
-                        <p className="text-[9px] text-slate-400 font-mono mt-0.5">Batch: {item.batchNo} • Exp: {item.expiryDate}</p>
+                        <p className="text-[10px] text-slate-400 font-mono font-semibold mt-0.5">Batch: {item.batchNo} • Exp: {item.expiryDate}</p>
                       </div>
                       <div className="text-right font-mono font-semibold">
-                        <p className="text-slate-700 text-xs">PTR: {formatCurrency(item.ptrPaisa > 0 ? item.ptrPaisa : item.saleRatePaisa)}</p>
-                        <p className={`text-[9px] ${item.quantity <= 10 ? "text-orange-500 font-bold" : "text-slate-400"}`}>Stock: {item.quantity}</p>
+                        <p className="text-slate-800 font-extrabold text-xs">PTR: {formatCurrency(item.ptrPaisa > 0 ? item.ptrPaisa : item.saleRatePaisa)}</p>
+                        <p className={`text-[10px] ${item.quantity <= 10 ? "text-orange-600 font-black animate-pulse" : "text-slate-450"}`}>Stock: {item.quantity}</p>
                       </div>
                     </button>
                   ))}
@@ -640,9 +686,9 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               {/* Central Database suggestions fallback for out-of-stock items */}
               {drugMasterHits.length > 0 && (
                 <div className="space-y-1 border-t border-slate-100 pt-2">
-                  <div className="px-2 py-0.5 text-[9px] font-extrabold text-slate-400 bg-slate-50 rounded uppercase tracking-wider flex items-center justify-between">
+                  <div className="px-2.5 py-1 text-[9px] font-extrabold text-slate-400 bg-slate-50 rounded uppercase tracking-wider flex items-center justify-between">
                     <span>Central Drug Suggestions</span>
-                    <span className="text-[8px] text-orange-600 bg-orange-50 px-1 rounded font-bold border border-orange-100/30">Out of Stock</span>
+                    <span className="text-[8px] text-orange-600 bg-orange-50 px-1.5 rounded font-black border border-orange-100/30 uppercase tracking-wider">Out of Stock</span>
                   </div>
                   {drugMasterHits.map((hit) => (
                     <button
@@ -651,13 +697,13 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                         toast.warning(
                           <div className="space-y-2 p-1 text-xs text-slate-800">
                             <p className="font-extrabold text-slate-900">⚠️ Medicine Out of Stock / Unregistered</p>
-                            <p className="text-slate-500 font-medium leading-relaxed">
+                            <p className="text-slate-550 font-semibold leading-relaxed">
                               <strong>{hit.name}</strong> is not present in your wholesale stock. To bill this item to a retailer, please record a Purchase Entry first.
                             </p>
                             <div className="pt-1">
                               <a
                                 href="/stockist/inventory/add"
-                                className="inline-flex items-center gap-1 rounded bg-med-green px-3 py-1 text-[10px] font-bold text-white shadow-xs hover:bg-med-greenDark transition-all no-underline"
+                                className="inline-flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-700 px-3 py-1 text-[10px] font-black text-white shadow-xs hover:shadow-emerald-500/20 transition-all no-underline"
                               >
                                 ➕ Go to Purchase Entry / Add Stock
                               </a>
@@ -668,15 +714,15 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                         setSearchQuery("");
                         setDrugMasterHits([]);
                       }}
-                      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-slate-50 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all hover:bg-slate-50"
                     >
                       <div className="min-w-0 flex-1 pr-2">
-                        <p className="font-bold text-slate-700 text-xs truncate">{hit.name}</p>
-                        <p className="text-[9px] text-slate-400 truncate">Composition: {hit.composition || "Generic composition unknown"}</p>
+                        <p className="font-extrabold text-slate-850 text-sm truncate">{hit.name}</p>
+                        <p className="text-[10px] text-slate-450 truncate font-semibold">Composition: {hit.composition || "Generic composition unknown"}</p>
                       </div>
-                      <div className="text-right text-[9px] font-mono font-semibold text-slate-400 shrink-0">
+                      <div className="text-right text-[10px] font-mono font-semibold text-slate-400 shrink-0">
                         <p>MRP: {formatCurrency(hit.mrpPaisa || 0)}</p>
-                        <p className="text-red-500 font-bold">Qty: 0</p>
+                        <p className="text-red-500 font-extrabold">Qty: 0</p>
                       </div>
                     </button>
                   ))}
@@ -781,8 +827,20 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               })}
               {lines.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="p-8 text-center text-slate-400">
-                    No items selected. Search and add wholesale lots above.
+                  <td colSpan={13} className="py-12 text-center bg-slate-50/15">
+                    <div className="max-w-md mx-auto flex flex-col items-center justify-center space-y-3.5">
+                      <div className="rounded-full bg-slate-100 p-4 text-slate-400 border border-dashed border-slate-200">
+                        <ShoppingCart className="h-8 w-8 stroke-[1.5]" />
+                      </div>
+                      <div>
+                        <h4 className="font-display font-black text-slate-800 text-sm">No items in B2B Invoice yet</h4>
+                        <p className="text-xs text-slate-550 font-semibold mt-1">Search and select inventory lots above to build the wholesale bill.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-center pt-2">
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 border text-[10px] font-bold text-slate-500 flex items-center gap-1.5"><kbd className="font-mono text-[9px] bg-white border px-1.5 rounded shadow-3xs font-black text-slate-800">/</kbd> Search Medicines</span>
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 border text-[10px] font-bold text-slate-500 flex items-center gap-1.5"><kbd className="font-mono text-[9px] bg-white border px-1.5 rounded shadow-3xs font-black text-slate-800">F8</kbd> Book Wholesale Bill</span>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -859,25 +917,61 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
         {/* Retailer Credit Guard */}
         {selectedParty && (
-          <div className={`p-4 rounded-xl border space-y-2 animate-fade-in ${
+          <div className={`p-4.5 rounded-2xl border-2 space-y-3.5 animate-fade-in ${
             creditBlocked
-              ? "bg-red-50 border-red-100 text-red-950"
+              ? "bg-red-50/80 border-red-200 text-red-950 shadow-xs"
               : (selectedParty.outstandingPaisa >= selectedParty.creditLimitPaisa * 0.8
-                ? "bg-orange-50 border-orange-100 text-orange-950"
-                : "bg-emerald-50 border-emerald-100 text-emerald-950")
+                ? "bg-orange-50/80 border-orange-200 text-orange-950 shadow-xs"
+                : "bg-emerald-50/80 border-emerald-200 text-emerald-950 shadow-xs")
           }`}>
-            <h3 className="font-display font-bold text-sm flex items-center gap-1.5">
-              <AlertCircle className={`h-4.5 w-4.5 ${creditBlocked ? "text-red-600" : "text-emerald-600"}`} />
-              Retailer Credit Guard
-            </h3>
-            <div className="text-xs space-y-1">
-              <p>• Party Name: <strong className="font-bold">{selectedParty.name}</strong></p>
-              <p>• Ledger Outstanding: <strong className="font-bold font-mono">{formatCurrency(selectedParty.outstandingPaisa)}</strong></p>
-              <p>• Max Credit Limit: <strong className="font-bold font-mono">{selectedParty.creditLimitPaisa > 0 ? formatCurrency(selectedParty.creditLimitPaisa) : "Unlimited"}</strong></p>
+            <div className="flex items-center justify-between">
+              <h3 className="font-display font-black text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <AlertCircle className={`h-4.5 w-4.5 ${creditBlocked ? "text-red-600 animate-bounce" : "text-emerald-600"}`} />
+                Retailer Credit Guard
+              </h3>
+              <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                creditBlocked 
+                  ? "bg-red-200 text-red-850" 
+                  : (selectedParty.outstandingPaisa >= selectedParty.creditLimitPaisa * 0.8 
+                    ? "bg-orange-200 text-orange-850 animate-pulse" 
+                    : "bg-emerald-200 text-emerald-850")
+              }`}>
+                {creditBlocked ? "Credit Exceeded" : (selectedParty.outstandingPaisa >= selectedParty.creditLimitPaisa * 0.8 ? "Near Credit Limit" : "Credit Safe")}
+              </span>
+            </div>
+            
+            <div className="text-xs space-y-2.5 font-semibold">
+              <div className="grid grid-cols-2 gap-2 leading-tight">
+                <div>
+                  <span className="block text-[9px] text-slate-400 uppercase">Outstanding Balance</span>
+                  <span className={`font-mono font-bold text-sm ${selectedParty.outstandingPaisa > 0 ? "text-slate-800" : "text-slate-500"}`}>{formatCurrency(selectedParty.outstandingPaisa)}</span>
+                </div>
+                <div>
+                  <span className="block text-[9px] text-slate-400 uppercase">Max Credit Limit</span>
+                  <span className="font-mono text-slate-850 font-bold text-sm">{selectedParty.creditLimitPaisa > 0 ? formatCurrency(selectedParty.creditLimitPaisa) : "Unlimited"}</span>
+                </div>
+              </div>
+
+              {selectedParty.creditLimitPaisa > 0 && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[9px] text-slate-405 uppercase font-extrabold">
+                    <span>Credit Utilization</span>
+                    <span>{Math.min(100, Math.round((selectedParty.outstandingPaisa / selectedParty.creditLimitPaisa) * 100))}%</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-200 overflow-hidden border">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        creditBlocked ? "bg-red-500" : (selectedParty.outstandingPaisa >= selectedParty.creditLimitPaisa * 0.8 ? "bg-orange-500" : "bg-emerald-500")
+                      }`} 
+                      style={{ width: `${Math.min(100, (selectedParty.outstandingPaisa / selectedParty.creditLimitPaisa) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             {creditBlocked && (
-              <p className="text-[10px] font-bold text-red-700 bg-red-100/50 p-2 rounded border border-red-200 mt-1">
-                🛑 LIMIT BLOCKED! This transaction exceeds maximum credit capacity. Choose CASH payment or clear outstanding.
+              <p className="text-[10px] font-bold text-red-700 bg-red-150 p-2 rounded border border-red-300 mt-1.5 leading-relaxed">
+                🛑 <strong>BLOCKED!</strong> Outstanding + current invoice exceeds credit capacity. Please select CASH payment or settle ledger outstandings.
               </p>
             )}
           </div>
@@ -889,22 +983,22 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
             <FileText className="h-5 w-5 text-med-green" /> Bill Summary
           </h2>
 
-          <div className="space-y-2 text-xs font-semibold text-slate-500">
-            <div className="flex justify-between items-center">
+          <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
+            <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
               <span>Wholesale Subtotal</span>
-              <span className="font-mono text-slate-800">{formatCurrency(calculations.subtotalPaisa)}</span>
+              <span className="font-mono text-slate-700">{formatCurrency(calculations.subtotalPaisa)}</span>
             </div>
-            <div className="flex justify-between items-center text-red-500">
+            <div className="flex justify-between items-center text-xs font-semibold text-rose-600">
               <span>Schemes Discount (-)</span>
-              <span className="font-mono">{formatCurrency(calculations.discountPaisa)}</span>
+              <span className="font-mono">-{formatCurrency(calculations.discountPaisa)}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
               <span>CGST / SGST Tax (+)</span>
-              <span className="font-mono text-slate-800">{formatCurrency(calculations.gstPaisa)}</span>
+              <span className="font-mono text-slate-700">{formatCurrency(calculations.gstPaisa)}</span>
             </div>
-            <div className="flex justify-between items-center border-t border-slate-100 pt-3 text-base font-bold text-med-navy">
-              <span>NET PAYABLE</span>
-              <span className="font-mono text-emerald-600">{formatCurrency(calculations.totalPaisa)}</span>
+            <div className="border-t border-dashed border-slate-200 my-2 pt-3 flex justify-between items-center">
+              <span className="text-xs font-black uppercase text-slate-700 tracking-wider">NET PAYABLE</span>
+              <span className="font-mono font-black text-2xl bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent drop-shadow-xs">{formatCurrency(calculations.totalPaisa)}</span>
             </div>
           </div>
 
@@ -923,12 +1017,30 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           <button
             onClick={handleBillSave}
             disabled={isPending || creditBlocked}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-med-green font-bold text-white shadow-md hover:bg-med-greenDark active:scale-95 transition-all text-sm disabled:opacity-50"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 font-bold text-white shadow-md hover:shadow-emerald-500/25 hover:from-emerald-700 hover:to-emerald-600 active:scale-[0.97] transition-all text-sm disabled:opacity-50"
           >
-            {isPending ? "Booking wholesale..." : `Book B2B ${invoiceType === "challan" ? "Challan" : "Invoice"}`}
+            {isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Booking B2B Sale...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4" /> Book B2B {invoiceType === "challan" ? "Challan" : "Invoice"}
+              </>
+            )}
           </button>
         </div>
 
+      </div>
+
+      {/* Sleek Floating Keyboard Shortcuts Bar */}
+      <div className="col-span-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-wrap gap-4 items-center justify-between text-xs font-semibold text-slate-400">
+        <span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-emerald-500 animate-pulse" /> Wholesale Rapid Keyboard Shortcuts</span>
+        <div className="flex flex-wrap gap-3.5">
+          <span className="flex items-center gap-1.5"><kbd className="font-mono text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded shadow-sm text-slate-200 font-bold">/</kbd> Focus Search</span>
+          <span className="flex items-center gap-1.5"><kbd className="font-mono text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded shadow-sm text-slate-200 font-bold">F8</kbd> Book Bill & Save</span>
+          <span className="flex items-center gap-1.5"><kbd className="font-mono text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded shadow-sm text-slate-200 font-bold">Esc</kbd> Close Print Modal</span>
+        </div>
       </div>
 
     </div>

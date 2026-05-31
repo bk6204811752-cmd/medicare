@@ -823,10 +823,10 @@ export async function searchInventory(tenantId: string, q: string) {
         tenantId,
         isActive: true,
         OR: [
-          { medicine: { name: { contains: normalized } } },
-          { medicine: { genericName: { contains: normalized } } },
-          { medicine: { barcode: { contains: normalized } } },
-          { batchNo: { contains: normalized } },
+          { medicine: { name: { contains: normalized, mode: "insensitive" } } },
+          { medicine: { genericName: { contains: normalized, mode: "insensitive" } } },
+          { medicine: { barcode: { contains: normalized, mode: "insensitive" } } },
+          { batchNo: { contains: normalized, mode: "insensitive" } },
         ],
       },
       include: { medicine: true, supplier: true },
@@ -840,17 +840,17 @@ export async function searchInventory(tenantId: string, q: string) {
   const isShortQuery = normalized.length < 4;
   const tokenConditions = tokens.map(token => ({
     OR: isShortQuery ? [
-      { medicine: { name: { contains: token } } },
-      { medicine: { genericName: { contains: token } } },
-      { batchNo: { contains: token } },
+      { medicine: { name: { contains: token, mode: "insensitive" } } },
+      { medicine: { genericName: { contains: token, mode: "insensitive" } } },
+      { batchNo: { contains: token, mode: "insensitive" } },
     ] : [
-      { medicine: { name: { contains: token } } },
-      { medicine: { genericName: { contains: token } } },
-      { medicine: { manufacturer: { contains: token } } },
-      { medicine: { composition: { contains: token } } },
-      { medicine: { category: { contains: token } } },
-      { medicine: { barcode: { contains: token } } },
-      { batchNo: { contains: token } },
+      { medicine: { name: { contains: token, mode: "insensitive" } } },
+      { medicine: { genericName: { contains: token, mode: "insensitive" } } },
+      { medicine: { manufacturer: { contains: token, mode: "insensitive" } } },
+      { medicine: { composition: { contains: token, mode: "insensitive" } } },
+      { medicine: { category: { contains: token, mode: "insensitive" } } },
+      { medicine: { barcode: { contains: token, mode: "insensitive" } } },
+      { batchNo: { contains: token, mode: "insensitive" } },
     ],
   }));
 
@@ -2001,19 +2001,19 @@ export async function searchMedicinesByName(q: string) {
   const conditions = tokens.length > 0
     ? tokens.map(token => ({
         OR: isShortQuery ? [
-          { name: { contains: token } },
-          { genericName: { contains: token } },
+          { name: { contains: token, mode: "insensitive" } },
+          { genericName: { contains: token, mode: "insensitive" } },
         ] : [
-          { name: { contains: token } },
-          { genericName: { contains: token } },
-          { manufacturer: { contains: token } },
-          { composition: { contains: token } },
+          { name: { contains: token, mode: "insensitive" } },
+          { genericName: { contains: token, mode: "insensitive" } },
+          { manufacturer: { contains: token, mode: "insensitive" } },
+          { composition: { contains: token, mode: "insensitive" } },
         ],
       }))
     : [{
         OR: [
-          { name: { contains: normalized } },
-          { genericName: { contains: normalized } },
+          { name: { contains: normalized, mode: "insensitive" } },
+          { genericName: { contains: normalized, mode: "insensitive" } },
         ],
       }];
 

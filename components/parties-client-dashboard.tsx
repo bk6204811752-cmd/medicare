@@ -32,6 +32,15 @@ type PartyItem = {
 interface PartiesClientDashboardProps {
   initialParties: PartyItem[];
   routes: RouteItem[];
+  tenant: {
+    id: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    address?: string | null;
+    gstin?: string | null;
+    drugLicenseNo?: string | null;
+  } | null;
 }
 
 type LedgerRow = {
@@ -50,7 +59,7 @@ type LedgerRow = {
   status?: string;
 };
 
-export function PartiesClientDashboard({ initialParties, routes }: PartiesClientDashboardProps) {
+export function PartiesClientDashboard({ initialParties, routes, tenant }: PartiesClientDashboardProps) {
   const [search, setSearch] = useState("");
   const [selectedParty, setSelectedParty] = useState<PartyItem | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -681,6 +690,161 @@ export function PartiesClientDashboard({ initialParties, routes }: PartiesClient
               </div>
             )}
 
+          </div>
+        </div>
+
+        {/* ─── PREMIUM A4 LEDGER PRINT TARGET ─── */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media screen {
+            .ledger-print-only {
+              display: none !important;
+            }
+          }
+          @media print {
+            body {
+              visibility: hidden !important;
+              background: white !important;
+            }
+            .ledger-print-only, .ledger-print-only * {
+              visibility: visible !important;
+            }
+            .ledger-print-only {
+              display: block !important;
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              box-shadow: none !important;
+              border: none !important;
+              border-radius: 0 !important;
+              background: white !important;
+              color: black !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              overflow: visible !important;
+            }
+            @page { margin: 15mm 10mm; size: A4 portrait; }
+            html, body { width: 210mm !important; margin: 0 !important; background: white !important; }
+          }
+        `}} />
+        <div 
+          id="b2b-print-target" 
+          className="ledger-print-only w-full max-w-[210mm] min-h-[297mm] bg-white text-slate-900 p-8 flex flex-col justify-between mx-auto border border-slate-200"
+          style={{ minWidth: "750px" }}
+        >
+          <div className="space-y-6">
+            {/* Elegant Header Banner */}
+            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">B2B SUPPLIER / DISTRIBUTOR</span>
+                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{tenant?.name || "MEDICARE WHOLESALE DISTRIBUTORS"}</h2>
+                <p className="text-xs text-slate-600 max-w-md leading-relaxed">{tenant?.address || "B2B Block, Phase-1 Warehouse, Industrial Estate"}</p>
+                <div className="flex gap-4 text-[10px] text-slate-500 font-bold mt-1">
+                  {tenant?.phone && <span>📞 Helpline: {tenant.phone}</span>}
+                  {tenant?.email && <span>✉️ Email: {tenant.email}</span>}
+                </div>
+                <div className="flex gap-4 text-[10px] text-slate-500 font-mono">
+                  {tenant?.gstin && <span>GSTIN: <span className="font-black text-slate-800 uppercase">{tenant.gstin}</span></span>}
+                  {tenant?.drugLicenseNo && <span>DL No: <span className="font-semibold text-slate-800">{tenant.drugLicenseNo}</span></span>}
+                </div>
+              </div>
+              
+              <div className="text-right space-y-1 bg-slate-50 p-3 rounded-lg border border-slate-150 min-w-[200px]">
+                <h3 className="text-sm font-black text-slate-800 tracking-wide uppercase">Ledger Statement</h3>
+                <p className="text-[10px] text-slate-500 font-semibold">Generated on: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</p>
+                <div className="border-t border-slate-200 my-2"></div>
+                <div className="space-y-1 text-[10px]">
+                  <p className="flex justify-between text-slate-600 font-bold"><span>Total Debit (Dr):</span> <span className="font-mono text-slate-900">{formatCurrency(ledger.reduce((sum, r) => sum + r.debitPaisa, 0))}</span></p>
+                  <p className="flex justify-between text-slate-600 font-bold"><span>Total Credit (Cr):</span> <span className="font-mono text-emerald-700">{formatCurrency(ledger.reduce((sum, r) => sum + r.creditPaisa, 0))}</span></p>
+                  <p className="flex justify-between text-slate-800 font-black border-t border-slate-200 pt-1 mt-1"><span>Net Due Balance:</span> <span className="font-mono text-red-600">{formatCurrency(selectedParty.outstandingPaisa)}</span></p>
+                </div>
+              </div>
+            </div>
+
+            {/* Chemist / Buyer Profile Details */}
+            <div className="grid grid-cols-2 gap-8 bg-slate-50/50 p-4 rounded-xl border border-slate-150 text-[11px] leading-relaxed">
+              <div className="space-y-1">
+                <span className="text-[9px] font-black uppercase text-indigo-700 tracking-wider">RETAIL CHEMIST (ACCOUNT HOLDER)</span>
+                <h4 className="font-black text-slate-900 text-sm uppercase">{selectedParty.name}</h4>
+                <p className="text-slate-600 font-semibold">{selectedParty.address || "No shop address registered."}</p>
+                {selectedParty.phone && <p className="text-slate-600 font-bold mt-1">📞 Contact: <span className="font-mono text-slate-800">{selectedParty.phone}</span></p>}
+              </div>
+              <div className="space-y-1 pl-4 border-l border-slate-200">
+                <span className="text-[9px] font-black uppercase text-slate-500 tracking-wider">ACCOUNT PARAMETERS</span>
+                <p className="font-mono text-slate-600">GSTIN: <span className="font-black text-slate-800 uppercase">{selectedParty.gstin || "UNREGISTERED (URP)"}</span></p>
+                <p className="font-mono text-slate-600">Drug License: <span className="font-semibold text-slate-850 uppercase">{selectedParty.drugLicenseNo || "N/A"}</span></p>
+                <p className="font-semibold text-slate-600 mt-1">Credit Limit: <span className="font-mono font-bold text-slate-800">{selectedParty.creditLimitPaisa > 0 ? formatCurrency(selectedParty.creditLimitPaisa) : "Unlimited"}</span></p>
+              </div>
+            </div>
+
+            {/* Reconciled Transaction History Table */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Reconciled Account Ledger</h3>
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-300 font-bold text-slate-700 uppercase text-[9px] tracking-wider">
+                    <th className="px-3 py-2 border border-slate-200">Date / Ref</th>
+                    <th className="px-3 py-2 border border-slate-200">Particulars / Description</th>
+                    <th className="px-3 py-2 text-right border border-slate-200">Debit (Dr)</th>
+                    <th className="px-3 py-2 text-right border border-slate-200">Credit (Cr)</th>
+                    <th className="px-3 py-2 text-right border border-slate-200">Running Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 font-semibold text-slate-800">
+                  {ledger.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50/50">
+                      <td className="px-3 py-2.5 border border-slate-200">
+                        <p className="font-bold text-slate-900 text-[10px]">
+                          {new Date(row.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                        <p className="font-mono text-[9px] text-slate-500 mt-0.5">{row.refNo}</p>
+                      </td>
+                      <td className="px-3 py-2.5 border border-slate-200 max-w-[280px]">
+                        <p className="text-slate-900 font-bold text-[10.5px] leading-tight">{row.description}</p>
+                        {row.items && row.items.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {row.items.map((item: any, idx: number) => (
+                              <span key={idx} className="inline-block bg-slate-100 text-slate-700 px-1 py-0.2 rounded border border-slate-200 mr-1 mb-1 font-mono text-[8.5px]">
+                                {item.name} ({item.qty}{item.free > 0 ? `+${item.free}` : ""})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {row.notes && (
+                          <p className="text-[9px] text-slate-500 italic mt-1 font-medium">Note: {row.notes}</p>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-800 text-[10.5px] border border-slate-200">
+                        {row.debitPaisa > 0 ? formatCurrency(row.debitPaisa) : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-emerald-700 text-[10.5px] border border-slate-200">
+                        {row.creditPaisa > 0 ? formatCurrency(row.creditPaisa) : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-mono font-black text-slate-900 text-[10.5px] border border-slate-200">
+                        {formatCurrency(row.runningOutstanding)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Footer Section */}
+          <div className="mt-8 border-t border-slate-350 pt-4 flex justify-between items-end text-[9px] font-semibold text-slate-500">
+            <div className="space-y-1">
+              <p className="uppercase font-bold text-slate-700">Important Instructions:</p>
+              <p>1. Please verify all invoices, receipt payments, and double check return vouchers in 7 days.</p>
+              <p>2. Discrepancies should be reported immediately to distributor helpline at {tenant?.phone || "registered support"}.</p>
+              <p className="text-[8.5px] text-slate-400 italic mt-1">This is a secure computer-generated billing/account ledger statement. No signature required.</p>
+            </div>
+            <div className="text-right space-y-2">
+              <div className="h-12 w-32 border-b border-slate-350 flex items-end justify-center pb-1 text-slate-400 font-semibold italic">Authorized Signatory</div>
+              <p className="font-bold text-slate-800 uppercase text-[9px]">For {tenant?.name || "MEDICARE WHOLESALE DISTRIBUTORS"}</p>
+            </div>
           </div>
         </div>
       </div>

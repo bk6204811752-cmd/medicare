@@ -391,7 +391,9 @@ export function CustomerDashboardClient({
               const shareMessage = encodeURIComponent(
                 `Invoice: ${purchase.invoiceNo} from ${tenantName}.\nTotal: ${formatCurrency(purchase.totalPaisa)}.\nMedicines: ${itemsListText}.\nThank you!`
               );
-              const whatsappUrl = `https://wa.me/${customer.phone ? customer.phone.replace(/\D/g, "") : ""}?text=${shareMessage}`;
+              const cleanedPhone = customer.phone ? customer.phone.replace(/\D/g, "") : "";
+              const formattedPhone = cleanedPhone.length === 10 ? `91${cleanedPhone}` : cleanedPhone;
+              const whatsappUrl = `https://wa.me/${formattedPhone}?text=${shareMessage}`;
 
               return (
                 <div

@@ -1463,9 +1463,13 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               {/* WhatsApp Share */}
               {completedInvoice?.partyPhone && (
                 <a
-                  href={`https://wa.me/${completedInvoice.partyPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
-                    `B2B Invoice: ${completedInvoice.invoiceNo}\nChemist: ${completedInvoice.partyName}\nTotal: ₹${(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}\nPayment: ${completedInvoice.paymentMode.toUpperCase()}\nMedicines: ${completedInvoice.items.map((i: any) => `${i.medicineName} (Qty:${i.quantity})`).join(", ")}\nThank you!`
-                  )}`}
+                  href={(() => {
+                    const cleaned = completedInvoice.partyPhone.replace(/\D/g, "");
+                    const formattedPhone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+                    return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(
+                      `B2B Invoice: ${completedInvoice.invoiceNo}\nChemist: ${completedInvoice.partyName}\nTotal: ₹${(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}\nPayment: ${completedInvoice.paymentMode.toUpperCase()}\nMedicines: ${completedInvoice.items.map((i: any) => `${i.medicineName} (Qty:${i.quantity})`).join(", ")}\nThank you!`
+                    )}`;
+                  })()}
                   target="_blank"
                   rel="noreferrer"
                   className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] active:scale-[0.98] transition-all"

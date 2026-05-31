@@ -544,7 +544,9 @@ export function BillingHistoryClient({
                   ? `${whatsappBaseMessage} Invoice: ${sale.invoice_no}. Total: ${formatCurrency(sale.total_paisa)}. View/Download professional Invoice PDF here: ${invoiceUrl}. Thanks!`
                   : `Medicare Invoice: ${sale.invoice_no} from ${tenantName}.\nTotal Amount: ${formatCurrency(sale.total_paisa)}.\nMedicines: ${itemsShortList}.\nView/Download professional Invoice PDF here: ${invoiceUrl}\nThank you!`
               );
-              const whatsappUrl = `https://wa.me/${sale.customer_phone ? sale.customer_phone.replace(/\D/g, "") : ""}?text=${shareMessage}`;
+              const cleanedPhone = sale.customer_phone ? sale.customer_phone.replace(/\D/g, "") : "";
+              const formattedPhone = cleanedPhone.length === 10 ? `91${cleanedPhone}` : cleanedPhone;
+              const whatsappUrl = `https://wa.me/${formattedPhone}?text=${shareMessage}`;
 
               return (
                 <div

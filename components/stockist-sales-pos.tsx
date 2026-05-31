@@ -937,9 +937,9 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
-            /* Hide everything on the page except our print target */
-            body > * { display: none !important; }
-            #b2b-print-portal { display: block !important; }
+            /* Hide everything on the page except our print target safely using visibility */
+            body { visibility: hidden !important; }
+            #b2b-print-target, #b2b-print-target * { visibility: visible !important; }
             #b2b-print-target {
               display: block !important;
               position: fixed !important;

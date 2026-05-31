@@ -524,12 +524,13 @@ input[type=number] {
 }
 
 @media print {
-  /* Hide everything by default */
-  body > * {
-    display: none !important;
+  /* Set body to visibility hidden to hide background content safely without hiding React root container */
+  body {
+    visibility: hidden !important;
+    background: white !important;
   }
 
-  /* Hide UI chrome elements */
+  /* Hide UI chrome and interactive elements to reclaim space */
   nav,
   header,
   footer,
@@ -537,14 +538,22 @@ input[type=number] {
   [data-sidebar],
   [class*="sidebar"],
   [class*="navbar"],
-  .no-print {
+  .no-print,
+  button,
+  .toast,
+  .toaster,
+  [data-sonner-toaster],
+  .sonner-toaster {
     display: none !important;
   }
 
-  /* Show only the print target */
+  /* Show only the designated print targets */
   #b2b-print-target,
-  #b2b-print-target * {
-    display: revert !important;
+  #b2b-print-target *,
+  .a4-print-container,
+  .a4-print-container *,
+  .thermal-print-container,
+  .thermal-print-container * {
     visibility: visible !important;
   }
 

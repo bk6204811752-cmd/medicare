@@ -937,17 +937,15 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
-            body {
-              visibility: hidden !important;
-            }
-            #b2b-print-target, #b2b-print-target * {
-              visibility: visible !important;
-            }
+            /* Hide everything on the page except our print target */
+            body > * { display: none !important; }
+            #b2b-print-portal { display: block !important; }
             #b2b-print-target {
-              position: absolute !important;
+              display: block !important;
+              position: fixed !important;
               left: 0 !important;
               top: 0 !important;
-              width: 100% !important;
+              width: 100vw !important;
               height: auto !important;
               padding: 0 !important;
               margin: 0 !important;
@@ -955,15 +953,20 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               border: none !important;
               border-radius: 0 !important;
               background: white !important;
-              color: black !important;
+              color: #0f172a !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
               overflow: visible !important;
+              z-index: 999999 !important;
             }
-            @page {
-              margin: 8mm;
-              size: A4 portrait;
-            }
+            ${printFormat === 'thermal' ? `
+            @page { margin: 0; size: 80mm auto; }
+            html, body { width: 80mm !important; margin: 0 !important; }
+            #b2b-print-target { width: 80mm !important; max-width: 80mm !important; }
+            ` : `
+            @page { margin: 8mm; size: A4 portrait; }
+            html, body { width: 210mm !important; margin: 0 !important; }
+            `}
           }
         `}} />
         
@@ -999,7 +1002,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
                       printFormat === "a4"
                         ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
-                        : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
+                        : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white"
                     }`}
                   >
                     <FileText className="h-4 w-4" /> A4 Tax Invoice Sheet
@@ -1009,7 +1012,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
                     className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
                       printFormat === "thermal"
                         ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
-                        : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
+                        : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white"
                     }`}
                   >
                     <Printer className="h-4 w-4" /> 3" Thermal Receipt

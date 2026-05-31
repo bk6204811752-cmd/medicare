@@ -995,12 +995,20 @@ export function BillingPos({ tenant }: { tenant: any }) {
         )}
 
         {/* ─── Search Results (Inventory Matches) ─── */}
-        {matches.length > 0 && (
+        {matches.length > 0 && (() => {
+          const inStockMatches = matches.filter(r => r.quantity > 0 && !r.isGenericSubstitute);
+          const genericSubstitutes = matches.filter(r => r.isGenericSubstitute);
+          const outOfStockMatches = matches.filter(r => r.quantity <= 0 && !r.isGenericSubstitute);
+          const orderedMatches = [...inStockMatches, ...genericSubstitutes, ...outOfStockMatches].slice(0, 10);
+
+          return (
           <div className="mt-3 overflow-hidden rounded-md border border-slate-200">
-            <div className="border-b border-slate-100 bg-slate-50 px-3 py-1.5">
-              <span className="text-xs font-medium text-slate-500">{matches.length} result{matches.length !== 1 ? "s" : ""} found</span>
-            </div>
-            {matches.slice(0, 10).map((row) => {
+            {inStockMatches.length > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider">📦 Available in Your Stock ({inStockMatches.length})</span>
+              </div>
+            )}
+            {orderedMatches.map((row, rowIdx) => {
               const expDays = daysUntil(row.expiryDate);
               const isExpired = expDays < 0;
               const isNearExpiry = expDays >= 0 && expDays <= 30;
@@ -1022,9 +1030,24 @@ export function BillingPos({ tenant }: { tenant: any }) {
                 stockLabelText = `${row.quantity} Unit${row.quantity !== 1 ? "s" : ""}`;
               }
 
+              // Show section divider before substitutes section
+              const prevRow = rowIdx > 0 ? orderedMatches[rowIdx - 1] : null;
+              const showSubstituteDivider = row.isGenericSubstitute && (!prevRow || !prevRow.isGenericSubstitute);
+              const showOutOfStockDivider = !row.isGenericSubstitute && row.quantity <= 0 && prevRow && (prevRow.quantity > 0 || prevRow.isGenericSubstitute);
+
               return (
+                <div key={row.id}>
+                  {showSubstituteDivider && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white">
+                      <span className="text-[10px] font-extrabold uppercase tracking-wider">🔄 Generic Substitutes Available</span>
+                    </div>
+                  )}
+                  {showOutOfStockDivider && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 border-t border-slate-200">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">⚠️ Not in Stock — Order from Stockist</span>
+                    </div>
+                  )}
                 <button 
-                  key={row.id} 
                   onClick={() => addLine(row.id)} 
                   disabled={isExpired || row.quantity <= 0} 
                   className={`grid w-full gap-2 border-b border-slate-100 p-3 text-left md:grid-cols-[1fr_auto] transition-colors ${
@@ -1032,12 +1055,19 @@ export function BillingPos({ tenant }: { tenant: any }) {
                       ? "bg-red-50/50 opacity-60 cursor-not-allowed" 
                       : row.isGenericSubstitute
                         ? "bg-blue-50/45 border-l-4 border-l-blue-500 hover:bg-blue-50"
-                        : "hover:bg-med-greenSoft"
+                        : row.quantity > 0
+                          ? "hover:bg-med-greenSoft border-l-4 border-l-emerald-400"
+                          : "opacity-50 cursor-not-allowed bg-slate-50/60"
                   }`}
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="font-semibold text-med-navy">{row.medicine.name}</span>
+                      {row.quantity > 0 && !row.isGenericSubstitute && (
+                        <span className="rounded-full bg-emerald-100 border border-emerald-300 px-2 py-0.5 text-[9px] font-extrabold text-emerald-700 tracking-wide uppercase">
+                          ✓ IN STOCK
+                        </span>
+                      )}
                       {row.isGenericSubstitute && (
                         <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-extrabold text-blue-700 tracking-wide uppercase">
                           Composition Match (Substitute for {row.substituteFor})
@@ -1067,10 +1097,12 @@ export function BillingPos({ tenant }: { tenant: any }) {
                     </span>
                   </div>
                 </button>
+                </div>
               );
             })}
           </div>
-        )}
+          );
+        })()}
 
         {/* ─── Medicine Suggestions (from master, not in inventory) ─── */}
         {matches.length === 0 && suggestions.length > 0 && query.length >= 2 && (

@@ -71,6 +71,22 @@ export default function StockistOrdersPage() {
 
   useEffect(() => {
     fetchOrders();
+
+    // Auto-refresh every 30 seconds so new chemist orders appear automatically
+    const interval = setInterval(() => fetchOrders(true), 30000);
+
+    // Refresh when tab becomes visible again (user switches back to this tab)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchOrders(true);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const handleAccept = async (orderId: string) => {
@@ -231,6 +247,29 @@ export default function StockistOrdersPage() {
           </button>
         }
       />
+
+      {/* ── New Pending Orders Alert Banner ── */}
+      {counts.pending > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border-2 border-blue-400 bg-blue-50 px-5 py-3.5 shadow-sm animate-pulse">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 border border-blue-300">
+            <ShoppingBag className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <p className="font-extrabold text-blue-800 text-sm">
+              🔔 {counts.pending} New Order{counts.pending !== 1 ? "s" : ""} Waiting for Your Response!
+            </p>
+            <p className="text-xs text-blue-600 font-semibold mt-0.5">
+              Chemist{counts.pending !== 1 ? "s" : ""} placed B2B order{counts.pending !== 1 ? "s" : ""}. Accept to generate OTP delivery code.
+            </p>
+          </div>
+          <button
+            onClick={() => { setStatusFilter("pending"); fetchOrders(true); }}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-bold text-white transition-colors shadow-sm"
+          >
+            <AlertCircle className="h-3.5 w-3.5" /> View Pending
+          </button>
+        </div>
+      )}
 
       {/* Tabs and Search */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

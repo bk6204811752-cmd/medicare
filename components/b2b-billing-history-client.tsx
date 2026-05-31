@@ -118,6 +118,13 @@ export function B2BBillingHistoryClient({
   const [editNotes, setEditNotes] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
+  // Quick Payment state (bill-specific partial payment from billing history)
+  const [quickPaySale, setQuickPaySale] = useState<B2BSaleWithItems | null>(null);
+  const [quickPayAmount, setQuickPayAmount] = useState("");
+  const [quickPayMode, setQuickPayMode] = useState("cash");
+  const [quickPayRef, setQuickPayRef] = useState("");
+  const [quickPaySaving, setQuickPaySaving] = useState(false);
+
   // Expanded sales IDs
   const [expandedSaleIds, setExpandedSaleIds] = useState<Record<string, boolean>>({});
 
@@ -379,6 +386,63 @@ export function B2BBillingHistoryClient({
     setEditNotes(sale.notes || "");
   };
 
+  // Open quick payment modal
+  const openQuickPay = (sale: B2BSaleWithItems) => {
+    setQuickPaySale(sale);
+    setQuickPayAmount((sale.amountDuePaisa / 100).toFixed(2));
+    setQuickPayMode("cash");
+    setQuickPayRef("");
+  };
+
+  // Handle quick payment submission
+  const handleQuickPayment = async () => {
+    if (!quickPaySale) return;
+    const amt = parseFloat(quickPayAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+    const amtPaisa = Math.round(amt * 100);
+    if (amtPaisa > quickPaySale.amountDuePaisa) {
+      toast.error(`Amount cannot exceed balance due of ${formatCurrency(quickPaySale.amountDuePaisa)}`);
+      return;
+    }
+
+    setQuickPaySaving(true);
+    try {
+      const res = await fetch("/api/stockist/parties/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          partyId: quickPaySale.partyId,
+          saleId: quickPaySale.id,
+          amountPaisa: amtPaisa,
+          paymentMode: quickPayMode,
+          referenceNo: quickPayRef || undefined,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Payment failed");
+      // Update local state
+      const newPaid = quickPaySale.amountPaidPaisa + amtPaisa;
+      const newDue = Math.max(0, quickPaySale.amountDuePaisa - amtPaisa);
+      const newStatus = newDue <= 0 ? "paid" : "partial";
+      setSales((prev) =>
+        prev.map((s) =>
+          s.id === quickPaySale.id
+            ? { ...s, amountPaidPaisa: newPaid, amountDuePaisa: newDue, status: newStatus }
+            : s
+        )
+      );
+      toast.success(`✅ ${result.message || "Payment recorded!"}`);
+      setQuickPaySale(null);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to record payment");
+    } finally {
+      setQuickPaySaving(false);
+    }
+  };
+
   // Save bill edits via PATCH
   const handleSaveBillEdit = async () => {
     if (!editBill) return;
@@ -523,6 +587,125 @@ export function B2BBillingHistoryClient({
           </div>
         </div>
       )}
+
+      {/* ─── QUICK PAYMENT MODAL ─── */}
+      {quickPaySale && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-sm p-6 space-y-4 animate-scale-in">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
+                  <CreditCard className="h-5 w-5 text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="font-display font-black text-slate-900 text-base">Collect Payment</h3>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5">{quickPaySale.invoiceNo} • {quickPaySale.party.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setQuickPaySale(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Bill Summary */}
+            <div className="grid grid-cols-3 gap-2 rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
+              <div>
+                <p className="text-[9px] font-extrabold text-slate-400 uppercase">Bill Total</p>
+                <p className="text-xs font-black text-slate-800 mt-0.5 font-mono">{formatCurrency(quickPaySale.totalPaisa)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-extrabold text-slate-400 uppercase">Paid</p>
+                <p className="text-xs font-black text-emerald-700 mt-0.5 font-mono">{formatCurrency(quickPaySale.amountPaidPaisa)}</p>
+              </div>
+              <div>
+                <p className="text-[9px] font-extrabold text-slate-400 uppercase">Balance Due</p>
+                <p className="text-xs font-black text-red-600 mt-0.5 font-mono">{formatCurrency(quickPaySale.amountDuePaisa)}</p>
+              </div>
+            </div>
+
+            {/* Amount */}
+            <div className="space-y-1">
+              <label className="block text-xs font-extrabold text-slate-500">Amount Now (₹)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
+                <input
+                  type="number" min="1" step="0.01"
+                  value={quickPayAmount}
+                  onChange={(e) => setQuickPayAmount(e.target.value)}
+                  className="w-full h-10 rounded-xl border border-slate-200 pl-8 pr-3 text-sm font-black text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </div>
+              <div className="flex gap-1.5 mt-1">
+                {[25, 50, 75, 100].map((pct) => (
+                  <button key={pct} type="button"
+                    onClick={() => setQuickPayAmount(((quickPaySale.amountDuePaisa / 100) * pct / 100).toFixed(2))}
+                    className="flex-1 text-[10px] font-black text-slate-600 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-lg py-1 transition-all"
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Payment Mode */}
+            <div className="space-y-1">
+              <label className="block text-xs font-extrabold text-slate-500">Payment Mode</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: "cash", label: "💵 Cash" },
+                  { value: "upi", label: "📱 UPI" },
+                  { value: "cheque", label: "🏦 Cheque" },
+                  { value: "neft", label: "⚡ NEFT" },
+                ].map((mode) => (
+                  <button key={mode.value} type="button"
+                    onClick={() => setQuickPayMode(mode.value)}
+                    className={`h-9 rounded-xl border text-xs font-bold transition-all ${
+                      quickPayMode === mode.value
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
+                    }`}
+                  >
+                    {mode.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reference */}
+            {quickPayMode !== "cash" && (
+              <div className="space-y-1">
+                <label className="block text-xs font-extrabold text-slate-500">
+                  {quickPayMode === "upi" ? "UPI Txn ID" : quickPayMode === "cheque" ? "Cheque No." : "Ref No."}
+                </label>
+                <input type="text" value={quickPayRef}
+                  onChange={(e) => setQuickPayRef(e.target.value)}
+                  placeholder="Optional reference..."
+                  className="w-full h-9 rounded-lg border border-slate-200 px-3 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button onClick={() => setQuickPaySale(null)} disabled={quickPaySaving}
+                className="flex-1 h-10 rounded-xl border border-slate-200 bg-white font-semibold text-slate-600 hover:bg-slate-50 text-sm disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button onClick={handleQuickPayment} disabled={quickPaySaving || !quickPayAmount || Number(quickPayAmount) <= 0}
+                className="flex-1 h-10 rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700 active:scale-95 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {quickPaySaving
+                  ? <><span className="inline-block h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
+                  : <><CreditCard className="h-4 w-4" /> Confirm</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ─── FILTERS PANEL ─── */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm no-print animate-fade-in">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -903,6 +1086,15 @@ export function B2BBillingHistoryClient({
                           >
                             <Pencil className="h-3.5 w-3.5 text-blue-500" /> Edit Bill
                           </button>
+                          {/* Record Payment — only for unpaid or partial bills */}
+                          {sale.status !== "paid" && (
+                            <button
+                              onClick={() => openQuickPay(sale)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 shadow-sm active:scale-95 transition-all"
+                            >
+                              <CreditCard className="h-3.5 w-3.5 text-emerald-600" /> Collect Payment
+                            </button>
+                          )}
                           <button
                             onClick={() => triggerPrintOverlay(sale)}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95 transition-all"

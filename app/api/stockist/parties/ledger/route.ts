@@ -54,6 +54,13 @@ export async function GET(request: Request) {
     const transactions: any[] = [];
 
     sales.forEach((s) => {
+      // Derive status consistently from DB fields (same logic as stockist-db.ts)
+      const derivedStatus = s.amountDuePaisa <= 0
+        ? "paid"
+        : s.amountPaidPaisa > 0
+        ? "partial"
+        : "unpaid";
+
       transactions.push({
         id: s.id,
         date: s.invoiceDate,
@@ -61,10 +68,13 @@ export async function GET(request: Request) {
         refNo: s.invoiceNo,
         description: `Wholesale B2B ${s.invoiceType === "challan" ? "Challan" : "Invoice"} (${s.paymentMode.toUpperCase()})`,
         debitPaisa: s.paymentMode === "credit" ? s.totalPaisa : 0,
+        totalPaisa: s.totalPaisa,
         creditPaisa: 0,
         paidPaisa: s.amountPaidPaisa,
-        status: s.status,
+        duePaisa: s.amountDuePaisa,
+        status: derivedStatus,
         paymentMode: s.paymentMode,
+        invoiceType: s.invoiceType,
         items: s.items.map((item) => ({
           name: item.medicineName,
           qty: item.quantity,

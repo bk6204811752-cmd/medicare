@@ -4,9 +4,11 @@ import React, { useState, useTransition } from "react";
 import { 
   Users, MapPin, Search, CreditCard, ShieldCheck, CheckCircle2, 
   AlertCircle, Plus, X, UserCheck, Shield, HelpCircle, ArrowRight,
-  TrendingUp, BarChart3, Clock, Scale, Package, Receipt, ChevronDown, ChevronRight
+  TrendingUp, BarChart3, Clock, Scale, Package, Receipt, ChevronDown, ChevronRight,
+  IndianRupee, Loader2, Banknote, Wallet
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
 import { updatePartyAction, createPartyAction } from "@/app/stockist-actions";
 
 type RouteItem = {
@@ -50,13 +52,24 @@ type LedgerRow = {
   refNo: string;
   description: string;
   debitPaisa: number;
+  totalPaisa?: number;
   creditPaisa: number;
   paidPaisa: number;
+  duePaisa?: number;
   paymentMode: string;
+  invoiceType?: string;
   notes?: string;
   items: { name: string; qty: number; free: number; rate: number; total: number; batchNo?: string; hsnCode?: string; mrpPaisa?: number; expiryDate?: string; manufacturer?: string; packSize?: string; mfgDate?: string | null }[];
   runningOutstanding: number;
   status?: string;
+};
+
+type PaymentModal = {
+  row: LedgerRow;
+  amount: string;
+  paymentMode: string;
+  referenceNo: string;
+  notes: string;
 };
 
 export function PartiesClientDashboard({ initialParties, routes, tenant }: PartiesClientDashboardProps) {
@@ -77,6 +90,10 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
   // Expanded order state (for accordion)
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
+  // Payment Modal State
+  const [paymentModal, setPaymentModal] = useState<PaymentModal | null>(null);
+  const [paymentSaving, setPaymentSaving] = useState(false);
+
   const filteredParties = initialParties.filter((p) => {
     const q = search.toLowerCase();
     return (
@@ -86,6 +103,21 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
     );
   });
 
+  const loadLedger = (partyId: string) => {
+    setLedgerLoading(true);
+    fetch(`/api/stockist/parties/ledger?partyId=${partyId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.ledger) setLedger(data.ledger);
+        // Sync outstanding balance from server
+        if (data.party && selectedParty && data.party.id === selectedParty.id) {
+          setSelectedParty((prev) => prev ? { ...prev, outstandingPaisa: data.party.outstandingPaisa } : prev);
+        }
+      })
+      .catch((err) => console.error("Failed to load chemist ledger:", err))
+      .finally(() => setLedgerLoading(false));
+  };
+
   const selectPartyForAudit = (party: PartyItem) => {
     setSelectedParty(party);
     setDlVerified(!!party.drugLicenseNo);
@@ -93,16 +125,56 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
     setRouteVerified(!!party.routeId);
     setActiveTab("credit");
     setLedger([]);
-    setLedgerLoading(true);
     setExpandedOrderId(null);
+    setPaymentModal(null);
+    loadLedger(party.id);
+  };
 
-    fetch(`/api/stockist/parties/ledger?partyId=${party.id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.ledger) setLedger(data.ledger);
-      })
-      .catch((err) => console.error("Failed to load chemist ledger:", err))
-      .finally(() => setLedgerLoading(false));
+  // Handle recording payment for a specific invoice
+  const handleRecordPayment = async () => {
+    if (!paymentModal || !selectedParty) return;
+    const amt = parseFloat(paymentModal.amount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error("Please enter a valid payment amount");
+      return;
+    }
+    const amtPaisa = Math.round(amt * 100);
+    const maxDue = paymentModal.row.duePaisa ?? (paymentModal.row.debitPaisa - paymentModal.row.paidPaisa);
+    if (amtPaisa > maxDue) {
+      toast.error(`Amount cannot exceed outstanding balance of ${formatCurrency(maxDue)}`);
+      return;
+    }
+
+    setPaymentSaving(true);
+    try {
+      const res = await fetch("/api/stockist/parties/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          partyId: selectedParty.id,
+          saleId: paymentModal.row.id,
+          amountPaisa: amtPaisa,
+          paymentMode: paymentModal.paymentMode,
+          referenceNo: paymentModal.referenceNo || undefined,
+          notes: paymentModal.notes || undefined,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Payment failed");
+
+      toast.success(`✅ ${result.message || "Payment recorded successfully!"}`);
+      setPaymentModal(null);
+      // Re-fetch ledger to sync all tabs
+      loadLedger(selectedParty.id);
+      // Update outstanding on party in local list
+      setSelectedParty((prev) =>
+        prev ? { ...prev, outstandingPaisa: Math.max(0, prev.outstandingPaisa - amtPaisa) } : prev
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to record payment");
+    } finally {
+      setPaymentSaving(false);
+    }
   };
 
   // Derived data
@@ -112,6 +184,164 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
   if (selectedParty) {
     return (
       <div className="space-y-4 animate-fade-in w-full">
+
+        {/* ─── PAYMENT MODAL ─── */}
+        {paymentModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-5 animate-fade-in">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 border border-emerald-200">
+                    <IndianRupee className="h-5 w-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-black text-slate-900 text-base">Record Payment</h3>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">Invoice: {paymentModal.row.refNo}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setPaymentModal(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Bill Summary */}
+              <div className="grid grid-cols-3 gap-2 rounded-xl bg-slate-50 border border-slate-100 p-3 text-center">
+                <div>
+                  <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Bill Total</p>
+                  <p className="text-sm font-black text-slate-800 mt-0.5 font-mono">
+                    {formatCurrency(paymentModal.row.totalPaisa ?? paymentModal.row.debitPaisa)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Already Paid</p>
+                  <p className="text-sm font-black text-emerald-700 mt-0.5 font-mono">
+                    {formatCurrency(paymentModal.row.paidPaisa)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Balance Due</p>
+                  <p className="text-sm font-black text-red-600 mt-0.5 font-mono">
+                    {formatCurrency(paymentModal.row.duePaisa ?? Math.max(0, (paymentModal.row.totalPaisa ?? paymentModal.row.debitPaisa) - paymentModal.row.paidPaisa))}
+                  </p>
+                </div>
+              </div>
+
+              {/* Amount Input */}
+              <div className="space-y-1">
+                <label className="block text-xs font-extrabold text-slate-500">Amount to Pay Now (₹)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">₹</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    max={(((paymentModal.row.duePaisa ?? Math.max(0, (paymentModal.row.totalPaisa ?? paymentModal.row.debitPaisa) - paymentModal.row.paidPaisa)) / 100)).toFixed(2)}
+                    value={paymentModal.amount}
+                    onChange={(e) => setPaymentModal((prev) => prev ? { ...prev, amount: e.target.value } : prev)}
+                    className="w-full h-11 rounded-xl border border-slate-200 pl-8 pr-3 text-sm font-black text-slate-800 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                    placeholder="Enter amount"
+                  />
+                </div>
+                <div className="flex gap-2 mt-1.5">
+                  {[25, 50, 75, 100].map((pct) => {
+                    const maxAmt = (paymentModal.row.duePaisa ?? Math.max(0, (paymentModal.row.totalPaisa ?? paymentModal.row.debitPaisa) - paymentModal.row.paidPaisa)) / 100;
+                    return (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => setPaymentModal((prev) => prev ? { ...prev, amount: ((maxAmt * pct) / 100).toFixed(2) } : prev)}
+                        className="flex-1 text-[10px] font-black text-slate-600 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-700 rounded-lg py-1 transition-all"
+                      >
+                        {pct}%
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Payment Mode */}
+              <div className="space-y-1">
+                <label className="block text-xs font-extrabold text-slate-500">Payment Mode</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "cash", label: "💵 Cash" },
+                    { value: "upi", label: "📱 UPI / QR" },
+                    { value: "cheque", label: "🏦 Cheque" },
+                    { value: "neft", label: "⚡ NEFT/RTGS" },
+                  ].map((mode) => (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => setPaymentModal((prev) => prev ? { ...prev, paymentMode: mode.value } : prev)}
+                      className={`h-9 rounded-xl border text-xs font-bold transition-all ${
+                        paymentModal.paymentMode === mode.value
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-emerald-300"
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reference No (for UPI/Cheque/NEFT) */}
+              {paymentModal.paymentMode !== "cash" && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-extrabold text-slate-500">
+                    {paymentModal.paymentMode === "upi" ? "UPI Transaction ID" : paymentModal.paymentMode === "cheque" ? "Cheque Number" : "Transaction Ref No."}
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentModal.referenceNo}
+                    onChange={(e) => setPaymentModal((prev) => prev ? { ...prev, referenceNo: e.target.value } : prev)}
+                    placeholder={paymentModal.paymentMode === "upi" ? "e.g. 422819273..." : paymentModal.paymentMode === "cheque" ? "e.g. 123456" : "e.g. NEFT123456"}
+                    className="w-full h-9 rounded-lg border border-slate-200 px-3 text-xs font-mono text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                  />
+                </div>
+              )}
+
+              {/* Notes */}
+              <div className="space-y-1">
+                <label className="block text-xs font-extrabold text-slate-500">Remarks (optional)</label>
+                <input
+                  type="text"
+                  value={paymentModal.notes}
+                  onChange={(e) => setPaymentModal((prev) => prev ? { ...prev, notes: e.target.value } : prev)}
+                  placeholder="e.g. Paid by owner in person..."
+                  className="w-full h-9 rounded-lg border border-slate-200 px-3 text-xs text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setPaymentModal(null)}
+                  disabled={paymentSaving}
+                  className="flex-1 h-10 rounded-xl border border-slate-200 bg-white font-semibold text-slate-600 hover:bg-slate-50 text-sm transition-colors disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRecordPayment}
+                  disabled={paymentSaving || !paymentModal.amount || Number(paymentModal.amount) <= 0}
+                  className="flex-1 h-10 rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700 active:scale-95 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {paymentSaving ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+                  ) : (
+                    <><IndianRupee className="h-4 w-4" /> Confirm Payment</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Premium Back Navigation Bar */}
         <div className="flex items-center justify-between gap-4 bg-white border border-slate-100 p-3 rounded-2xl shadow-2xs">
           <button
@@ -481,14 +711,14 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
             {/* ── TAB: Payment Details ── */}
             {activeTab === "payments" && (
               <div className="space-y-4">
-                {/* Payment Summary Header */}
+                {/* Payment Summary Cards */}
                 <div className="grid grid-cols-3 gap-3">
                   <div className="rounded-xl bg-white border border-slate-100 shadow-xs p-3 text-center">
                     <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Invoiced</p>
-                    <p className="text-lg font-black text-slate-800 mt-1">{formatCurrency(ledger.reduce((s, r) => s + r.debitPaisa, 0))}</p>
+                    <p className="text-lg font-black text-slate-800 mt-1">{formatCurrency(invoiceRows.reduce((s, r) => s + (r.totalPaisa ?? r.debitPaisa), 0))}</p>
                   </div>
                   <div className="rounded-xl bg-white border border-slate-100 shadow-xs p-3 text-center">
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Paid</p>
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Total Collected</p>
                     <p className="text-lg font-black text-emerald-600 mt-1">{formatCurrency(ledger.reduce((s, r) => s + r.creditPaisa, 0))}</p>
                   </div>
                   <div className="rounded-xl bg-white border border-slate-100 shadow-xs p-3 text-center">
@@ -499,11 +729,13 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
                   </div>
                 </div>
 
-                {/* Invoice-wise Payment Status */}
+                {/* Invoice-wise Payment Tracker */}
                 <div>
                   <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <Receipt className="h-4 w-4 text-emerald-600" /> Invoice-wise Payment Status
+                    <span className="ml-auto text-[10px] font-bold text-slate-400 normal-case tracking-normal">Click "Record Payment" to pay against a specific bill</span>
                   </h4>
+
                   {ledgerLoading ? (
                     <div className="flex justify-center py-12">
                       <Scale className="h-8 w-8 text-emerald-600 animate-spin" />
@@ -515,74 +747,165 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
                   ) : (
                     <div className="space-y-2.5">
                       {invoiceRows.map((row) => {
-                        const isFullyPaid = row.paidPaisa >= row.debitPaisa && row.debitPaisa > 0;
-                        const isPartial = row.paidPaisa > 0 && row.paidPaisa < row.debitPaisa;
-                        const dueAmount = row.debitPaisa - row.paidPaisa;
+                        const billTotal = row.totalPaisa ?? row.debitPaisa;
+                        const paidAmt = row.paidPaisa;
+                        const dueAmt = row.duePaisa ?? Math.max(0, billTotal - paidAmt);
+                        const rowStatus = row.status ?? (dueAmt <= 0 ? "paid" : paidAmt > 0 ? "partial" : "unpaid");
+                        const isFullyPaid = rowStatus === "paid";
+                        const isPartial = rowStatus === "partial";
 
                         return (
-                          <div key={row.id} className={`rounded-xl border p-4 flex items-center justify-between gap-4 transition-all ${
+                          <div key={row.id} className={`rounded-xl border overflow-hidden transition-all ${
                             isFullyPaid 
-                              ? "border-emerald-200 bg-emerald-50/40" 
+                              ? "border-emerald-200 bg-emerald-50/30" 
                               : isPartial 
-                              ? "border-orange-200 bg-orange-50/30" 
-                              : "border-red-200 bg-red-50/20"
+                              ? "border-amber-200 bg-amber-50/20" 
+                              : "border-red-200 bg-red-50/10"
                           }`}>
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
-                                isFullyPaid ? "border-emerald-400 bg-emerald-100" : isPartial ? "border-orange-400 bg-orange-100" : "border-red-300 bg-red-50"
-                              }`}>
-                                {isFullyPaid 
-                                  ? <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                                  : isPartial 
-                                  ? <CreditCard className="h-5 w-5 text-orange-600" />
-                                  : <AlertCircle className="h-5 w-5 text-red-505" />
-                                }
+                            {/* Row Header */}
+                            <div className="p-4 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 ${
+                                  isFullyPaid ? "border-emerald-400 bg-emerald-100" 
+                                  : isPartial ? "border-amber-400 bg-amber-100" 
+                                  : "border-red-300 bg-red-50"
+                                }`}>
+                                  {isFullyPaid 
+                                    ? <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
+                                    : isPartial 
+                                    ? <CreditCard className="h-4.5 w-4.5 text-amber-600" />
+                                    : <AlertCircle className="h-4.5 w-4.5 text-red-500" />
+                                  }
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-bold text-slate-800 text-sm font-mono truncate">{row.refNo}</p>
+                                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                                    {new Date(row.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                    {" • "}
+                                    <span className="uppercase">{row.paymentMode || "CREDIT"}</span>
+                                  </p>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="font-bold text-slate-800 text-sm font-mono truncate">{row.refNo}</p>
-                                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                                  {new Date(row.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} 
-                                  {" • "}{row.paymentMode?.toUpperCase() || "CREDIT"}
+
+                              <div className="flex items-center gap-3 shrink-0">
+                                {/* Amounts column */}
+                                <div className="text-right space-y-0.5">
+                                  <div className="flex items-center gap-2 justify-end">
+                                    <span className="text-[10px] font-semibold text-slate-400">Bill:</span>
+                                    <span className="font-mono font-black text-slate-800 text-sm">{formatCurrency(billTotal)}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 justify-end">
+                                    <span className="text-[10px] font-semibold text-slate-400">Paid:</span>
+                                    <span className={`font-mono font-bold text-sm ${paidAmt > 0 ? "text-emerald-600" : "text-slate-400"}`}>{formatCurrency(paidAmt)}</span>
+                                  </div>
+                                  {!isFullyPaid && (
+                                    <div className="flex items-center gap-2 justify-end">
+                                      <span className="text-[10px] font-semibold text-slate-400">Due:</span>
+                                      <span className="font-mono font-black text-red-600 text-sm">{formatCurrency(dueAmt)}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Status badge */}
+                                <div className="flex flex-col items-end gap-1.5">
+                                  {isFullyPaid ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                      <CheckCircle2 className="h-3 w-3" /> Fully Paid
+                                    </span>
+                                  ) : isPartial ? (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-700 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                      ⚡ Partial
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-100 border border-red-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                      ⏳ Unpaid
+                                    </span>
+                                  )}
+                                  {/* Record Payment Button */}
+                                  {!isFullyPaid && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setPaymentModal({
+                                        row,
+                                        amount: (dueAmt / 100).toFixed(2),
+                                        paymentMode: "cash",
+                                        referenceNo: "",
+                                        notes: "",
+                                      })}
+                                      className="inline-flex items-center gap-1 text-[10px] font-black text-white bg-emerald-600 hover:bg-emerald-700 px-2 py-1 rounded-lg transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                    >
+                                      <IndianRupee className="h-3 w-3" /> Record Payment
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            {billTotal > 0 && (
+                              <div className="px-4 pb-3">
+                                <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                      isFullyPaid ? "bg-emerald-500" : isPartial ? "bg-amber-500" : "bg-red-300"
+                                    }`}
+                                    style={{ width: `${Math.min(100, Math.round((paidAmt / billTotal) * 100))}%` }}
+                                  />
+                                </div>
+                                <p className="text-[9px] text-slate-400 font-semibold mt-1">
+                                  {Math.round((paidAmt / billTotal) * 100)}% collected
                                 </p>
                               </div>
-                            </div>
-                            <div className="text-right shrink-0 space-y-1">
-                              <div className="flex items-center gap-2 justify-end">
-                                <span className="text-[10px] font-semibold text-slate-400">Invoice:</span>
-                                <span className="font-mono font-bold text-slate-800 text-sm">{formatCurrency(row.debitPaisa)}</span>
-                              </div>
-                              <div className="flex items-center gap-2 justify-end">
-                                <span className="text-[10px] font-semibold text-slate-400">Paid:</span>
-                                <span className="font-mono font-bold text-emerald-600 text-sm">{formatCurrency(row.paidPaisa)}</span>
-                              </div>
-                              {!isFullyPaid && (
-                                <div className="flex items-center gap-2 justify-end">
-                                  <span className="text-[10px] font-semibold text-slate-400">Balance:</span>
-                                  <span className="font-mono font-bold text-red-600 text-sm">{formatCurrency(dueAmount)}</span>
-                                </div>
-                              )}
-                              <div>
-                                {isFullyPaid ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
-                                    <CheckCircle2 className="h-3 w-3" /> Full Payment Done
-                                  </span>
-                                ) : isPartial ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-orange-700 bg-orange-100 border border-orange-300 px-2 py-0.5 rounded-full">
-                                    ⚡ Partial Payment
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-black text-red-700 bg-red-100 border border-red-300 px-2 py-0.5 rounded-full">
-                                    ⏳ Awaiting Payment
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   )}
                 </div>
+
+                {/* Receipt History */}
+                {receiptRows.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Wallet className="h-4 w-4 text-blue-500" /> Payment Receipt History
+                    </h4>
+                    <div className="rounded-xl border border-slate-100 bg-white overflow-hidden shadow-xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-400 uppercase text-[9px] tracking-wider">
+                            <th className="px-3 py-2">Receipt No.</th>
+                            <th className="px-3 py-2">Date</th>
+                            <th className="px-3 py-2">Mode</th>
+                            <th className="px-3 py-2">Applied to Invoice</th>
+                            <th className="px-3 py-2 text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {receiptRows.map((rec) => {
+                            // Extract invoice reference from notes
+                            const invoiceRef = rec.notes?.match(/Applied to(?:\s+Invoice)?:\s*(\S+)/i)?.[1] || "—";
+                            return (
+                              <tr key={rec.id} className="hover:bg-slate-50/50">
+                                <td className="px-3 py-2.5 font-mono font-bold text-slate-700">{rec.refNo}</td>
+                                <td className="px-3 py-2.5 text-slate-500">
+                                  {new Date(rec.date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  <span className="inline-block bg-blue-50 border border-blue-100 text-blue-700 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">
+                                    {rec.paymentMode}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2.5 font-mono text-slate-600 text-[10px] font-bold">{invoiceRef}</td>
+                                <td className="px-3 py-2.5 text-right font-mono font-black text-emerald-700">{formatCurrency(rec.creditPaisa)}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

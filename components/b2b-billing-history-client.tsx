@@ -496,6 +496,7 @@ export function B2BBillingHistoryClient({
     }));
 
     setCompletedInvoice({
+      id: sale.id,
       invoiceNo: sale.invoiceNo,
       invoiceType: sale.invoiceType,
       date: new Date(sale.invoiceDate).toISOString(),
@@ -949,9 +950,15 @@ export function B2BBillingHistoryClient({
 
               // WhatsApp share helper
               const itemsShortList = sale.items.map(i => `${i.medicineName} (Qty:${i.quantity})`).join(", ");
-              const invoiceUrl = `${window.location.origin}/stockist/sales`;
+              const invoiceUrl = `${window.location.origin}/public/invoice/${sale.id}`;
               const shareMessage = encodeURIComponent(
-                `B2B Wholesaler Invoice: ${sale.invoiceNo} from ${tenant?.name || "Medicare Wholesale"}.\nTotal Bill: ${formatCurrency(sale.totalPaisa)}.\nMedicines: ${itemsShortList}.\nPayment Mode: ${sale.paymentMode.toUpperCase()}.\nStatus: ${sale.status.toUpperCase()}.\nThank you!`
+                `B2B Wholesaler Invoice: ${sale.invoiceNo} from ${tenant?.name || "Medicare Wholesale"}.\n` +
+                `Total Bill: ${formatCurrency(sale.totalPaisa)}.\n` +
+                `Medicines: ${itemsShortList}.\n` +
+                `View/Download Invoice: ${invoiceUrl}\n` +
+                `Payment Mode: ${sale.paymentMode.toUpperCase()}.\n` +
+                `Status: ${sale.status.toUpperCase()}.\n` +
+                `Thank you!`
               );
               const cleanedPhone = sale.party.phone ? sale.party.phone.replace(/\D/g, "") : "";
               const formattedPhone = cleanedPhone.length === 10 ? `91${cleanedPhone}` : cleanedPhone;
@@ -1784,7 +1791,14 @@ export function B2BBillingHistoryClient({
                       const pdfFile = new File([blob], `B2B_${completedInvoice.invoiceNo}.pdf`, { type: "application/pdf" });
                       const cleaned = (completedInvoice.partyPhone || "").replace(/\D/g, "");
                       const phone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
-                      const waMsg = encodeURIComponent(`📦 *B2B Invoice ${completedInvoice.invoiceNo}*\n🏪 Retailer: *${completedInvoice.partyName}*\n💰 Net: *₹${(completedInvoice.calculations.totalPaisa/100).toFixed(2)}*\n_PDF invoice attached._`);
+                      const invoiceUrl = `${window.location.origin}/public/invoice/${completedInvoice.id}`;
+                      const waMsg = encodeURIComponent(
+                        `📦 *B2B Invoice ${completedInvoice.invoiceNo}*\n` +
+                        `🏪 Retailer: *${completedInvoice.partyName}*\n` +
+                        `💰 Net: *₹${(completedInvoice.calculations.totalPaisa/100).toFixed(2)}*\n` +
+                        `🔗 View Online: ${invoiceUrl}\n` +
+                        `_PDF invoice attached._`
+                      );
                       const waUrl = phone ? `https://wa.me/${phone}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`;
                       if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
                         await navigator.share({ files: [pdfFile], title: `B2B Invoice ${completedInvoice.invoiceNo}`, text: "B2B invoice PDF attached." });

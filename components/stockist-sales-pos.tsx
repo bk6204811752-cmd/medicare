@@ -439,12 +439,14 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
       const cleaned = (invoice.partyPhone || "").replace(/\D/g, "");
       const formattedPhone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+      const invoiceUrl = `${window.location.origin}/public/invoice/${invoice.id}`;
       const whatsappMsg = encodeURIComponent(
         `📦 *B2B Invoice ${invoice.invoiceNo}*\n` +
         `🏪 Retailer: *${invoice.partyName}*\n` +
         `💰 Net Payable: *₹${(invoice.calculations.totalPaisa / 100).toFixed(2)}*\n` +
         `💳 Payment: ${invoice.paymentMode.toUpperCase()}\n` +
-        `📅 Date: ${new Date(invoice.date).toLocaleDateString("en-IN")}\n\n` +
+        `📅 Date: ${new Date(invoice.date).toLocaleDateString("en-IN")}\n` +
+        `🔗 View Online: ${invoiceUrl}\n\n` +
         `_PDF invoice attached — please find it in the attachment above._`
       );
       const whatsappUrl = formattedPhone
@@ -564,6 +566,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       }));
 
       setCompletedInvoice({
+        id: newAction.id,
         invoiceNo: localInvoiceNo,
         invoiceType: invoiceType,
         date: new Date().toISOString(),
@@ -638,6 +641,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         }));
 
         setCompletedInvoice({
+          id: result.id,
           invoiceNo: result.invoiceNo || `INV-${Date.now()}`,
           invoiceType: invoiceType,
           date: new Date().toISOString(),

@@ -1364,26 +1364,104 @@ export async function getSaleByIdOrInvoice(tenantId: string, idOrInvoice: string
 
 export async function getPublicSaleByIdOrInvoice(idOrInvoice: string) {
   await ensureDefaultData();
+  
+  // 1. Try B2C Retail Sale first
   const sale = await prisma.sale.findFirst({
     where: { OR: [{ id: idOrInvoice }, { invoiceNo: idOrInvoice }] },
     include: { items: true, prescriptionImages: true }
   });
-  if (!sale) return null;
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: sale.tenantId }
+
+  if (sale) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: sale.tenantId }
+    });
+    return { 
+      sale: {
+        ...mapSaleRow(sale),
+        prescriptionImages: sale.prescriptionImages.map(img => ({
+          id: img.id,
+          imageUrl: img.imageUrl,
+          uploadedAt: img.uploadedAt.toISOString()
+        }))
+      }, 
+      items: sale.items.map(mapSaleItemRow),
+      tenant
+    };
+  }
+
+  // 2. Try B2B Wholesale Sale next
+  const b2bSale = await prisma.b2BSale.findFirst({
+    where: { OR: [{ id: idOrInvoice }, { invoiceNo: idOrInvoice }] },
+    include: {
+      items: {
+        include: {
+          inventory: true
+        }
+      },
+      party: true
+    }
   });
-  return { 
-    sale: {
-      ...mapSaleRow(sale),
-      prescriptionImages: sale.prescriptionImages.map(img => ({
-        id: img.id,
-        imageUrl: img.imageUrl,
-        uploadedAt: img.uploadedAt.toISOString()
-      }))
-    }, 
-    items: sale.items.map(mapSaleItemRow),
-    tenant
-  };
+
+  if (b2bSale) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: b2bSale.tenantId }
+    });
+    return {
+      sale: {
+        id: b2bSale.id,
+        tenant_id: b2bSale.tenantId,
+        invoice_no: b2bSale.invoiceNo,
+        invoice_date: b2bSale.invoiceDate.toISOString(),
+        customer_id: b2bSale.partyId,
+        customer_name: b2bSale.party.name,
+        customer_phone: b2bSale.party.phone || "",
+        doctor_name: "B2B Wholesaler Beat",
+        prescription_no: "N/A",
+        payment_mode: b2bSale.paymentMode,
+        subtotal_paisa: b2bSale.subtotalPaisa,
+        discount_paisa: b2bSale.discountPaisa,
+        taxable_paisa: b2bSale.taxablePaisa,
+        cgst_paisa: Math.round(b2bSale.gstPaisa / 2),
+        sgst_paisa: Math.round(b2bSale.gstPaisa / 2),
+        igst_paisa: 0,
+        gst_paisa: b2bSale.gstPaisa,
+        round_off_paisa: b2bSale.roundOffPaisa,
+        total_paisa: b2bSale.totalPaisa,
+        amount_paid_paisa: b2bSale.amountPaidPaisa,
+        amount_due_paisa: b2bSale.amountDuePaisa,
+        status: b2bSale.status,
+        created_at: b2bSale.createdAt.toISOString(),
+        prescriptionImages: []
+      },
+      items: b2bSale.items.map(item => ({
+        id: item.id,
+        sale_id: item.saleId,
+        tenant_id: b2bSale.tenantId,
+        inventory_id: item.inventoryId,
+        medicine_name: item.medicineName,
+        hsn_code: item.inventory?.hsnCode || "",
+        batch_no: item.batchNo,
+        expiry_date: item.expiryDate.toISOString(),
+        quantity: item.quantity,
+        freeQuantity: item.freeQuantity,
+        mrp_paisa: item.mrpPaisa,
+        sale_rate_paisa: item.saleRatePaisa,
+        discount_percent: item.discountPercent,
+        discount_paisa: Math.round((item.quantity * item.saleRatePaisa) * (item.discountPercent / 100)),
+        gst_rate: item.gstRate,
+        gst_paisa: item.gstPaisa,
+        cgst_paisa: Math.round(item.gstPaisa / 2),
+        sgst_paisa: Math.round(item.gstPaisa / 2),
+        igst_paisa: 0,
+        taxable_paisa: item.taxablePaisa,
+        total_paisa: item.totalPaisa,
+        schedule: null
+      })),
+      tenant
+    };
+  }
+
+  return null;
 }
 // ─── Reports (tenant-scoped) ─────────────────────────────────
 

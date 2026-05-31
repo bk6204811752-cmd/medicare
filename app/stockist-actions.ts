@@ -237,7 +237,7 @@ export async function createB2BSaleAction(input: {
 
   try {
     const sale = await createB2BSale(tid, input);
-    return { success: true, invoiceNo: sale.invoiceNo };
+    return { success: true, id: sale.id, invoiceNo: sale.invoiceNo };
   } catch (e: any) {
     console.error("createB2BSaleAction error:", e);
     return { success: false, error: e.message || "Failed to generate B2B Invoice" };

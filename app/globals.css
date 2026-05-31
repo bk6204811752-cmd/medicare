@@ -299,6 +299,7 @@ button[type="submit"]:active,
     transform: none !important;
     transition: none !important;
   }
+}
 
 /* ─── Mobile UX & Navigation Enhancements ─── */
 html {

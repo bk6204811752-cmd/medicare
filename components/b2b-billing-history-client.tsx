@@ -24,7 +24,10 @@ import {
   FileImage,
   Store,
   UserCheck,
-  Pencil
+  Pencil,
+  Share2,
+  Download,
+  Loader2
 } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
@@ -135,6 +138,7 @@ export function B2BBillingHistoryClient({
   // Premium Print Modal states
   const [completedInvoice, setCompletedInvoice] = useState<any | null>(null);
   const [printFormat, setPrintFormat] = useState<"a4" | "thermal">("a4");
+  const [sharingPdf, setSharingPdf] = useState(false);
 
   const toggleExpand = (id: string) => {
     setExpandedSaleIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -709,8 +713,9 @@ export function B2BBillingHistoryClient({
       {/* ─── FILTERS PANEL ─── */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm no-print animate-fade-in">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          {/* Quick Date Tabs */}
-          <div className="flex flex-wrap gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-100 w-fit">
+          {/* Quick Date Tabs — scrollable on mobile */}
+          <div className="flex gap-1.5 bg-slate-50 p-1 rounded-lg border border-slate-100 overflow-x-auto">
+            <div className="flex gap-1.5 min-w-max">
             {[
               { id: "today", label: "Today" },
               { id: "yesterday", label: "Yesterday" },
@@ -722,7 +727,7 @@ export function B2BBillingHistoryClient({
               <button
                 key={tab.id}
                 onClick={() => setDateFilter(tab.id as typeof dateFilter)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
                   dateFilter === tab.id
                     ? "bg-white text-med-navy shadow-sm"
                     : "text-slate-500 hover:text-slate-800"
@@ -731,6 +736,7 @@ export function B2BBillingHistoryClient({
                 {tab.label}
               </button>
             ))}
+            </div>
           </div>
 
           {/* Action buttons */}
@@ -813,30 +819,29 @@ export function B2BBillingHistoryClient({
           </div>
         </div>
 
-        {/* Status Filter */}
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs font-semibold text-slate-400">Payment Status:</span>
-          <div className="flex gap-2">
-            {[
-              { id: "all", label: "All Bills" },
-              { id: "unpaid", label: "Unpaid / Credit" },
-              { id: "paid", label: "Paid" },
-              { id: "partial", label: "Partially Paid" }
-            ].map((st) => (
-              <button
-                key={st.id}
-                onClick={() => setStatusFilter(st.id)}
-                className={`rounded-full px-3 py-1 text-[11px] font-bold border transition-colors ${
-                  statusFilter === st.id
-                    ? "bg-med-navy text-white border-med-navy"
-                    : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold text-slate-400">Payment Status:</span>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { id: "all", label: "All Bills" },
+                { id: "unpaid", label: "Unpaid / Credit" },
+                { id: "paid", label: "Paid" },
+                { id: "partial", label: "Partially Paid" }
+              ].map((st) => (
+                <button
+                  key={st.id}
+                  onClick={() => setStatusFilter(st.id)}
+                  className={`rounded-full px-3 py-1 text-[11px] font-bold border transition-colors ${
+                    statusFilter === st.id
+                      ? "bg-med-navy text-white border-med-navy"
+                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
       </div>
 
       {/* ─── SUMMARY CARDS ─── */}
@@ -1101,16 +1106,13 @@ export function B2BBillingHistoryClient({
                           >
                             <Printer className="h-3.5 w-3.5 text-emerald-600" /> Print / View Invoice
                           </button>
-                          {sale.party.phone && (
-                            <a
-                              href={whatsappUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-med-green px-2.5 py-1 text-xs font-semibold text-white hover:bg-med-greenDark shadow-sm active:scale-95 transition-all"
-                            >
-                              <Send className="h-3.5 w-3.5" /> Share WhatsApp B2B
-                            </a>
-                          )}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); triggerPrintOverlay(sale); }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm active:scale-95 transition-all"
+                            title="Generate PDF & Share on WhatsApp"
+                          >
+                            <Share2 className="h-3.5 w-3.5" /> Share PDF
+                          </button>
                         </div>
                       </div>
 
@@ -1127,9 +1129,9 @@ export function B2BBillingHistoryClient({
                         </div>
                       </div>
 
-                      {/* Items Table */}
-                      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                        <table className="w-full text-left text-xs">
+                      {/* Items Table — scrollable on mobile */}
+                      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm table-scroll-container">
+                        <table className="w-full min-w-[700px] text-left text-xs">
                           <thead className="bg-slate-50 text-slate-500 font-semibold">
                             <tr className="border-b border-slate-200">
                               <th className="px-4 py-2.5">Medicine Billed Lot</th>
@@ -1720,39 +1722,97 @@ export function B2BBillingHistoryClient({
               </div>
             </div>
             
-            {/* Modal Footer / Triggers */}
-            <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 no-print">
+            <div className="px-4 sm:px-6 py-4 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 no-print">
               <button
                 onClick={() => setCompletedInvoice(null)}
-                className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:bg-slate-750 hover:text-white transition-colors text-xs active:scale-[0.98]"
+                className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:text-white transition-colors text-xs active:scale-[0.98]"
               >
                 Close Print Console
               </button>
               
-              <div className="flex items-center gap-2">
-                {/* WhatsApp Share */}
-                {completedInvoice?.partyPhone && (
-                  <a
-                    href={(() => {
-                      const cleaned = completedInvoice.partyPhone.replace(/\D/g, "");
-                      const formattedPhone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
-                      return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(
-                        `B2B Invoice: ${completedInvoice.invoiceNo}\nChemist: ${completedInvoice.partyName}\nTotal: ₹${(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}\nPayment: ${completedInvoice.paymentMode.toUpperCase()}\nMedicines: ${completedInvoice.items.map((i: any) => `${i.medicineName} (Qty:${i.quantity})`).join(", ")}\nThank you!`
-                      )}`;
-                    })()}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] active:scale-[0.98] transition-all"
-                  >
-                    <Send className="h-4 w-4" /> WhatsApp Bill
-                  </a>
-                )}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Download PDF */}
+                <button
+                  onClick={async () => {
+                    try {
+                      setSharingPdf(true);
+                      const html2canvas = (await import("html2canvas")).default;
+                      const { jsPDF } = await import("jspdf");
+                      const element = document.getElementById("b2b-print-target");
+                      if (!element) { toast.error("Preview not found."); return; }
+                      element.classList.add("force-b2b-pdf-capture");
+                      const canvas = await html2canvas(element as HTMLElement, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff", windowWidth: 1100 });
+                      element.classList.remove("force-b2b-pdf-capture");
+                      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                      const imgWidth = 210; const pageHeight = 297;
+                      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                      pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight);
+                      if (imgHeight > pageHeight) { pdf.addPage(); pdf.addImage(imgData, "JPEG", 0, pageHeight - imgHeight, imgWidth, imgHeight); }
+                      const url = URL.createObjectURL(pdf.output("blob"));
+                      const a = document.createElement("a"); a.href = url; a.download = `B2B_${completedInvoice.invoiceNo}.pdf`;
+                      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                      setTimeout(() => URL.revokeObjectURL(url), 3000);
+                      toast.success("✅ PDF downloaded!");
+                    } catch { toast.error("PDF generation failed."); } finally { setSharingPdf(false); }
+                  }}
+                  disabled={sharingPdf}
+                  className="h-10 px-3 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 text-xs flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98] transition-all"
+                >
+                  {sharingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  <span className="hidden sm:inline">Download</span> PDF
+                </button>
+
+                {/* WhatsApp Share — NOW GENERATES REAL PDF */}
+                <button
+                  onClick={async () => {
+                    if (!completedInvoice) return;
+                    try {
+                      setSharingPdf(true);
+                      const html2canvas = (await import("html2canvas")).default;
+                      const { jsPDF } = await import("jspdf");
+                      const element = document.getElementById("b2b-print-target");
+                      if (!element) { toast.error("Invoice preview not found."); return; }
+                      element.classList.add("force-b2b-pdf-capture");
+                      const canvas = await html2canvas(element as HTMLElement, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff", windowWidth: 1100 });
+                      element.classList.remove("force-b2b-pdf-capture");
+                      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                      const imgWidth = 210; const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                      pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight);
+                      const blob = pdf.output("blob");
+                      const pdfFile = new File([blob], `B2B_${completedInvoice.invoiceNo}.pdf`, { type: "application/pdf" });
+                      const cleaned = (completedInvoice.partyPhone || "").replace(/\D/g, "");
+                      const phone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+                      const waMsg = encodeURIComponent(`📦 *B2B Invoice ${completedInvoice.invoiceNo}*\n🏪 Retailer: *${completedInvoice.partyName}*\n💰 Net: *₹${(completedInvoice.calculations.totalPaisa/100).toFixed(2)}*\n_PDF invoice attached._`);
+                      const waUrl = phone ? `https://wa.me/${phone}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`;
+                      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                        await navigator.share({ files: [pdfFile], title: `B2B Invoice ${completedInvoice.invoiceNo}`, text: "B2B invoice PDF attached." });
+                        toast.success("✅ PDF shared on WhatsApp!");
+                      } else {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a"); a.href = url; a.download = `B2B_${completedInvoice.invoiceNo}.pdf`;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                        setTimeout(() => URL.revokeObjectURL(url), 3000);
+                        setTimeout(() => window.open(waUrl, "_blank", "noopener,noreferrer"), 600);
+                        toast.success("✅ PDF downloaded! Attach it in the WhatsApp window that's opening.", { duration: 8000 });
+                      }
+                    } catch (err: any) {
+                      if (err?.name !== "AbortError") toast.error("PDF share failed.");
+                    } finally { setSharingPdf(false); }
+                  }}
+                  disabled={sharingPdf}
+                  className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md active:scale-[0.98] transition-all disabled:opacity-60"
+                >
+                  {sharingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                  {sharingPdf ? "Generating..." : "Share PDF on WhatsApp"}
+                </button>
 
                 <button
                   onClick={() => window.print()}
-                  className="h-10 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] hover:from-emerald-505 hover:to-teal-505 active:scale-[0.98] transition-all text-xs flex items-center gap-2"
+                  className="h-10 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white shadow-md active:scale-[0.98] transition-all text-xs flex items-center gap-2"
                 >
-                  <Printer className="h-4 w-4" /> Trigger System Print
+                  <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Trigger</span> Print
                 </button>
               </div>
             </div>

@@ -177,7 +177,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
 
   // Fetch notification count once (not on every navigation)
   useEffect(() => {
-    if (!isAdmin) {
+    if (!isAdmin && !isStockist) {
       Promise.all([
         fetch("/api/notifications").then((r) => r.json()).catch(() => ({ data: [] })),
         fetch("/api/in-app-notifications").then((r) => r.json()).catch(() => ({ data: [] }))
@@ -187,7 +187,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
         setNotifCount(sysCount + inAppUnreadCount);
       }).catch(() => {});
     }
-  }, [isAdmin]);
+  }, [isAdmin, isStockist]);
 
   // Fetch pending stockist orders count if stockist
   useEffect(() => {
@@ -262,7 +262,7 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
         {/* User */}
         <div className="border-t border-slate-100 p-3">
           {!collapsed && (
-            <Link href="/shop/profile" className="mb-2 flex items-center gap-2.5 px-2 group">
+            <Link href={isStockist ? "/stockist/settings" : "/shop/profile"} className="mb-2 flex items-center gap-2.5 px-2 group">
               {currentProfilePic ? (
                 <img src={currentProfilePic} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 shrink-0" />
               ) : (
@@ -299,13 +299,19 @@ export function AppShell({ user, profilePicUrl, children }: { user: LocalUser; p
           </div>
           <div className="flex items-center gap-2">
             {!isAdmin && <OfflineSyncBadge />}
-            {!isAdmin && (
+            {!isAdmin && !isStockist && (
               <Link href="/shop/notifications" className="relative flex h-9 w-9 items-center justify-center rounded-md hover:bg-slate-100">
                 <Bell className="h-5 w-5 text-slate-500" />
                 {notifCount > 0 && <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center px-1">{notifCount}</span>}
               </Link>
             )}
-            <Link href="/shop/profile" className="flex h-9 w-9 items-center justify-center rounded-full overflow-hidden shadow-sm" title="View Profile">
+            {isStockist && pendingOrdersCount > 0 && (
+              <Link href="/stockist/orders" className="relative flex h-9 w-9 items-center justify-center rounded-md hover:bg-slate-100">
+                <Bell className="h-5 w-5 text-slate-500" />
+                <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-blue-500 text-[10px] font-bold text-white flex items-center justify-center px-1">{pendingOrdersCount}</span>
+              </Link>
+            )}
+            <Link href={isStockist ? "/stockist/settings" : "/shop/profile"} className="flex h-9 w-9 items-center justify-center rounded-full overflow-hidden shadow-sm" title="View Profile">
               {currentProfilePic ? (
                 <img src={currentProfilePic} alt={user.name} className="h-9 w-9 rounded-full object-cover border-2 border-med-green/20 hover:border-med-green transition-colors" />
               ) : (

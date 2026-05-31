@@ -1361,6 +1361,30 @@ export async function getSaleByIdOrInvoice(tenantId: string, idOrInvoice: string
     items: sale.items.map(mapSaleItemRow) 
   };
 }
+
+export async function getPublicSaleByIdOrInvoice(idOrInvoice: string) {
+  await ensureDefaultData();
+  const sale = await prisma.sale.findFirst({
+    where: { OR: [{ id: idOrInvoice }, { invoiceNo: idOrInvoice }] },
+    include: { items: true, prescriptionImages: true }
+  });
+  if (!sale) return null;
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: sale.tenantId }
+  });
+  return { 
+    sale: {
+      ...mapSaleRow(sale),
+      prescriptionImages: sale.prescriptionImages.map(img => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        uploadedAt: img.uploadedAt.toISOString()
+      }))
+    }, 
+    items: sale.items.map(mapSaleItemRow),
+    tenant
+  };
+}
 // ─── Reports (tenant-scoped) ─────────────────────────────────
 
 export async function getSalesSummary(tenantId: string) {

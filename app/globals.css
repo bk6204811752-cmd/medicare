@@ -541,6 +541,26 @@ input[type=number] {
   /* Marker class for elements to hide during printing */
 }
 
+/* ─── Force B2B PDF Capture layout (used by html2canvas for PDF generation) ── */
+.force-b2b-pdf-capture {
+  width: 1100px !important;
+  min-width: 1100px !important;
+  max-width: 1100px !important;
+  background: #ffffff !important;
+  color: #090d16 !important;
+  padding: 20px !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+.force-b2b-pdf-capture * {
+  box-shadow: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+
 @media print {
   /* Set body to visibility hidden to hide background content safely without hiding React root container */
   body {

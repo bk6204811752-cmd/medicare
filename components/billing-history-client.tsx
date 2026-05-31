@@ -538,7 +538,7 @@ export function BillingHistoryClient({
               
               // WhatsApp text share link helper
               const itemsShortList = sale.items.map(i => `${i.medicine_name} (${i.quantity})`).join(", ");
-              const invoiceUrl = `${window.location.origin}/shop/billing/${sale.id}`;
+              const invoiceUrl = `${window.location.origin}/public/invoice/${sale.id}`;
               const shareMessage = encodeURIComponent(
                 whatsappBaseMessage 
                   ? `${whatsappBaseMessage} Invoice: ${sale.invoice_no}. Total: ${formatCurrency(sale.total_paisa)}. View/Download professional Invoice PDF here: ${invoiceUrl}. Thanks!`

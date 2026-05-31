@@ -3,7 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import {
   Wifi, WifiOff, RefreshCw, CheckCircle, Database,
-  Sliders, AlertTriangle, Sparkles, X, ChevronRight
+  Sliders, AlertTriangle, Sparkles, X, ChevronRight,
+  ShoppingCart, FileText, CreditCard, Package, Truck
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,9 +18,20 @@ type LocalAction = {
 
 const INITIAL_LOGS: LocalAction[] = [
   { id: "act-1", action: "POS Retail Invoice", details: "Ravi Prasad - ₹112.00 Dolo-650", timestamp: "01:02:15", status: "synced" },
-  { id: "act-2", action: "Inventory Batch Upsert", details: "Dolo DL650A stock +150", timestamp: "01:03:45", status: "synced" },
-  { id: "act-3", action: "B2B Supplier Purchase", details: "Saveo Connects - PO-SCAN-891", timestamp: "01:04:10", status: "synced" },
+  { id: "act-2", action: "B2B Invoice", details: "Gupta Medical - ₹12,450 (8 items)", timestamp: "01:03:45", status: "synced" },
+  { id: "act-3", action: "Inventory Batch Upsert", details: "Dolo DL650A stock +150", timestamp: "01:04:10", status: "synced" },
 ];
+
+// Icon map for action types
+function getActionIcon(action: string) {
+  const lower = action.toLowerCase();
+  if (lower.includes("b2b")) return <ShoppingCart className="h-3 w-3 text-purple-500 shrink-0" />;
+  if (lower.includes("pos") || lower.includes("retail")) return <FileText className="h-3 w-3 text-emerald-500 shrink-0" />;
+  if (lower.includes("collection") || lower.includes("receipt")) return <CreditCard className="h-3 w-3 text-sky-500 shrink-0" />;
+  if (lower.includes("inventory") || lower.includes("stock")) return <Package className="h-3 w-3 text-orange-500 shrink-0" />;
+  if (lower.includes("purchase") || lower.includes("supplier")) return <Truck className="h-3 w-3 text-blue-500 shrink-0" />;
+  return <Database className="h-3 w-3 text-slate-400 shrink-0" />;
+}
 
 export function OfflineSyncBadge() {
   const [online, setOnline] = useState(true);
@@ -217,7 +229,7 @@ export function OfflineSyncBadge() {
       {/* Navbar Glowing Badge */}
       <button
         onClick={() => setDrawerOpen(true)}
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all border pointer-events-auto ${
+        className={`relative inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-all border pointer-events-auto ${
           online
             ? "bg-emerald-50 text-emerald-700 border-emerald-250 hover:bg-emerald-100"
             : "bg-amber-50 text-amber-700 border-amber-250 hover:bg-amber-100 animate-pulse"
@@ -231,6 +243,12 @@ export function OfflineSyncBadge() {
         ) : (
           <span className="flex items-center gap-1">
             <WifiOff className="h-3.5 w-3.5" /> Offline Mode
+          </span>
+        )}
+        {/* Pending count badge */}
+        {logs.filter(l => l.status === "pending").length > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 h-4 min-w-4 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white px-1 shadow-sm">
+            {logs.filter(l => l.status === "pending").length}
           </span>
         )}
       </button>
@@ -308,11 +326,12 @@ export function OfflineSyncBadge() {
                       className="p-3 rounded-xl border border-slate-150 bg-white flex justify-between items-start gap-3 shadow-xs hover:border-slate-300 transition-colors"
                     >
                       <div className="space-y-1">
-                        <h5 className="font-extrabold text-xs text-slate-700 leading-tight">
+                        <h5 className="font-extrabold text-xs text-slate-700 leading-tight flex items-center gap-1.5">
+                          {getActionIcon(log.action)}
                           {log.action}
                         </h5>
-                        <p className="text-[10px] text-slate-400 font-semibold">{log.details}</p>
-                        <span className="text-[8px] text-slate-400 font-mono">{log.timestamp}</span>
+                        <p className="text-[10px] text-slate-400 font-semibold pl-[18px]">{log.details}</p>
+                        <span className="text-[8px] text-slate-400 font-mono pl-[18px]">{log.timestamp}</span>
                       </div>
 
                       <div>

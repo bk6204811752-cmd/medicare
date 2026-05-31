@@ -2,7 +2,7 @@
 
 
 import { useState, useTransition, useMemo, useEffect, useCallback, useRef } from "react";
-import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X, Send, Loader2, Sparkles } from "lucide-react";
+import { AlertCircle, FileText, ShoppingCart, Plus, Trash2, User, UserCheck, ShieldCheck, Printer, CheckCircle2, Search, X, Send, Loader2, Sparkles, Download, Share2, Package, Minus } from "lucide-react";
 import { createB2BSaleAction } from "@/app/stockist-actions";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -127,6 +127,12 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingSuccess, setBillingSuccess] = useState<string | null>(null);
   const [generatedInvoiceNo, setGeneratedInvoiceNo] = useState<string | null>(null);
+
+  // Mobile tab switcher
+  const [mobileTab, setMobileTab] = useState<"items" | "summary">("items");
+
+  // WhatsApp PDF share state
+  const [sharingPdf, setSharingPdf] = useState(false);
 
   // Find routes assigned to the selected Salesman
   const selectedSalesman = useMemo(() => {
@@ -383,6 +389,101 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
     return nextOutstanding > selectedParty.creditLimitPaisa;
   }, [selectedParty, paymentMode, calculations.totalPaisa]);
 
+  // ── Generate PDF from the B2B invoice print target and share via WhatsApp ──
+  const generateAndShareB2BWhatsApp = useCallback(async (invoice: any) => {
+    if (!invoice) return;
+    try {
+      setSharingPdf(true);
+
+      // Dynamic imports to keep bundle light
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF } = await import("jspdf");
+
+      const element = document.getElementById("b2b-print-target");
+      if (!element) {
+        toast.error("Invoice preview not found. Please open Print Console first.");
+        setSharingPdf(false);
+        return;
+      }
+
+      // Force A4 desktop width for clean capture
+      element.classList.add("force-b2b-pdf-capture");
+      const canvas = await html2canvas(element as HTMLElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 1100,
+      });
+      element.classList.remove("force-b2b-pdf-capture");
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      const imgWidth = 210;
+      const pageHeight = 297;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const blob = pdf.output("blob");
+      const pdfFile = new File([blob], `B2B_Invoice_${invoice.invoiceNo}.pdf`, { type: "application/pdf" });
+
+      const cleaned = (invoice.partyPhone || "").replace(/\D/g, "");
+      const formattedPhone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+      const whatsappMsg = encodeURIComponent(
+        `📦 *B2B Invoice ${invoice.invoiceNo}*\n` +
+        `🏪 Retailer: *${invoice.partyName}*\n` +
+        `💰 Net Payable: *₹${(invoice.calculations.totalPaisa / 100).toFixed(2)}*\n` +
+        `💳 Payment: ${invoice.paymentMode.toUpperCase()}\n` +
+        `📅 Date: ${new Date(invoice.date).toLocaleDateString("en-IN")}\n\n` +
+        `_PDF invoice attached — please find it in the attachment above._`
+      );
+      const whatsappUrl = formattedPhone
+        ? `https://wa.me/${formattedPhone}?text=${whatsappMsg}`
+        : `https://wa.me/?text=${whatsappMsg}`;
+
+      // Try native File Share (works on Android Chrome / iOS Safari)
+      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          files: [pdfFile],
+          title: `B2B Invoice ${invoice.invoiceNo}`,
+          text: `Please find attached your B2B invoice PDF.`,
+        });
+        toast.success("✅ B2B Invoice PDF shared successfully!");
+      } else {
+        // Desktop fallback: download PDF + open WhatsApp
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = `B2B_Invoice_${invoice.invoiceNo}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 3000);
+        setTimeout(() => {
+          window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+        }, 600);
+        toast.success("✅ PDF downloaded! WhatsApp is opening — attach the PDF from your Downloads.", { duration: 8000 });
+      }
+    } catch (err: any) {
+      if (err?.name !== "AbortError") {
+        console.error("B2B WhatsApp PDF share failed:", err);
+        toast.error("PDF generation failed. Use Print instead.");
+      }
+    } finally {
+      setSharingPdf(false);
+    }
+  }, []);
+
   // Form Submission Action
   const handleBillSave = () => {
     if (!selectedPartyId) {
@@ -401,6 +502,102 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
     setBillingError(null);
     setBillingSuccess(null);
 
+    // ── Offline Detection ──
+    const isOffline = typeof window !== "undefined" && (!navigator.onLine || localStorage.getItem("medicare_offline_mode") === "true");
+
+    if (isOffline) {
+      const localInvoiceNo = `OFFLINE-B2B-${Date.now().toString().slice(-6)}`;
+      const activeParty = parties.find((p) => p.id === selectedPartyId);
+
+      const payload = {
+        partyId: selectedPartyId,
+        salesmanId: selectedSalesmanId || undefined,
+        paymentMode,
+        invoiceType,
+        notes: notes || undefined,
+        items: lines.map((l) => ({
+          inventoryId: l.inventoryId,
+          quantity: l.quantity,
+          freeQuantity: l.freeQuantity,
+          saleRatePaisa: l.ptrPaisa,
+          discountPercent: l.discountPercent,
+          schemeDetails: l.schemeDetails || undefined,
+        })),
+      };
+
+      // Queue to localStorage for sync
+      const newAction = {
+        id: `act-b2b-${Date.now()}`,
+        action: "B2B Invoice",
+        details: `${activeParty?.name || "Retailer"} - ${formatCurrency(calculations.totalPaisa)} (${lines.length} items)`,
+        timestamp: new Date().toTimeString().slice(0, 8),
+        status: "pending" as const,
+        payload,
+        endpoint: "/api/stockist/sales",
+        method: "server-action",
+      };
+
+      const queue = JSON.parse(localStorage.getItem("medicare_offline_queue") || "[]");
+      queue.unshift(newAction);
+      localStorage.setItem("medicare_offline_queue", JSON.stringify(queue));
+
+      // Notify OfflineSyncBadge
+      window.dispatchEvent(new CustomEvent("medicare-sync-push"));
+
+      // Build the completedInvoice snapshot for print modal (identical to online flow)
+      const snapshotItems = lines.map((l) => ({
+        medicineName: l.medicineName,
+        batchNo: l.batchNo,
+        hsnCode: l.hsnCode,
+        manufacturer: l.manufacturer,
+        mfgDate: l.mfgDate,
+        expiryDate: l.expiryDate,
+        packSize: l.packSize,
+        quantity: l.quantity,
+        freeQuantity: l.freeQuantity,
+        ptrPaisa: l.ptrPaisa,
+        mrpPaisa: l.mrpPaisa,
+        discountPercent: l.discountPercent,
+        gstRate: l.gstRate,
+        totalItemDeduction: l.quantity + l.freeQuantity,
+        lineTotalPaisa: (l.quantity * l.ptrPaisa) - Math.round((l.quantity * l.ptrPaisa) * (l.discountPercent / 100)),
+      }));
+
+      setCompletedInvoice({
+        invoiceNo: localInvoiceNo,
+        invoiceType: invoiceType,
+        date: new Date().toISOString(),
+        paymentMode: paymentMode,
+        notes: notes || undefined,
+        partyName: activeParty?.name || "Retail Chemist",
+        partyPhone: activeParty?.phone || null,
+        partyGstin: activeParty?.gstin || null,
+        partyDl: activeParty?.drugLicenseNo || null,
+        partyAddress: activeParty?.address || null,
+        salesmanName: salesmen.find((s) => s.id === selectedSalesmanId)?.name || undefined,
+        items: snapshotItems,
+        calculations: { ...calculations },
+        isOfflinePending: true,
+      });
+      setShowPrintModal(true);
+
+      setBillingSuccess(`📴 B2B Invoice saved offline! Will auto-sync when connected.`);
+      setGeneratedInvoiceNo(localInvoiceNo);
+
+      // Clear POS
+      setLines([]);
+      setSelectedPartyId("");
+      setPartySearchQuery("");
+      setSelectedSalesmanId("");
+      setNotes("");
+
+      toast.warning("📴 B2B Invoice saved offline!", {
+        description: `Offline ID: ${localInvoiceNo} — will sync automatically.`,
+      });
+      return;
+    }
+
+    // ── Online flow (unchanged) ──
     startTransition(async () => {
       const result = await createB2BSaleAction({
         partyId: selectedPartyId,
@@ -506,10 +703,50 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
   return (
     <>
+      {/* Mobile Tab Switcher — visible on screens smaller than lg */}
+      <div className="sticky top-0 z-30 -mx-4 flex border-b border-slate-200 bg-white/95 p-1.5 backdrop-blur-md lg:hidden no-print">
+        <button
+          type="button"
+          onClick={() => setMobileTab("items")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all ${
+            mobileTab === "items"
+              ? "bg-med-green text-white shadow-sm"
+              : "text-slate-500 hover:bg-slate-100"
+          }`}
+        >
+          <Package className="h-4 w-4" />
+          <span>Products</span>
+          {lines.length > 0 && (
+            <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              mobileTab === "items" ? "bg-white text-med-green" : "bg-med-green text-white"
+            }`}>{lines.length}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab("summary")}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold transition-all ${
+            mobileTab === "summary"
+              ? "bg-med-green text-white shadow-sm"
+              : "text-slate-500 hover:bg-slate-100"
+          }`}
+        >
+          <FileText className="h-4 w-4" />
+          <span>Invoice</span>
+          {calculations.totalPaisa > 0 && (
+            <span className={`ml-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              mobileTab === "summary" ? "bg-white text-med-green" : "bg-med-green text-white"
+            }`}>{formatCurrency(calculations.totalPaisa)}</span>
+          )}
+        </button>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] min-w-0 w-full animate-fade-in no-print">
       
       {/* Left panel: Product Selector & Lines Table */}
-      <div className="glass-card p-4 sm:p-5 space-y-5 min-w-0 w-full">
+      <div className={`glass-card p-4 sm:p-5 space-y-5 min-w-0 w-full ${
+        mobileTab === "items" ? "block" : "hidden lg:block"
+      }`}>
         <div className="flex flex-col sm:flex-row gap-4">
           
           {/* Party selector (Searchable Autocomplete Combobox) */}
@@ -634,6 +871,13 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         )}
 
         {/* Product Autocomplete Search */}
+        {/* ─── Offline Indicator Banner ─── */}
+        {typeof window !== "undefined" && (!navigator.onLine || (typeof localStorage !== "undefined" && localStorage.getItem("medicare_offline_mode") === "true")) && (
+          <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs font-semibold text-amber-800">
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <span>📴 Offline Mode — Inventory already loaded. B2B invoices will queue locally and auto-sync when connected.</span>
+          </div>
+        )}
         <div className="relative space-y-1">
           <span className="text-xs font-bold text-slate-500 flex items-center gap-1">📦 Wholesale Search (Type drug name or batch no)</span>
           <div className="relative">
@@ -733,7 +977,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
         </div>
 
         {/* Invoicing Lines Table */}
-        <div className="overflow-hidden rounded-xl border border-slate-100 shadow-xs w-full max-w-full">
+        <div className="hidden md:block overflow-hidden rounded-xl border border-slate-100 shadow-xs w-full max-w-full">
           <div className="overflow-x-auto w-full max-w-full">
           <table className="w-full text-left text-xs border-collapse bg-white min-w-[900px]">
             <thead>
@@ -848,10 +1092,152 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           </table>
           </div>
         </div>
+
+        {/* ─── B2B Items — Mobile Card Layout ─── */}
+        <div className="mt-4 space-y-3.5 md:hidden">
+          {lines.map((line, idx) => {
+            const totalItemDeduction = line.quantity + line.freeQuantity;
+            const lineTotalPaisa = (line.quantity * line.ptrPaisa) - Math.round((line.quantity * line.ptrPaisa) * (line.discountPercent / 100));
+            return (
+              <div key={line.inventoryId} className="relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-all animate-slide-up">
+                {/* Remove Button */}
+                <button 
+                  type="button"
+                  className="absolute right-3 top-3 rounded-full p-2 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors" 
+                  onClick={() => removeLine(idx)}
+                  aria-label="Remove item"
+                >
+                  <Trash2 className="h-4.5 w-4.5" />
+                </button>
+                
+                {/* Product Info */}
+                <div className="pr-10">
+                  <p className="font-display font-bold text-sm text-med-navy leading-tight">{line.medicineName}</p>
+                  
+                  {/* Badges / Expiries */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[9px] font-bold">
+                    <span className="rounded bg-slate-100 px-2 py-0.5 text-slate-750 font-mono">
+                      Batch: {line.batchNo}
+                    </span>
+                    {line.hsnCode && (
+                      <span className="rounded bg-blue-50 border border-blue-150 px-2 py-0.5 text-blue-700">
+                        HSN: {line.hsnCode}
+                      </span>
+                    )}
+                    {line.packSize && (
+                      <span className="rounded bg-indigo-50 border border-indigo-150 px-2 py-0.5 text-indigo-700">
+                        Pack: {line.packSize}
+                      </span>
+                    )}
+                    <span className="rounded bg-amber-50 border border-amber-150 px-2 py-0.5 text-amber-700">
+                      Exp: {line.expiryDate}
+                    </span>
+                    {line.schemeDetails && (
+                      <span className="rounded bg-purple-50 border border-purple-150 px-2 py-0.5 text-purple-700 uppercase tracking-wide">
+                        {line.schemeDetails}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile Input Fields Redesign */}
+                <div className="mt-3.5 flex flex-col gap-3 rounded-xl bg-slate-50/70 p-3 border border-slate-100">
+                  {/* Row 1: Quantity and Free */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quantity</span>
+                      <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                        <button 
+                          type="button"
+                          className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-50 text-slate-600 active:bg-slate-100 transition-colors"
+                          onClick={() => updateLine(idx, "quantity", Math.max(1, line.quantity - 1))}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <input 
+                          className="h-7 w-10 text-center text-xs font-bold text-slate-800 outline-none border-none focus:ring-0 bg-transparent" 
+                          type="number" 
+                          min={1} 
+                          max={line.availableStock} 
+                          value={line.quantity} 
+                          onChange={(e) => updateLine(idx, "quantity", Math.min(Number(e.target.value), line.availableStock))}
+                        />
+                        <button 
+                          type="button"
+                          className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-50 text-slate-600 active:bg-slate-100 transition-colors"
+                          onClick={() => updateLine(idx, "quantity", Math.min(line.quantity + 1, line.availableStock))}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <span className="text-[9px] text-slate-400 font-semibold px-1">Stock: {line.availableStock}</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Free Qty</span>
+                      <div className="h-9 flex items-center justify-center rounded-lg border border-slate-200 bg-slate-100 text-xs font-black text-slate-800 font-mono">
+                        {line.freeQuantity}
+                      </div>
+                      <span className="text-[9px] text-slate-400 font-semibold px-1">Deduct: {totalItemDeduction}</span>
+                    </div>
+                  </div>
+
+                  {/* Row 2: PTR Rate and Discount% */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PTR (₹)</span>
+                      <div className="relative flex items-center">
+                        <span className="absolute left-2 text-slate-400 text-xs font-semibold">₹</span>
+                        <input 
+                          className="h-9 w-full rounded-lg border border-slate-200 pl-5 pr-1 text-xs font-bold text-slate-850 focus:outline-emerald-500 bg-white" 
+                          type="number" 
+                          value={line.ptrPaisa / 100} 
+                          onChange={(e) => updateLine(idx, "ptrPaisa", Math.round(Number(e.target.value) * 100))}
+                        />
+                      </div>
+                      <span className="text-[9px] text-slate-400 font-semibold px-1">MRP: ₹{(line.mrpPaisa/100).toFixed(0)}</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Discount %</span>
+                      <input 
+                        className="h-9 w-full rounded-lg border border-slate-200 px-1 text-center text-xs font-bold text-slate-850 focus:outline-emerald-500 bg-white font-mono" 
+                        type="number" 
+                        min="0"
+                        max="100"
+                        value={line.discountPercent} 
+                        onChange={(e) => updateLine(idx, "discountPercent", Math.min(Number(e.target.value), 100))}
+                      />
+                      <span className="text-[9px] text-slate-400 font-semibold px-1">GST: {line.gstRate}%</span>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Item Net Total */}
+                  <div className="mt-1 pt-2 border-t border-dashed border-slate-200 flex justify-between items-center text-xs">
+                    <span className="font-semibold text-slate-400 uppercase text-[9px] tracking-wider">Net Total:</span>
+                    <span className="font-mono text-sm font-black text-slate-900">{formatCurrency(lineTotalPaisa)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {lines.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 p-8 text-center">
+              <div className="rounded-full bg-slate-100 p-4 text-slate-400 border border-dashed border-slate-200 w-fit mx-auto mb-3">
+                <ShoppingCart className="h-6 w-6 stroke-[1.5]" />
+              </div>
+              <h4 className="font-display font-black text-slate-800 text-sm">No items in B2B Invoice yet</h4>
+              <p className="text-xs text-slate-550 font-semibold mt-1">Search medicines above to add items.</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Right panel: Summary, Pricing toggles, billing triggers */}
-      <div className="space-y-6 min-w-0 w-full">
+      <div className={`space-y-6 min-w-0 w-full ${
+        mobileTab === "summary" ? "block animate-fade-in" : "hidden lg:block"
+      }`}>
         
         {/* Billing parameters */}
         <div className="glass-card p-4 sm:p-5 space-y-4">
@@ -1033,8 +1419,8 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
 
       </div>
 
-      {/* Sleek Floating Keyboard Shortcuts Bar */}
-      <div className="col-span-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex flex-wrap gap-4 items-center justify-between text-xs font-semibold text-slate-400">
+      {/* Sleek Floating Keyboard Shortcuts Bar — desktop only */}
+      <div className="col-span-full hidden lg:flex bg-slate-900 border border-slate-800 rounded-xl p-3.5 flex-wrap gap-4 items-center justify-between text-xs font-semibold text-slate-400">
         <span className="flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-emerald-500 animate-pulse" /> Wholesale Rapid Keyboard Shortcuts</span>
         <div className="flex flex-wrap gap-3.5">
           <span className="flex items-center gap-1.5"><kbd className="font-mono text-[10px] bg-slate-800 border border-slate-700 px-1.5 py-0.5 rounded shadow-sm text-slate-200 font-bold">/</kbd> Focus Search</span>
@@ -1044,6 +1430,27 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       </div>
 
     </div>
+
+    {/* Mobile Floating Action Bar — shown when items added and on items tab */}
+    {lines.length > 0 && mobileTab === "items" && (
+      <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 z-30 border-t border-slate-200 bg-white/95 p-4 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] backdrop-blur-md lg:hidden no-print">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Net Payable</p>
+            <p className="text-lg font-extrabold text-med-navy font-mono">{formatCurrency(calculations.totalPaisa)}</p>
+            <p className="text-[10px] font-semibold text-med-green">{lines.length} product{lines.length !== 1 ? "s" : ""} • {selectedParty ? selectedParty.name : "No party selected"}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMobileTab("summary")}
+            className="flex items-center gap-2 rounded-xl bg-med-green px-5 py-3 font-semibold text-white shadow-md shadow-med-green/20 hover:bg-med-greenDark transition-all active:scale-95"
+          >
+            <span>Review & Book</span>
+            <ShoppingCart className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    )}
 
     {showPrintModal && completedInvoice && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
@@ -1114,7 +1521,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           }
         `}} />
         
-        <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
           {/* Modal Header */}
           <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
             <div>
@@ -1132,10 +1539,10 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           </div>
           
           {/* Modal Body / Selector & Invoice Preview Container */}
-          <div className="flex-1 overflow-y-auto p-6 bg-slate-950/40 flex flex-col md:flex-row gap-6">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-950/40 flex flex-col md:flex-row gap-4 sm:gap-6">
             
             {/* Left Selector Options Panel */}
-            <div className="w-full md:w-64 space-y-4 shrink-0">
+            <div className="w-full md:w-56 space-y-4 shrink-0">
               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-3.5">
                 <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Print Configuration</p>
                 
@@ -1192,8 +1599,8 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
               </div>
             </div>
             
-            {/* Right Real-time Dynamic View Target */}
-            <div className="flex-1 bg-slate-950 border border-slate-850 rounded-xl p-4 md:p-6 shadow-inner overflow-x-auto overflow-y-visible flex justify-start [background-image:radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]">
+            {/* Right Real-time Dynamic View Target — hidden on mobile to save space */}
+            <div className="hidden md:flex flex-1 bg-slate-950 border border-slate-850 rounded-xl p-4 md:p-6 shadow-inner overflow-x-auto overflow-y-visible justify-start [background-image:radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]">
               
               {/* INVOICE CONTAINER TO PRINT */}
               <div 
@@ -1483,38 +1890,63 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
           </div>
           
           {/* Modal Footer / Triggers */}
-          <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex items-center justify-between gap-3 no-print">
+          <div className="px-4 sm:px-6 py-4 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 no-print">
             <button
               onClick={() => setShowPrintModal(false)}
-              className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:bg-slate-750 hover:text-white transition-colors text-xs active:scale-[0.98]"
+              className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:text-white transition-colors text-xs active:scale-[0.98]"
             >
-              Close & Return to POS
+              Close & Return
             </button>
 
-            <div className="flex items-center gap-2">
-              {/* WhatsApp Share */}
-              {completedInvoice?.partyPhone && (
-                <a
-                  href={(() => {
-                    const cleaned = completedInvoice.partyPhone.replace(/\D/g, "");
-                    const formattedPhone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
-                    return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(
-                      `B2B Invoice: ${completedInvoice.invoiceNo}\nChemist: ${completedInvoice.partyName}\nTotal: ₹${(completedInvoice.calculations.totalPaisa / 100).toFixed(2)}\nPayment: ${completedInvoice.paymentMode.toUpperCase()}\nMedicines: ${completedInvoice.items.map((i: any) => `${i.medicineName} (Qty:${i.quantity})`).join(", ")}\nThank you!`
-                    )}`;
-                  })()}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] active:scale-[0.98] transition-all"
-                >
-                  <Send className="h-4 w-4" /> WhatsApp Bill
-                </a>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Download PDF Button */}
+              <button
+                onClick={async () => {
+                  try {
+                    setSharingPdf(true);
+                    const html2canvas = (await import("html2canvas")).default;
+                    const { jsPDF } = await import("jspdf");
+                    const element = document.getElementById("b2b-print-target");
+                    if (!element) { toast.error("Preview not found."); setSharingPdf(false); return; }
+                    element.classList.add("force-b2b-pdf-capture");
+                    const canvas = await html2canvas(element as HTMLElement, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff", windowWidth: 1100 });
+                    element.classList.remove("force-b2b-pdf-capture");
+                    const imgData = canvas.toDataURL("image/jpeg", 0.95);
+                    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                    const imgWidth = 210; const pageHeight = 297;
+                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                    pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight);
+                    if (imgHeight > pageHeight) { let pos = pageHeight - imgHeight; pdf.addPage(); pdf.addImage(imgData, "JPEG", 0, pos, imgWidth, imgHeight); }
+                    const url = URL.createObjectURL(pdf.output("blob"));
+                    const a = document.createElement("a"); a.href = url; a.download = `B2B_Invoice_${completedInvoice.invoiceNo}.pdf`;
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 3000);
+                    toast.success("✅ PDF downloaded!");
+                  } catch (e) { toast.error("PDF generation failed."); } finally { setSharingPdf(false); }
+                }}
+                disabled={sharingPdf}
+                className="h-10 px-3 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 text-xs flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98] transition-all"
+              >
+                {sharingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                <span className="hidden sm:inline">Download</span> PDF
+              </button>
+
+              {/* WhatsApp Share — NOW GENERATES REAL PDF */}
+              <button
+                onClick={() => generateAndShareB2BWhatsApp(completedInvoice)}
+                disabled={sharingPdf}
+                className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md hover:shadow-[0_4px_12px_rgba(16,185,129,0.25)] active:scale-[0.98] transition-all disabled:opacity-60"
+              >
+                {sharingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                {sharingPdf ? "Generating PDF..." : "Share PDF on WhatsApp"}
+              </button>
 
               <button
                 onClick={() => window.print()}
-                className="h-10 px-6 rounded-xl bg-med-green font-bold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all text-xs flex items-center gap-2"
+                className="h-10 px-4 rounded-xl bg-med-green font-bold text-white shadow-sm hover:bg-med-greenDark active:scale-95 transition-all text-xs flex items-center gap-2"
               >
-                <Printer className="h-4 w-4" /> Trigger System Print
+                <Printer className="h-4 w-4" />
+                <span className="hidden sm:inline">Trigger</span> Print
               </button>
             </div>
           </div>

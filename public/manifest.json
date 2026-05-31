@@ -1,0 +1,25 @@
+{
+  "name": "Medicare Pharmacy Manager",
+  "short_name": "Medicare",
+  "description": "Offline-ready pharmacy billing, inventory & B2B distribution management for Indian chemists and stockists.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "any",
+  "categories": ["business", "medical", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -102,7 +102,7 @@ export function BillDetailClient({ sale: initialSale, items: initialItems, tenan
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSharePDF]);
 
-  const invoiceUrl = typeof window !== "undefined" ? `${window.location.origin}/shop/billing/${sale.id}` : "";
+  const invoiceUrl = typeof window !== "undefined" ? `${window.location.origin}/public/invoice/${sale.id}` : "";
   const totalRupees = Number(sale.total_paisa) / 100;
   const amountInWords = numberToWords(totalRupees);
   const customerPhone = sale.customer_phone ? String(sale.customer_phone).replace(/\D/g, "").slice(-10) : "";

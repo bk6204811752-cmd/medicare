@@ -153,6 +153,25 @@ export function BillingPos({ tenant }: { tenant: any }) {
   const [scanning, setScanning] = useState(false);
   const [availableBatches, setAvailableBatches] = useState<Record<string, InventorySearchRow[]>>({});
 
+  // ─── Reactive Offline Detection ───
+  const [isOfflineState, setIsOfflineState] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const check = () => {
+      const simulated = localStorage.getItem("medicare_offline_mode") === "true";
+      setIsOfflineState(!navigator.onLine || simulated);
+    };
+    check();
+    window.addEventListener("online", check);
+    window.addEventListener("offline", check);
+    window.addEventListener("storage", check);
+    return () => {
+      window.removeEventListener("online", check);
+      window.removeEventListener("offline", check);
+      window.removeEventListener("storage", check);
+    };
+  }, []);
+
   // ─── Dynamic Drug-Drug Interaction Checker ───
   const cartInteractions = useMemo(() => {
     const interactions: { ingredientA: string; ingredientB: string; description: string; brandA: string; brandB: string }[] = [];
@@ -378,17 +397,37 @@ export function BillingPos({ tenant }: { tenant: any }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, saving, customerName, customerPhone, doctorName, prescriptionNo, paymentMode, totals]);
 
-  // Fetch recent customers
+  // Fetch recent customers (graceful offline handling)
   useEffect(() => {
+    if (isOfflineState) {
+      // Load cached customers when offline
+      try {
+        const cached = localStorage.getItem("medicare_customers_cache");
+        if (cached) setCustomers(JSON.parse(cached));
+      } catch { /* ignore */ }
+      return;
+    }
     fetch("/api/customers")
       .then((response) => response.json())
-      .then((result) => setCustomers((result.data ?? []).slice(0, 50)))
-      .catch(() => setCustomers([]));
-  }, []);
+      .then((result) => {
+        const data = (result.data ?? []).slice(0, 50);
+        setCustomers(data);
+        // Cache for offline use
+        try { localStorage.setItem("medicare_customers_cache", JSON.stringify(data)); } catch { /* ignore */ }
+      })
+      .catch(() => {
+        // Try loading cached customers on network error
+        try {
+          const cached = localStorage.getItem("medicare_customers_cache");
+          if (cached) setCustomers(JSON.parse(cached));
+        } catch { /* ignore */ }
+      });
+  }, [isOfflineState]);
 
 
 
   // Debounced medicine search with loading indicator — 100ms for speed
+  // When offline, falls back to cached inventory data from localStorage
   useEffect(() => {
     const trimmed = deferredQuery.trim();
     if (trimmed.length < 1) {
@@ -407,21 +446,64 @@ export function BillingPos({ tenant }: { tenant: any }) {
       return;
     }
 
+    // ── Offline: search from localStorage cache ──
+    if (isOfflineState) {
+      setSearching(true);
+      try {
+        const cached = localStorage.getItem("medicare_inventory_cache");
+        if (cached) {
+          const allItems: InventorySearchRow[] = JSON.parse(cached);
+          const lower = trimmed.toLowerCase();
+          const filtered = allItems.filter((item) =>
+            item.medicine.name.toLowerCase().includes(lower) ||
+            item.medicine.genericName?.toLowerCase().includes(lower) ||
+            item.medicine.manufacturer?.toLowerCase().includes(lower) ||
+            item.medicine.barcode?.includes(trimmed) ||
+            item.batchNo.toLowerCase().includes(lower)
+          ).slice(0, 20);
+          setRows(filtered);
+          setSuggestions([]);
+        } else {
+          setRows([]);
+          setSuggestions([]);
+        }
+      } catch {
+        setRows([]);
+      }
+      setSearching(false);
+      return;
+    }
+
+    // ── Online: normal API search ──
     setSearching(true);
     const controller = new AbortController();
     const timer = setTimeout(() => {
       fetch(`/api/medicines/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
         .then((response) => response.json())
         .then((result) => {
-          setRows(result.data ?? []);
+          const data = result.data ?? [];
+          setRows(data);
           setSuggestions(result.suggestions ?? []);
           setSearching(false);
+
+          // Cache search results for offline use (merge into existing cache)
+          if (data.length > 0) {
+            try {
+              const existing = JSON.parse(localStorage.getItem("medicare_inventory_cache") || "[]");
+              const existingIds = new Set(existing.map((e: any) => e.id));
+              const newItems = data.filter((d: any) => !existingIds.has(d.id));
+              if (newItems.length > 0) {
+                const merged = [...existing, ...newItems].slice(-500); // Keep last 500
+                localStorage.setItem("medicare_inventory_cache", JSON.stringify(merged));
+              }
+            } catch { /* ignore cache errors */ }
+          }
         })
         .catch(() => setSearching(false));
     }, isNumeric ? 50 : 100); // Barcode = 50ms, text search = 100ms
 
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [deferredQuery]);
+  }, [deferredQuery, isOfflineState]);
 
   // Debounced Drug Master API search — runs in parallel with inventory search
   useEffect(() => {
@@ -915,6 +997,13 @@ export function BillingPos({ tenant }: { tenant: any }) {
         <section className={`rounded-lg border border-slate-200 bg-white p-4 shadow-sm no-print ${
           mobileTab === "cart" ? "block" : "hidden xl:block"
         } ${lines.length > 0 ? "pb-24 xl:pb-4" : ""}`}>
+        {/* ─── Offline Indicator Banner ─── */}
+        {isOfflineState && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-4 py-2.5 text-xs font-semibold text-amber-800 animate-fade-in">
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+            <span>📴 Offline Mode — Search uses cached inventory. Bills will queue locally and auto-sync when connected.</span>
+          </div>
+        )}
         {/* ─── Search + Scanner Controls ─── */}
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_160px]">
           <label className="relative">

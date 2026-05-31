@@ -5,7 +5,7 @@ import {
   Users, MapPin, Search, CreditCard, ShieldCheck, CheckCircle2, 
   AlertCircle, Plus, X, UserCheck, Shield, HelpCircle, ArrowRight,
   TrendingUp, BarChart3, Clock, Scale, Package, Receipt, ChevronDown, ChevronRight,
-  IndianRupee, Loader2, Banknote, Wallet
+  IndianRupee, Loader2, Banknote, Wallet, Pencil, Printer
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
@@ -94,6 +94,12 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
   const [paymentModal, setPaymentModal] = useState<PaymentModal | null>(null);
   const [paymentSaving, setPaymentSaving] = useState(false);
 
+  // Edit Bill State
+  const [editBill, setEditBill] = useState<LedgerRow | null>(null);
+  const [editPaymentMode, setEditPaymentMode] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
   const filteredParties = initialParties.filter((p) => {
     const q = search.toLowerCase();
     return (
@@ -177,6 +183,33 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
     }
   };
 
+  // Handle saving B2B invoice edits (payment mode / remarks)
+  const handleSaveBillEdit = async () => {
+    if (!editBill || !selectedParty) return;
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/stockist/sales/${editBill.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentMode: editPaymentMode,
+          notes: editNotes,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to update invoice");
+
+      toast.success(`✅ Invoice updated successfully!`);
+      setEditBill(null);
+      // Re-fetch ledger to sync all tabs and status
+      loadLedger(selectedParty.id);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save invoice edits");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   // Derived data
   const invoiceRows = ledger.filter((r) => r.type === "invoice");
   const receiptRows = ledger.filter((r) => r.type === "receipt");
@@ -184,6 +217,79 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
   if (selectedParty) {
     return (
       <div className="space-y-4 animate-fade-in w-full">
+
+        {/* ─── EDIT INVOICE MODAL ─── */}
+        {editBill && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-md p-6 space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 border border-blue-200">
+                    <Pencil className="h-5 w-5 text-blue-650" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-black text-slate-900 text-base">Edit Invoice Details</h3>
+                    <p className="text-xs text-slate-500 font-mono mt-0.5">Invoice: {editBill.refNo}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setEditBill(null)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-500 mb-1.5 uppercase tracking-wide">Payment Mode</label>
+                  <select
+                    value={editPaymentMode}
+                    onChange={(e) => setEditPaymentMode(e.target.value)}
+                    className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                  >
+                    <option value="credit">On Trade Credit</option>
+                    <option value="cash">Cash Payment</option>
+                    <option value="upi">UPI / QR Scan</option>
+                    <option value="cheque">Bank Cheque</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-500 mb-1.5 uppercase tracking-wide">Remarks / Delivery Notes</label>
+                  <input
+                    type="text"
+                    value={editNotes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    placeholder="Enter remarks or delivery notes..."
+                    className="w-full h-10 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setEditBill(null)}
+                  disabled={editSaving}
+                  className="flex-1 h-10 rounded-xl border border-slate-200 bg-white font-semibold text-slate-600 hover:bg-slate-50 text-sm transition-colors disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveBillEdit}
+                  disabled={editSaving}
+                  className="flex-1 h-10 rounded-xl bg-emerald-600 font-black text-white hover:bg-emerald-700 active:scale-95 transition-all text-sm disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {editSaving ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Saving...</>
+                  ) : (
+                    <><CheckCircle2 className="h-4 w-4" /> Save Changes</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ─── PAYMENT MODAL ─── */}
         {paymentModal && (
@@ -596,8 +702,8 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
                   <div className="space-y-3">
                     {invoiceRows.map((row) => {
                       const isExpanded = expandedOrderId === row.id;
-                      const isFullyPaid = row.debitPaisa > 0 && row.paidPaisa >= row.debitPaisa;
-                      const isPartial = row.paidPaisa > 0 && row.paidPaisa < row.debitPaisa;
+                      const isFullyPaid = row.status === "paid";
+                      const isPartial = row.status === "partial";
 
                       return (
                         <div key={row.id} className="rounded-xl border border-slate-100 bg-white shadow-xs overflow-hidden">
@@ -632,7 +738,7 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
                               <div className="text-right">
-                                <p className="font-mono font-black text-slate-800 text-sm">{formatCurrency(row.debitPaisa)}</p>
+                                <p className="font-mono font-black text-slate-800 text-sm">{formatCurrency(row.totalPaisa ?? row.debitPaisa)}</p>
                                 <p className={`text-[10px] font-bold mt-0.5 ${isFullyPaid ? "text-emerald-600" : isPartial ? "text-orange-600" : "text-red-600"}`}>
                                   {isFullyPaid ? "✅ Paid" : isPartial ? `Paid: ${formatCurrency(row.paidPaisa)}` : "⏳ Unpaid"}
                                 </p>
@@ -643,8 +749,51 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
 
                           {/* Order Items — Expanded */}
                           {isExpanded && (
-                            <div className="border-t border-slate-100">
-                              <div className="overflow-x-auto">
+                            <div className="border-t border-slate-100 bg-slate-50/20 p-3 space-y-3">
+                              {/* Action Buttons Toolbar */}
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Medicine Lot Breakdown</span>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditBill(row);
+                                      setEditPaymentMode(row.paymentMode);
+                                      setEditNotes(row.notes || "");
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 shadow-sm active:scale-95 transition-all"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5 text-blue-500" /> Edit Bill
+                                  </button>
+                                  {!isFullyPaid && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const dueAmt = row.duePaisa ?? Math.max(0, (row.totalPaisa ?? row.debitPaisa) - row.paidPaisa);
+                                        setPaymentModal({
+                                          row,
+                                          amount: (dueAmt / 100).toFixed(2),
+                                          paymentMode: "cash",
+                                          referenceNo: "",
+                                          notes: "",
+                                        });
+                                      }}
+                                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 shadow-sm active:scale-95 transition-all"
+                                    >
+                                      <IndianRupee className="h-3.5 w-3.5 text-emerald-600" /> Record Payment
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => window.print()}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95 transition-all"
+                                  >
+                                    <Printer className="h-3.5 w-3.5 text-emerald-600" /> Print
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div className="overflow-x-auto rounded-lg border border-slate-100 bg-white">
                                 <table className="w-full text-left text-[10px] border-collapse min-w-[600px]">
                                   <thead>
                                     <tr className="bg-slate-50 border-b border-slate-100 font-bold text-slate-400 uppercase tracking-wider text-[9px]">
@@ -821,22 +970,35 @@ export function PartiesClientDashboard({ initialParties, routes, tenant }: Parti
                                       ⏳ Unpaid
                                     </span>
                                   )}
-                                  {/* Record Payment Button */}
-                                  {!isFullyPaid && (
+                                  {/* Action Buttons */}
+                                  <div className="flex flex-col gap-1 items-end">
                                     <button
                                       type="button"
-                                      onClick={() => setPaymentModal({
-                                        row,
-                                        amount: (dueAmt / 100).toFixed(2),
-                                        paymentMode: "cash",
-                                        referenceNo: "",
-                                        notes: "",
-                                      })}
-                                      className="inline-flex items-center gap-1 text-[10px] font-black text-white bg-emerald-600 hover:bg-emerald-700 px-2 py-1 rounded-lg transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                      onClick={() => {
+                                        setEditBill(row);
+                                        setEditPaymentMode(row.paymentMode);
+                                        setEditNotes(row.notes || "");
+                                      }}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-150 hover:bg-blue-100 px-2 py-0.5 rounded-lg transition-all active:scale-95 shadow-sm whitespace-nowrap"
                                     >
-                                      <IndianRupee className="h-3 w-3" /> Record Payment
+                                      <Pencil className="h-3.5 w-3.5 text-blue-500" /> Edit Bill
                                     </button>
-                                  )}
+                                    {!isFullyPaid && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPaymentModal({
+                                          row,
+                                          amount: (dueAmt / 100).toFixed(2),
+                                          paymentMode: "cash",
+                                          referenceNo: "",
+                                          notes: "",
+                                        })}
+                                        className="inline-flex items-center gap-1 text-[10px] font-black text-white bg-emerald-600 hover:bg-emerald-700 px-2 py-1 rounded-lg transition-all active:scale-95 shadow-sm whitespace-nowrap"
+                                      >
+                                        <IndianRupee className="h-3 w-3" /> Record Payment
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>

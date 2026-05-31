@@ -23,9 +23,7 @@
   box-sizing: border-box;
 }
 
-html {
-  scroll-behavior: auto;
-}
+
 
 body {
   margin: 0;
@@ -301,16 +299,35 @@ button[type="submit"]:active,
     transform: none !important;
     transition: none !important;
   }
-}
 
-/* ─── Mobile UX Enhancements ─── */
+/* ─── Mobile UX & Navigation Enhancements ─── */
 html {
-  scroll-behavior: smooth;
+  /* Set scroll behavior to auto to prevent lag/scrolling top jumps on Next.js page transitions */
+  scroll-behavior: auto !important;
+  /* Prevent layout shift flicker when scrollbar appears/disappears in Chrome */
+  scrollbar-gutter: stable;
   -webkit-tap-highlight-color: transparent;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Better safe-area padding for notched devices */
+main {
+  /* Maintain layout stability on content containers */
+  scrollbar-gutter: stable;
+}
+
+/* ─── Virtual Keyboard Open (max-height <= 550px) Optimization ─── */
+@media (max-height: 550px) {
+  /* Hide the bottom navigation/taskbar when the virtual keyboard is open to prevent overlap */
+  nav.fixed.bottom-0.left-0.right-0.lg\:hidden {
+    display: none !important;
+  }
+  
+  /* Collapse main padding bottom to maximize typing and viewing space */
+  main {
+    padding-bottom: 1rem !important;
+  }
+}
+
 body {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);

@@ -390,7 +390,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
 
   // Debounced medicine search with loading indicator — 100ms for speed
   useEffect(() => {
-    if (deferredQuery.length < 1) {
+    const trimmed = deferredQuery.trim();
+    if (trimmed.length < 1) {
       setRows([]);
       setSuggestions([]);
       setSearching(false);
@@ -398,8 +399,8 @@ export function BillingPos({ tenant }: { tenant: any }) {
     }
 
     // Allow single character only for numeric (barcode prefix), require 2+ for text
-    const isNumeric = /^\d+$/.test(deferredQuery);
-    if (!isNumeric && deferredQuery.length < 2) {
+    const isNumeric = /^\d+$/.test(trimmed);
+    if (!isNumeric && trimmed.length < 2) {
       setRows([]);
       setSuggestions([]);
       setSearching(false);
@@ -409,7 +410,7 @@ export function BillingPos({ tenant }: { tenant: any }) {
     setSearching(true);
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetch(`/api/medicines/search?q=${encodeURIComponent(deferredQuery)}`, { signal: controller.signal })
+      fetch(`/api/medicines/search?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
         .then((response) => response.json())
         .then((result) => {
           setRows(result.data ?? []);

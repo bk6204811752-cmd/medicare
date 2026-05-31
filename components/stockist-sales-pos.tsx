@@ -257,7 +257,7 @@ export function StockistSalesPos({ parties, inventory, salesmen }: {
       setDrugMasterHits([]);
       return;
     }
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     const filtered = inventory.filter((item) => 
       item.medicine.name.toLowerCase().includes(q) || 
       item.batchNo.toLowerCase().includes(q) ||

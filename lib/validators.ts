@@ -200,3 +200,23 @@ export const createSaleReturnSchema = z.object({
   ).min(1, "At least one item must be returned"),
 });
 
+export const scannedInvoiceItemSchema = z.object({
+  medicineName: z.string().trim().min(1, "Medicine name is required"),
+  quantity: z.number().int().positive("Quantity must be positive"),
+  purchaseRatePaisa: z.number().int().nonnegative("Purchase rate must be non-negative"),
+  mrpPaisa: z.number().int().nonnegative("MRP must be non-negative").optional(),
+  saleRatePaisa: z.number().int().nonnegative("Sale rate must be non-negative").optional(),
+  gstRate: z.union([z.literal(0), z.literal(5), z.literal(12), z.literal(18), z.literal(28)]).optional(),
+  hsnCode: z.string().trim().optional(),
+  barcode: z.string().trim().optional(),
+  batchNo: z.string().trim().optional(),
+  mfgDate: z.string().optional(),
+  expiryDate: z.string().optional(),
+});
+
+export const scannedInvoiceSchema = z.object({
+  supplierName: z.string().trim().min(1, "Supplier name is required"),
+  invoiceNo: z.string().trim().optional(),
+  items: z.array(scannedInvoiceItemSchema).min(1, "At least one item is required"),
+});
+

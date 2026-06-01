@@ -348,6 +348,11 @@ export async function confirmDelivery(
       },
     });
 
+    await tx.supplier.update({
+      where: { id: supplier.id },
+      data: { balancePaisa: { increment: totalPaisa } },
+    });
+
     for (const item of order.items) {
       await tx.purchaseOrderItem.create({
         data: {

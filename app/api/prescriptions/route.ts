@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireChemist } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+  const chemistErr = requireChemist(auth.ctx);
+  if (chemistErr) return chemistErr;
 
   try {
     const prescriptions = await prisma.prescriptionImage.findMany({

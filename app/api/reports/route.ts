@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireChemist } from "@/lib/api-auth";
 import { getSalesSummary, getSalesTrend, getProfitReport, getExpiryReport, getSlowMovingReport } from "@/lib/local-db";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+  const chemistErr = requireChemist(auth.ctx);
+  if (chemistErr) return chemistErr;
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") ?? "summary";

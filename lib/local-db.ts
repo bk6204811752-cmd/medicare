@@ -1787,14 +1787,26 @@ export async function receivePurchaseOrder(tenantId: string, poId: string, recei
     const po = await tx.purchaseOrder.findFirst({ where: { id: poId, tenantId }, include: { items: true } });
     if (!po) throw new Error("Purchase order not found");
 
+    let totalIncrementPaisa = 0;
     for (const ri of receivedItems) {
-      const itemExists = po.items.some((item) => item.id === ri.itemId);
-      if (!itemExists) {
+      const item = po.items.find((item) => item.id === ri.itemId);
+      if (!item) {
         throw new Error(`Item ${ri.itemId} does not belong to this purchase order`);
       }
+      const oldQty = item.receivedQuantity;
+      const additionalQty = Math.max(0, ri.receivedQuantity - oldQty);
+      totalIncrementPaisa += additionalQty * item.ratePaisa;
+
       await tx.purchaseOrderItem.update({
         where: { id: ri.itemId },
         data: { receivedQuantity: ri.receivedQuantity }
+      });
+    }
+
+    if (totalIncrementPaisa > 0) {
+      await tx.supplier.update({
+        where: { id: po.supplierId },
+        data: { balancePaisa: { increment: totalIncrementPaisa } }
       });
     }
 

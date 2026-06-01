@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireChemist } from "@/lib/api-auth";
 import { getSaleReturns, createSaleReturn } from "@/lib/local-db";
 
 export async function GET() {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+  const chemistErr = requireChemist(auth.ctx);
+  if (chemistErr) return chemistErr;
   try {
     return NextResponse.json({ data: await getSaleReturns(auth.ctx.tenantId) });
   } catch (error) {
@@ -16,6 +18,8 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+  const chemistErr = requireChemist(auth.ctx);
+  if (chemistErr) return chemistErr;
   try {
     const result = await createSaleReturn(auth.ctx.tenantId, await request.json());
     return NextResponse.json({ data: result }, { status: 201 });

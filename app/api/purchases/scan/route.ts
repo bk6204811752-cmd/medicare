@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { scannedInvoiceSchema } from "@/lib/validators";
 
 function uid(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -11,15 +12,8 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   try {
-    const body = await request.json();
-    const { supplierName, invoiceNo, items } = body;
-
-    if (!supplierName || !items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: "Invalid scanned invoice details" },
-        { status: 400 }
-      );
-    }
+    const parsed = scannedInvoiceSchema.parse(await request.json());
+    const { supplierName, invoiceNo, items } = parsed;
 
     const tenantId = auth.ctx.tenantId;
 
@@ -61,6 +55,11 @@ export async function POST(request: Request) {
           orderDate: new Date(),
           receivedDate: new Date(),
         },
+      });
+
+      await tx.supplier.update({
+        where: { id: supplier.id },
+        data: { balancePaisa: { increment: totalPaisa } },
       });
 
       // 3. Process items and add to stock

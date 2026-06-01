@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireChemist } from "@/lib/api-auth";
 import { getSaleByIdOrInvoice } from "@/lib/local-db";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+  const chemistErr = requireChemist(auth.ctx);
+  if (chemistErr) return chemistErr;
   try {
     const { id } = await params;
     const sale = await getSaleByIdOrInvoice(auth.ctx.tenantId, decodeURIComponent(id));

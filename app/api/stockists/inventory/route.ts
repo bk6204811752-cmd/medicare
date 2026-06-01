@@ -18,7 +18,7 @@ export async function GET() {
       batchNo: item.batchNo,
       mfgDate: item.mfgDate ? item.mfgDate.toISOString() : null,
       expiryDate: item.expiryDate.toISOString(),
-      purchaseRatePaisa: item.purchaseRatePaisa,
+      purchaseRatePaisa: 0,
       mrpPaisa: item.mrpPaisa,
       saleRatePaisa: item.saleRatePaisa,
       gstRate: item.gstRate,

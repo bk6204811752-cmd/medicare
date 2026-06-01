@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireStockist } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
@@ -8,6 +8,10 @@ export async function PATCH(
 ) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
+
   const tenantId = auth.ctx.tenantId;
   const saleId = params.id;
 
@@ -85,6 +89,10 @@ export async function GET(
 ) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
+
   const tenantId = auth.ctx.tenantId;
   const saleId = params.id;
 

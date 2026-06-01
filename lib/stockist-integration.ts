@@ -228,6 +228,15 @@ export async function rejectOrder(
     throw new Error("Order cannot be rejected in its current state");
 
   return await prisma.$transaction(async (tx) => {
+    const freshOrder = await tx.stockistOrder.findFirst({
+      where: { id: orderId, stockistTenantId },
+      select: { status: true }
+    });
+    if (!freshOrder) throw new Error("Order not found");
+    if (!["pending", "otp_sent"].includes(freshOrder.status)) {
+      throw new Error("Order cannot be rejected in its current state");
+    }
+
     const updated = await tx.stockistOrder.update({
       where: { id: orderId },
       data: { status: "cancelled" },

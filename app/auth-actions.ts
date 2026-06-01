@@ -114,6 +114,13 @@ export async function registerShopAction(formData: FormData) {
     redirect(`/register?step=verify&email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}&error=${encodeURIComponent(otpParsed.error.issues[0]?.message || "Invalid OTP")}`);
   }
 
+  // Rate limit OTP verification: max 5 per email per 15 minutes
+  const rl = checkOtpVerifyRateLimit(email);
+  if (!rl.allowed) {
+    const retryMin = Math.ceil(rl.retryAfterMs / 60000);
+    redirect(`/register?step=verify&email=${encodeURIComponent(email)}&role=${encodeURIComponent(role)}&error=${encodeURIComponent(`Too many attempts. Please try again in ${retryMin} minute(s).`)}`);
+  }
+
   // Verify the OTP
   const otpValid = await withRetry(() => verifyEmailOtp(email, otp));
   if (!otpValid) {

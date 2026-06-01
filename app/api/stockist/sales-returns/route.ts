@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
+import { authenticateApiRequest, requireStockist } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
 import crypto from "crypto";
 
 export async function GET() {
+  const auth = await authenticateApiRequest();
+  if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
+
   try {
-    const user = await requireUser();
-    const tid = user.tenantId;
-    if (!tid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const tid = auth.ctx.tenantId;
 
     const receipts = await prisma.receipt.findMany({
       where: { tenantId: tid, paymentMode: "return" },
@@ -46,11 +50,14 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  try {
-    const user = await requireUser();
-    const tid = user.tenantId;
-    if (!tid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await authenticateApiRequest();
+  if (!auth.ok) return auth.response;
 
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
+
+  try {
+    const tid = auth.ctx.tenantId;
     const body = await request.json();
     const { partyId, reason, items } = body;
 
@@ -67,7 +74,25 @@ export async function POST(request: Request) {
     const receiptId = `rect-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the Receipt mapping to Sales Return Credit Note
+      // 1. Verify target customer party belongs to this tenant
+      const party = await tx.party.findFirst({
+        where: { id: partyId, tenantId: tid }
+      });
+      if (!party) {
+        throw new Error("Party not found or does not belong to this stockist");
+      }
+
+      // 2. Verify target returned inventory items belong to this tenant
+      for (const item of items) {
+        const invItem = await tx.inventoryItem.findFirst({
+          where: { id: item.inventoryId, tenantId: tid }
+        });
+        if (!invItem) {
+          throw new Error(`Inventory item ${item.inventoryId} not found or does not belong to this stockist`);
+        }
+      }
+
+      // 3. Create the Receipt mapping to Sales Return Credit Note
       const receipt = await tx.receipt.create({
         data: {
           id: receiptId,
@@ -83,13 +108,13 @@ export async function POST(request: Request) {
         include: { party: true }
       });
 
-      // 2. Adjust Chemist Party ledger outstanding balance downwards
+      // 4. Adjust Chemist Party ledger outstanding balance downwards
       await tx.party.update({
         where: { id: partyId },
         data: { outstandingPaisa: { decrement: totalReturnValue } }
       });
 
-      // 3. Adjust Warehouse Stock count upwards (returned items back to inventory)
+      // 5. Adjust Warehouse Stock count upwards (returned items back to inventory)
       for (const item of items) {
         await tx.inventoryItem.update({
           where: { id: item.inventoryId },

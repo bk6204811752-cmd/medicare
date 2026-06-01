@@ -69,6 +69,10 @@ export async function createSalesman(tenantId: string, input: {
 
     if (input.routeIds && input.routeIds.length > 0) {
       for (const routeId of input.routeIds) {
+        const route = await tx.route.findFirst({ where: { id: routeId, tenantId } });
+        if (!route) {
+          throw new Error(`Route ${routeId} not found or does not belong to this stockist`);
+        }
         await tx.salesmanRoute.create({
           data: {
             salesmanId,
@@ -110,6 +114,12 @@ export async function getPartyById(tenantId: string, partyId: string) {
 export async function createParty(tenantId: string, input: {
   name: string; phone?: string; email?: string; address?: string; gstin?: string; drugLicenseNo?: string; creditLimitPaisa?: number; routeId?: string;
 }) {
+  if (input.routeId) {
+    const route = await prisma.route.findFirst({ where: { id: input.routeId, tenantId } });
+    if (!route) {
+      throw new Error("Route not found or does not belong to this stockist");
+    }
+  }
   return await withRetry(() =>
     prisma.party.create({
       data: {
@@ -140,6 +150,12 @@ export async function updateParty(tenantId: string, partyId: string, input: {
   routeId?: string;
   outstandingPaisa?: number;
 }) {
+  if (input.routeId) {
+    const route = await prisma.route.findFirst({ where: { id: input.routeId, tenantId } });
+    if (!route) {
+      throw new Error("Route not found or does not belong to this stockist");
+    }
+  }
   return await withRetry(() =>
     prisma.party.update({
       where: { id: partyId, tenantId },
@@ -210,6 +226,14 @@ export async function createB2BSalesOrder(tenantId: string, input: {
   const total = subtotal + gst;
 
   return await prisma.$transaction(async (tx) => {
+    const party = await tx.party.findFirst({ where: { tenantId, id: input.partyId } });
+    if (!party) throw new Error("Invalid party or party does not belong to this stockist");
+
+    if (input.salesmanId) {
+      const salesman = await tx.salesman.findFirst({ where: { tenantId, id: input.salesmanId } });
+      if (!salesman) throw new Error("Salesman not found or does not belong to this stockist");
+    }
+
     const order = await tx.b2BSalesOrder.create({
       data: {
         id: orderId,

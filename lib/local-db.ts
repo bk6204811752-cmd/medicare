@@ -1966,6 +1966,9 @@ export async function createPurchaseReturn(tenantId: string, input: {
         where: { id: item.inventoryId, tenantId, isActive: true }
       });
       if (!inventory) throw new Error(`Inventory item not found: ${item.medicineName}`);
+      if (inventory.batchNo !== item.batchNo) {
+        throw new Error(`Batch number mismatch for ${item.medicineName}. Expected: ${inventory.batchNo}, got: ${item.batchNo}`);
+      }
       if (inventory.quantity < item.quantity) {
         throw new Error(`Insufficient stock for ${item.medicineName}. Available: ${inventory.quantity}, requested return: ${item.quantity}.`);
       }

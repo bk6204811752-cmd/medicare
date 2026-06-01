@@ -66,11 +66,19 @@ export async function createStockistOrder(
   });
   if (!chemistTenant) throw new Error("Chemist tenant not found");
 
-  const stockistTenant = await prisma.tenant.findUnique({
-    where: { id: input.stockistTenantId },
+  const stockistTenant = await prisma.tenant.findFirst({
+    where: {
+      id: input.stockistTenantId,
+      users: {
+        some: {
+          role: { in: ["stockist_admin", "stockist_staff"] }
+        }
+      },
+      isActive: true,
+    },
     select: { id: true, name: true },
   });
-  if (!stockistTenant) throw new Error("Stockist not found");
+  if (!stockistTenant) throw new Error("Stockist not found or is inactive");
 
   const orderId = uid("sord");
   const orderNo = generateOrderNo();

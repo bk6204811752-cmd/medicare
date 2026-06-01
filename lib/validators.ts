@@ -14,6 +14,16 @@ export const createSaleSchema = z.object({
   prescriptionNo: z.string().trim().optional(),
   paymentMode: z.enum(["cash", "upi", "card", "credit"]),
   lines: z.array(saleLineSchema).min(1)
+}).refine((data) => {
+  if (data.paymentMode === "credit") {
+    const name = data.customerName?.trim();
+    const phone = data.customerPhone?.trim();
+    return !!name && !!phone && name.toLowerCase() !== "walk-in customer";
+  }
+  return true;
+}, {
+  message: "Customer name and phone number are required for credit sales, and cannot be 'Walk-in Customer'",
+  path: ["customerPhone"]
 });
 
 export const createInventorySchema = z.object({
@@ -174,3 +184,19 @@ export const quickAddMedicineSchema = z.object({
   rackLocation: z.string().trim().optional().default(""),
   supplierId: z.string().optional(),
 });
+
+export const createSaleReturnSchema = z.object({
+  saleId: z.string().min(1),
+  reason: z.string().trim().min(3, "Reason must be at least 3 characters long"),
+  items: z.array(
+    z.object({
+      saleItemId: z.string().min(1),
+      inventoryId: z.string().min(1),
+      medicineName: z.string().trim().min(1),
+      batchNo: z.string().trim().min(1),
+      quantity: z.number().int().positive("Quantity must be positive"),
+      refundPaisa: z.number().int().nonnegative("Refund amount cannot be negative"),
+    })
+  ).min(1, "At least one item must be returned"),
+});
+

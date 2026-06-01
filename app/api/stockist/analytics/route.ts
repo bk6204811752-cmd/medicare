@@ -8,6 +8,10 @@ export async function GET(request: Request) {
     const tid = user.tenantId;
     if (!tid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    if (user.role !== "stockist_admin" && user.role !== "stockist_staff" && user.role !== "super_admin") {
+      return NextResponse.json({ error: "Stockist access required" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const from = searchParams.get("from");
     const to = searchParams.get("to");

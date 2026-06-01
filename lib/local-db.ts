@@ -3,7 +3,7 @@ import { Prisma, type Medicine, type Sale, type SaleItem, type Supplier, type Te
 import { calculateBillTotals } from "@/lib/gst";
 import { prisma, withRetry } from "@/lib/prisma";
 import type { SaleLine } from "@/lib/types";
-import { createCustomerSchema, createInventorySchema, createMedicineSchema, createSaleSchema, createSupplierSchema, quickAddMedicineSchema, stockAdjustmentSchema } from "@/lib/validators";
+import { createCustomerSchema, createInventorySchema, createMedicineSchema, createSaleSchema, createSupplierSchema, quickAddMedicineSchema, stockAdjustmentSchema, createSaleReturnSchema } from "@/lib/validators";
 
 export const DEMO_TENANT_ID = "tenant-sharma";
 
@@ -1813,29 +1813,57 @@ export async function getSaleReturns(tenantId: string) {
   }));
 }
 
-export async function createSaleReturn(tenantId: string, input: {
-  saleId: string; reason: string;
-  items: { saleItemId: string; inventoryId: string; medicineName: string; batchNo: string; quantity: number; refundPaisa: number }[];
-}) {
+export async function createSaleReturn(tenantId: string, input: unknown) {
+  const data = createSaleReturnSchema.parse(input);
   await ensureDefaultData();
   const returnId = uid("sret");
   const returnCount = await prisma.saleReturn.count({ where: { tenantId } });
   const randomSuffix = crypto.randomBytes(2).toString("hex").toUpperCase();
   const returnNo = `SR-${new Date().getFullYear()}-${String(returnCount + 1).padStart(5, "0")}-${randomSuffix}`;
-  const totalRefund = input.items.reduce((sum, i) => sum + i.refundPaisa, 0);
+  const totalRefund = data.items.reduce((sum, i) => sum + i.refundPaisa, 0);
 
   await prisma.$transaction(async (tx) => {
-    const sale = await tx.sale.findFirst({ where: { id: input.saleId, tenantId } });
+    const sale = await tx.sale.findFirst({
+      where: { id: data.saleId, tenantId },
+      include: { items: true }
+    });
     if (!sale) throw new Error("Sale not found");
 
     await tx.saleReturn.create({
       data: {
-        id: returnId, tenantId, returnNo, saleId: input.saleId,
-        customerId: sale.customerId, reason: input.reason, refundPaisa: totalRefund
+        id: returnId, tenantId, returnNo, saleId: data.saleId,
+        customerId: sale.customerId, reason: data.reason, refundPaisa: totalRefund
       }
     });
 
-    for (const item of input.items) {
+    for (const item of data.items) {
+      const originalItem = sale.items.find((i) => i.id === item.saleItemId);
+      if (!originalItem) {
+        throw new Error(`Item ${item.medicineName} does not belong to the original sale`);
+      }
+
+      if (originalItem.batchNo !== item.batchNo) {
+        throw new Error(`Batch number mismatch for ${item.medicineName}. Expected: ${originalItem.batchNo}, Got: ${item.batchNo}`);
+      }
+
+      const previouslyReturned = await tx.saleReturnItem.aggregate({
+        where: { saleItemId: item.saleItemId },
+        _sum: { quantity: true }
+      });
+      const previouslyReturnedQty = previouslyReturned._sum.quantity ?? 0;
+
+      const remainingQty = originalItem.quantity - previouslyReturnedQty;
+      if (item.quantity > remainingQty) {
+        throw new Error(`Cannot return ${item.quantity} of ${item.medicineName}. Remaining returnable: ${remainingQty}, already returned: ${previouslyReturnedQty}, originally purchased: ${originalItem.quantity}`);
+      }
+
+      const inventory = await tx.inventoryItem.findFirst({
+        where: { id: item.inventoryId, tenantId, isActive: true }
+      });
+      if (!inventory) {
+        throw new Error(`Inventory item for ${item.medicineName} not found or inactive`);
+      }
+
       await tx.saleReturnItem.create({
         data: {
           id: uid("sri"), saleReturnId: returnId, saleItemId: item.saleItemId,
@@ -1857,7 +1885,6 @@ export async function createSaleReturn(tenantId: string, input: {
       });
     }
 
-    // Only decrement customer outstanding if the original sale was on credit
     if (sale.customerId && (sale.status === "credit" || sale.paymentMode === "credit")) {
       await tx.customer.update({ where: { id: sale.customerId }, data: { outstandingPaisa: { decrement: totalRefund } } });
     }

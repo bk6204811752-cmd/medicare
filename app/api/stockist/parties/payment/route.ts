@@ -19,6 +19,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (user.role !== "stockist_admin" && user.role !== "stockist_staff" && user.role !== "super_admin") {
+      return NextResponse.json({ error: "Stockist access required" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { partyId, saleId, amountPaisa, paymentMode, referenceNo, notes } = body;
 

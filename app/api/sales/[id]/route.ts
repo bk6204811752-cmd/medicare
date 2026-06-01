@@ -9,9 +9,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const { id } = await params;
     const sale = await getSaleByIdOrInvoice(auth.ctx.tenantId, decodeURIComponent(id));
 
-    if (!sale) {
+    if (!sale || !sale.sale) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
+
 
     return NextResponse.json({ data: sale });
   } catch (error) {

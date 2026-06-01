@@ -173,6 +173,13 @@ export async function acceptOrder(orderId: string, stockistTenantId: string) {
   const otpExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
 
   return await prisma.$transaction(async (tx) => {
+    const freshOrder = await tx.stockistOrder.findFirst({
+      where: { id: orderId, stockistTenantId },
+      select: { status: true }
+    });
+    if (!freshOrder) throw new Error("Order not found");
+    if (freshOrder.status !== "pending") throw new Error("Order is no longer in pending state");
+
     const updated = await tx.stockistOrder.update({
       where: { id: orderId },
       data: {
@@ -181,6 +188,7 @@ export async function acceptOrder(orderId: string, stockistTenantId: string) {
         otpExpiresAt,
       },
     });
+
 
     // Notify chemist with OTP
     await tx.inAppNotification.create({
@@ -264,6 +272,15 @@ export async function confirmDelivery(
     throw new Error("OTP has expired");
 
   return await prisma.$transaction(async (tx) => {
+    const freshOrder = await tx.stockistOrder.findFirst({
+      where: { id: orderId, stockistTenantId },
+      select: { status: true }
+    });
+    if (!freshOrder) throw new Error("Order not found");
+    if (freshOrder.status !== "otp_sent") {
+      throw new Error("Order is no longer awaiting delivery confirmation");
+    }
+
     // Mark order delivered
     const updated = await tx.stockistOrder.update({
       where: { id: orderId },

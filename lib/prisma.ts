@@ -57,6 +57,13 @@ export async function withRetry(
 }
 
 function createPrismaClient() {
+  const dbUrl = process.env.DATABASE_URL || "";
+  if (dbUrl.startsWith("file:") || dbUrl.startsWith("sqlite:")) {
+    throw new Error(
+      `SQLite connection URL ("${dbUrl}") is not supported because this project's Prisma schema is configured for PostgreSQL. ` +
+      `Please comment out the DATABASE_URL in your .env.local file or configure it to point to a PostgreSQL database.`
+    );
+  }
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
   });

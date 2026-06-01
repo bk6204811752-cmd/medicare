@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireStockist } from "@/lib/api-auth";
 import { getParties } from "@/lib/stockist-db";
 
 export async function GET() {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
+
   try {
     const parties = await getParties(auth.ctx.tenantId);
     return NextResponse.json({ data: parties });

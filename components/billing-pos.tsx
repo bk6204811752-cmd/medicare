@@ -738,6 +738,15 @@ export function BillingPos({ tenant }: { tenant: any }) {
       }
       toast.info("Removed items with zero quantity from the bill.");
     }
+
+    if (paymentMode === "credit") {
+      const name = customerName.trim();
+      const phone = customerPhone.trim();
+      if (!name || !phone || name.toLowerCase() === "walk-in customer") {
+        toast.error("Customer name and phone number are required for Credit billing, and cannot be 'Walk-in Customer'.");
+        return;
+      }
+    }
     
     if (controlled.length && (!doctorName || !prescriptionNo)) {
       toast.error("Prescription and doctor details are required for Schedule H/H1/X items.");
@@ -1014,7 +1023,18 @@ export function BillingPos({ tenant }: { tenant: any }) {
               placeholder="Search medicine name, salt, or barcode..."
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(e) => { if (e.key === "Escape") { setQuery(""); e.currentTarget.blur(); } }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setQuery("");
+                  e.currentTarget.blur();
+                } else if (e.key === "Enter") {
+                  const code = query.trim();
+                  if (/^\d{6,14}$/.test(code)) {
+                    e.preventDefault();
+                    handleBarcodeResult(code);
+                  }
+                }
+              }}
             />
             <kbd className="absolute right-3 top-3.5 hidden rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400 md:inline-block">F2</kbd>
           </label>

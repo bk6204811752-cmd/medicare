@@ -438,6 +438,13 @@ export async function createReceipt(tenantId: string, input: {
   const receiptNo = `REC-${dateStr}-${rand}`;
 
   return await prisma.$transaction(async (tx) => {
+    const party = await tx.party.findFirst({
+      where: { id: input.partyId, tenantId }
+    });
+    if (!party) {
+      throw new Error("Party not found or does not belong to this stockist.");
+    }
+
     const receipt = await tx.receipt.create({
       data: {
         id: receiptId,
@@ -778,26 +785,39 @@ export async function getGSTR1B2B(tenantId: string, fromDateStr: string, toDateS
   const fromDate = new Date(`${fromDateStr}T00:00:00.000Z`);
   const toDate = new Date(`${toDateStr}T23:59:59.999Z`);
 
-  const sales = await prisma.b2BSale.findMany({
-    where: {
-      tenantId,
-      invoiceType: "invoice",
-      invoiceDate: { gte: fromDate, lte: toDate },
-    },
-    include: {
-      party: true,
-      items: true,
-    },
-    orderBy: { invoiceDate: "asc" },
-  });
+  const [tenant, sales] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { gstin: true }
+    }),
+    prisma.b2BSale.findMany({
+      where: {
+        tenantId,
+        invoiceType: "invoice",
+        invoiceDate: { gte: fromDate, lte: toDate },
+      },
+      include: {
+        party: true,
+        items: true,
+      },
+      orderBy: { invoiceDate: "asc" },
+    })
+  ]);
+
+  const tenantStateCode = tenant?.gstin?.trim().substring(0, 2);
 
   return sales.map((sale) => {
     let cgst = 0;
     let sgst = 0;
     let igst = 0;
 
+    const partyStateCode = sale.party.gstin?.trim().substring(0, 2);
+    const isInterstate = !!(tenantStateCode && partyStateCode && 
+                           /^\d{2}$/.test(tenantStateCode) && 
+                           /^\d{2}$/.test(partyStateCode) && 
+                           tenantStateCode !== partyStateCode);
+
     for (const item of sale.items) {
-      const isInterstate = false;
       if (isInterstate) {
         igst += item.gstPaisa;
       } else {

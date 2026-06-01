@@ -10,6 +10,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (user.role !== "stockist_admin" && user.role !== "stockist_staff" && user.role !== "super_admin") {
+      return NextResponse.json({ error: "Stockist access required" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const partyId = searchParams.get("partyId");
 

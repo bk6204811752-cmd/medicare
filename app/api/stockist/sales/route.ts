@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
-import { authenticateApiRequest } from "@/lib/api-auth";
+import { authenticateApiRequest, requireStockist } from "@/lib/api-auth";
 import { createB2BSale } from "@/lib/stockist-db";
 
 export async function POST(request: Request) {
   const auth = await authenticateApiRequest();
   if (!auth.ok) return auth.response;
+
+  const stockistErr = requireStockist(auth.ctx);
+  if (stockistErr) return stockistErr;
+
   try {
     const payload = await request.json();
     const sale = await createB2BSale(auth.ctx.tenantId, payload);

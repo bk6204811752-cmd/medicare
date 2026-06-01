@@ -939,6 +939,11 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       
       setCameraStream(stream);
       setCameraActive(true);
+      // Fix: Directly bind srcObject right after stream acquisition to prevent black screen
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
     } catch (err) {
       console.error("Camera access failed completely", err);
       toast.error("Could not access camera. Please allow permissions or upload an image file.");
@@ -1037,7 +1042,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
         else if (/gst|tax|cgst|sgst|igst|tax\s*rate/i.test(h)) colMap.gst = i;
         else if (/hsn/i.test(h)) colMap.hsn = i;
         // Supplier/manufacturer column
-        else if (/supplier|manufacturer|company|vendor|mfr|manuf(?:acturer)?/i.test(h)) colMap.supplier = i;
+        else if (/supplier|manufacturer|company|vendor|mfr|manuf(?:acturer)?|mfg\.?\s*by|manufactured\s*by|brand\s*owner/i.test(h)) colMap.supplier = i;
         else if (/^rate$/i.test(h)) {
           // Standalone 'rate' column - assign to purchase rate if not yet set
           if (colMap.rate === -1) colMap.rate = i;
@@ -1171,17 +1176,103 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
     try {
       if (ext === "pdf") {
-        // For PDF — use FileReader to read as ArrayBuffer then extract text via pdfjs-dist if available, or fallback to OCR
-        setBulkFileStep("📄 Converting PDF to image for OCR...");
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const dataUrl = reader.result as string;
-          setImagePreview(dataUrl);
-          setShowScanner(true);
+        // For PDF — first try to extract embedded text via pdfjs-dist, then fallback to OCR
+        setBulkFileStep("📄 Extracting text from PDF...");
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdfjsLib = await import("pdfjs-dist");
+          // Set worker source for pdfjs
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+          
+          const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          let fullText = "";
+          
+          // Extract text from all pages
+          for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+            setBulkFileStep(`📄 Reading PDF page ${pageNum}/${pdfDoc.numPages}...`);
+            const page = await pdfDoc.getPage(pageNum);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => ('str' in item ? item.str : ''))
+              .join(" ");
+            fullText += pageText + "\n";
+          }
+          
+          const cleanedText = fullText.trim();
+          
+          // If PDF has meaningful embedded text (not just whitespace/headers), parse it directly
+          if (cleanedText.length > 30) {
+            setBulkFileStep("📊 Parsing extracted PDF text...");
+            
+            // Try CSV-style parsing first (some PDFs export as structured text)
+            const lineCount = cleanedText.split("\n").filter(Boolean).length;
+            const commaCount = (cleanedText.match(/,/g) || []).length;
+            const isStructuredCsv = commaCount > lineCount;
+            
+            let parsed: ScannedItem[];
+            if (isStructuredCsv) {
+              parsed = parseCsvTextToItems(cleanedText);
+              if (parsed.length === 0) {
+                parsed = parseInvoiceText(cleanedText, localMedicines);
+              }
+            } else {
+              parsed = parseInvoiceText(cleanedText, localMedicines);
+            }
+            
+            if (parsed.length > 0) {
+              setScannedItems(parsed);
+              setSelectedRowIds(parsed.map(x => x.id));
+              const initialStatuses: Record<string, "idle" | "saving" | "success" | "error"> = {};
+              parsed.forEach(x => { initialStatuses[x.id] = "idle"; });
+              setRowStatuses(initialStatuses);
+              setImagePreview(null);
+              setShowConfirmModal(true);
+              setBulkFileProcessing(false);
+              setBulkFileStep("");
+              toast.success(`✅ Extracted ${parsed.length} stock items from PDF text!`);
+              return;
+            }
+          }
+          
+          // PDF has no useful embedded text — render first page to canvas and run OCR
+          setBulkFileStep("🖼️ PDF has no embedded text — rendering page for OCR...");
+          const page = await pdfDoc.getPage(1);
+          const viewport = page.getViewport({ scale: 2.0 }); // High-res render
+          const ocrCanvas = document.createElement("canvas");
+          ocrCanvas.width = viewport.width;
+          ocrCanvas.height = viewport.height;
+          const ctx = ocrCanvas.getContext("2d");
+          if (ctx) {
+            await page.render({ canvas: ocrCanvas, canvasContext: ctx, viewport }).promise;
+            const dataUrl = ocrCanvas.toDataURL("image/jpeg", 0.92);
+            setImagePreview(dataUrl);
+            setShowScanner(true);
+            setBulkFileProcessing(false);
+            setBulkFileStep("");
+            await runOCR(dataUrl);
+          } else {
+            toast.error("Could not create canvas for PDF rendering.");
+            setBulkFileProcessing(false);
+          }
+        } catch (pdfErr) {
+          console.error("PDF processing error:", pdfErr);
+          // Final fallback: offer manual text paste
+          toast.error(
+            <div className="flex flex-col gap-1.5 text-xs">
+              <p className="font-bold text-red-600">PDF processing failed</p>
+              <p className="text-slate-600">The PDF could not be read. Try copying the invoice text and using the Paste Text option.</p>
+              <button 
+                onClick={() => { toast.dismiss(); setShowPasteModal(true); }}
+                className="mt-1 px-3 py-1 rounded bg-slate-800 text-white font-bold text-[10px]"
+              >
+                📋 Paste Invoice Text Instead
+              </button>
+            </div>,
+            { duration: 8000 }
+          );
           setBulkFileProcessing(false);
-          await runOCR(dataUrl);
-        };
-        reader.readAsDataURL(file);
+          setBulkFileStep("");
+        }
         return;
       }
 
@@ -1567,9 +1658,14 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       return false;
     }
 
+    // Sanitize supplierId — convert empty strings, "undefined", and invalid values to undefined
+    const cleanSupplierId = actualSupplierId && actualSupplierId !== "undefined" && actualSupplierId !== "null" && actualSupplierId.trim() !== ""
+      ? actualSupplierId.trim()
+      : undefined;
+
     const payload = {
       medicineId: actualMedicineId,
-      supplierId: String(actualSupplierId || ""),
+      supplierId: cleanSupplierId,
       batchNo: String(item.batchNo).trim(),
       mfgDate: parsedMfg,
       expiryDate: parsedExpiry,
@@ -1655,14 +1751,19 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
     setSaving(false);
     toast.success(`Bulk Entry: Successfully added ${successCount} of ${itemsToSave.length} medicines to inventory!`);
     
-    // Check if everything is successfully added
-    const allDone = scannedItems.every(x => rowStatuses[x.id] === "success" || !selectedRowIds.includes(x.id));
-    if (allDone) {
-      setTimeout(() => {
-        setShowConfirmModal(false);
-        router.push("/shop/inventory");
-        router.refresh();
-      }, 1500);
+    // Fix: Use counter-based approach instead of reading stale rowStatuses from closure
+    if (successCount === itemsToSave.length) {
+      // All items in this batch saved successfully — check if any remaining unprocessed items exist
+      const remainingUnsaved = scannedItems.filter(
+        x => selectedRowIds.includes(x.id) && rowStatuses[x.id] !== 'success' && !itemsToSave.some(s => s.id === x.id)
+      );
+      if (remainingUnsaved.length === 0) {
+        setTimeout(() => {
+          setShowConfirmModal(false);
+          router.push("/shop/inventory");
+          router.refresh();
+        }, 1500);
+      }
     }
   }
 
@@ -1785,9 +1886,14 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
       return;
     }
 
+    // Sanitize supplierId — convert empty strings, "undefined", and invalid values to undefined
+    const cleanedSupplierId = supplierId && supplierId !== "undefined" && supplierId !== "null" && supplierId.trim() !== ""
+      ? supplierId.trim()
+      : undefined;
+
     const payload = {
       medicineId: actualMedicineId,
-      supplierId: String(supplierId),
+      supplierId: cleanedSupplierId,
       batchNo: String(batchNo).trim(),
       mfgDate: parsedMfg,
       expiryDate: parsedExpiry,
@@ -1921,7 +2027,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             <span>Paste Text (Fail-safe)</span>
           </button>
 
-          {/* ── NEW: Bulk CSV/TXT/PDF/Excel Stock File Upload ── */}
+          {/* ── Bulk CSV/TXT/PDF Stock File Upload ── */}
           <label
             className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs cursor-pointer shadow-sm min-h-11 transition-all hover:scale-[1.02] active:scale-[0.98] hover:border-purple-500 ${bulkFileProcessing ? "opacity-70 cursor-wait" : ""}`}
             title="Upload CSV, TXT, or PDF file with stock data"
@@ -1934,7 +2040,7 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
             <input
               ref={bulkFileInputRef}
               type="file"
-              accept=".csv,.txt,.pdf,.xlsx,.xls"
+              accept=".csv,.txt,.pdf"
               className="hidden"
               disabled={bulkFileProcessing}
               onChange={handleBulkFileUpload}
@@ -2320,15 +2426,19 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
 
         <label className="space-y-2">
           <span className="text-sm font-medium text-slate-600 font-semibold">GST rate *</span>
-          <input 
+          <select 
             name="gstRate" 
-            type="number" 
             required 
             value={gstRate} 
             onChange={(e) => setGstRate(e.target.value)} 
-            className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm" 
-            placeholder="12"
-          />
+            className="h-11 w-full rounded-md border border-slate-300 px-3 outline-none focus:border-med-green focus:ring-2 focus:ring-med-green/20 text-sm bg-white" 
+          >
+            <option value="0">0%</option>
+            <option value="5">5%</option>
+            <option value="12">12%</option>
+            <option value="18">18%</option>
+            <option value="28">28%</option>
+          </select>
         </label>
 
         <label className="space-y-2">
@@ -2469,16 +2579,44 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
               )}
 
               {!cameraActive && !ocrLoading && (
-                <div className="flex flex-col items-center justify-center p-6 text-center space-y-3">
-                  <Info className="h-12 w-12 text-slate-500" />
-                  <p className="text-sm text-slate-350 font-medium">Processing File Uploaded Snapshot</p>
+                <div className="flex flex-col items-center justify-center p-6 text-center space-y-4">
+                  {imagePreview ? (
+                    <>
+                      <img src={imagePreview} alt="Uploaded snapshot" className="max-h-48 rounded-lg border border-slate-700 shadow-lg" />
+                      <p className="text-sm text-slate-350 font-medium">Image loaded — starting OCR...</p>
+                      <div className="relative flex items-center justify-center">
+                        <div className="h-10 w-10 rounded-full border-4 border-slate-800 border-t-emerald-500 animate-spin" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Info className="h-12 w-12 text-slate-500" />
+                      <p className="text-sm text-slate-350 font-medium">No camera feed or image</p>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-lg transition-all"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Upload Image Instead
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowScanner(false); setShowPasteModal(true); }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 font-semibold text-xs transition-all"
+                      >
+                        <Clipboard className="h-3.5 w-3.5" />
+                        Paste Text Instead
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Viewport footer actions */}
             {cameraActive && !ocrLoading && (
-              <div className="flex items-center justify-center gap-3 mt-4">
+              <div className="flex flex-col items-center gap-3 mt-4">
                 <button
                   type="button"
                   onClick={captureAndProcess}
@@ -2487,6 +2625,24 @@ export function AddStockForm({ medicines, suppliers }: { medicines: SelectItem[]
                   <Sparkles className="h-4.5 w-4.5 shrink-0" />
                   <span>Capture & Read Text</span>
                 </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 font-semibold text-xs transition-all"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    Upload Image
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { stopCamera(); setShowScanner(false); setShowPasteModal(true); }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 font-semibold text-xs transition-all"
+                  >
+                    <Clipboard className="h-3.5 w-3.5" />
+                    Paste Text
+                  </button>
+                </div>
               </div>
             )}
           </div>

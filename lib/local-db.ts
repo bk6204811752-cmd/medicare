@@ -1788,6 +1788,10 @@ export async function receivePurchaseOrder(tenantId: string, poId: string, recei
     if (!po) throw new Error("Purchase order not found");
 
     for (const ri of receivedItems) {
+      const itemExists = po.items.some((item) => item.id === ri.itemId);
+      if (!itemExists) {
+        throw new Error(`Item ${ri.itemId} does not belong to this purchase order`);
+      }
       await tx.purchaseOrderItem.update({
         where: { id: ri.itemId },
         data: { receivedQuantity: ri.receivedQuantity }
@@ -2215,6 +2219,15 @@ export async function quickAddMedicineWithStock(tenantId: string, input: unknown
 
   const medicineId = uid("med");
   const inventoryId = uid("inv");
+
+  if (data.supplierId) {
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: data.supplierId, tenantId }
+    });
+    if (!supplier) {
+      throw new Error("Supplier not found or does not belong to this shop");
+    }
+  }
 
   const result = await prisma.$transaction(async (tx) => {
     const medicine = await tx.medicine.create({

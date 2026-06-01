@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     let resolvedPatientName = patientName;
     let resolvedNotes = notes;
 
-    if (saleId && (!resolvedDoctorName || !resolvedPatientName)) {
+    if (saleId) {
       const associatedSale = await prisma.sale.findFirst({
         where: { id: saleId, tenantId: user.tenantId },
         select: {
@@ -124,16 +124,20 @@ export async function POST(request: NextRequest) {
           prescriptionNo: true,
         }
       });
-      if (associatedSale) {
-        if (!resolvedDoctorName) {
-          resolvedDoctorName = associatedSale.doctorName;
-        }
-        if (!resolvedPatientName) {
-          resolvedPatientName = associatedSale.customerName;
-        }
-        if (!resolvedNotes && associatedSale.prescriptionNo) {
-          resolvedNotes = `Prescription No: ${associatedSale.prescriptionNo}`;
-        }
+      if (!associatedSale) {
+        return NextResponse.json(
+          { error: "Associated sale not found or access denied." },
+          { status: 404 }
+        );
+      }
+      if (!resolvedDoctorName) {
+        resolvedDoctorName = associatedSale.doctorName;
+      }
+      if (!resolvedPatientName) {
+        resolvedPatientName = associatedSale.customerName;
+      }
+      if (!resolvedNotes && associatedSale.prescriptionNo) {
+        resolvedNotes = `Prescription No: ${associatedSale.prescriptionNo}`;
       }
     }
 

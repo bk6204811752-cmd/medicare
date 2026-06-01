@@ -1092,6 +1092,15 @@ export async function addInventory(tenantId: string, input: unknown) {
   const medicine = await prisma.medicine.findUnique({ where: { id: data.medicineId } });
   if (!medicine) throw new Error("Medicine not found");
 
+  if (data.supplierId) {
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: data.supplierId, tenantId, isActive: true }
+    });
+    if (!supplier) {
+      throw new Error("Supplier not found or does not belong to this shop");
+    }
+  }
+
   const inventory = await prisma.inventoryItem.upsert({
     where: {
       tenantId_medicineId_batchNo: { tenantId, medicineId: data.medicineId, batchNo: data.batchNo }
@@ -1744,6 +1753,13 @@ export async function createPurchaseOrder(tenantId: string, input: {
   const totalPaisa = input.items.reduce((sum, i) => sum + i.quantity * i.ratePaisa, 0);
 
   await prisma.$transaction(async (tx) => {
+    const supplier = await tx.supplier.findFirst({
+      where: { id: input.supplierId, tenantId, isActive: true }
+    });
+    if (!supplier) {
+      throw new Error("Supplier not found or does not belong to this shop");
+    }
+
     await tx.purchaseOrder.create({
       data: {
         id: poId, tenantId, poNumber, supplierId: input.supplierId,
@@ -1926,6 +1942,13 @@ export async function createPurchaseReturn(tenantId: string, input: {
   const totalPaisa = input.items.reduce((sum, i) => sum + i.quantity * i.ratePaisa, 0);
 
   await prisma.$transaction(async (tx) => {
+    const supplier = await tx.supplier.findFirst({
+      where: { id: input.supplierId, tenantId, isActive: true }
+    });
+    if (!supplier) {
+      throw new Error("Supplier not found or does not belong to this shop");
+    }
+
     await tx.purchaseReturn.create({
       data: {
         id: returnId, tenantId, returnNo, supplierId: input.supplierId,
@@ -1965,12 +1988,8 @@ export async function createPurchaseReturn(tenantId: string, input: {
       });
     }
 
-    // Decrement supplier balance, clamped to 0 minimum
-    const supplier = await tx.supplier.findUnique({ where: { id: input.supplierId } });
-    if (supplier) {
-      const newBalance = Math.max(0, supplier.balancePaisa - totalPaisa);
-      await tx.supplier.update({ where: { id: input.supplierId }, data: { balancePaisa: newBalance } });
-    }
+    const newBalance = Math.max(0, supplier.balancePaisa - totalPaisa);
+    await tx.supplier.update({ where: { id: input.supplierId }, data: { balancePaisa: newBalance } });
   });
 
   return (await getPurchaseReturns(tenantId)).find((r) => r.id === returnId);

@@ -263,10 +263,20 @@ export async function createB2BSale(tenantId: string, input: {
   let totalDiscount = input.discountPaisa || 0;
   let totalGst = 0;
 
-  const party = await prisma.party.findFirst({ where: { tenantId, id: input.partyId } });
-  if (!party) throw new Error("Invalid party");
-
   return await prisma.$transaction(async (tx) => {
+    const party = await tx.party.findFirst({ where: { tenantId, id: input.partyId } });
+    if (!party) throw new Error("Invalid party or party does not belong to this stockist");
+
+    if (input.salesmanId) {
+      const salesman = await tx.salesman.findFirst({ where: { tenantId, id: input.salesmanId } });
+      if (!salesman) throw new Error("Salesman not found or does not belong to this stockist");
+    }
+
+    if (input.orderId) {
+      const order = await tx.b2BSalesOrder.findFirst({ where: { tenantId, id: input.orderId } });
+      if (!order) throw new Error("Sales order not found or does not belong to this stockist");
+    }
+
     const saleItemsData: any[] = [];
 
     for (const item of input.items) {

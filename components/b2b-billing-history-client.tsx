@@ -1089,36 +1089,36 @@ export function B2BBillingHistoryClient({
                     <div className="border-t border-slate-200 bg-slate-50/40 p-4.5 animate-in fade-in duration-200">
                       
                       {/* Section header and actions */}
-                      <div className="mb-3 flex items-center justify-between">
+                      <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <h5 className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Medicine Lot Breakdown</h5>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2">
                           <button
                             onClick={() => openEditModal(sale)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 shadow-sm active:scale-95 transition-all"
+                            className="inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-slate-200 bg-white px-2 sm:px-2.5 py-1.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 shadow-sm active:scale-95 transition-all"
                           >
-                            <Pencil className="h-3.5 w-3.5 text-blue-500" /> Edit Bill
+                            <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500" /> Edit
                           </button>
                           {/* Record Payment — only for unpaid or partial bills */}
                           {sale.status !== "paid" && (
                             <button
                               onClick={() => openQuickPay(sale)}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 shadow-sm active:scale-95 transition-all"
+                              className="inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2 sm:px-2.5 py-1.5 sm:py-1 text-[10px] sm:text-xs font-bold text-emerald-700 hover:bg-emerald-100 shadow-sm active:scale-95 transition-all"
                             >
-                              <CreditCard className="h-3.5 w-3.5 text-emerald-600" /> Collect Payment
+                              <CreditCard className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600" /> Collect
                             </button>
                           )}
                           <button
                             onClick={() => triggerPrintOverlay(sale)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95 transition-all"
+                            className="inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg border border-slate-200 bg-white px-2 sm:px-2.5 py-1.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-sm active:scale-95 transition-all"
                           >
-                            <Printer className="h-3.5 w-3.5 text-emerald-600" /> Print / View Invoice
+                            <Printer className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-600" /> Print
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); triggerPrintOverlay(sale); }}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm active:scale-95 transition-all"
+                            className="inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg bg-emerald-600 px-2 sm:px-2.5 py-1.5 sm:py-1 text-[10px] sm:text-xs font-semibold text-white hover:bg-emerald-700 shadow-sm active:scale-95 transition-all"
                             title="Generate PDF & Share on WhatsApp"
                           >
-                            <Share2 className="h-3.5 w-3.5" /> Share PDF
+                            <Share2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> Share
                           </button>
                         </div>
                       </div>
@@ -1228,63 +1228,114 @@ export function B2BBillingHistoryClient({
 
       {/* ─── TAB CONTENT: MEDICINES SUMMARY ─── */}
       {activeTab === "medicines" && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden no-print animate-fade-in">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500 text-[10px] uppercase tracking-wider">
-                  <th className="px-5 py-3 cursor-pointer select-none text-slate-800" onClick={() => toggleMedSort("name")}>
-                    <span className="flex items-center gap-1.5">
-                      Medicine / Drug Name <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
-                    </span>
-                  </th>
-                  <th className="px-5 py-3 text-right cursor-pointer select-none text-slate-800" onClick={() => toggleMedSort("qty")}>
-                    <span className="flex items-center justify-end gap-1.5">
-                      Units Sold <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
-                    </span>
-                  </th>
-                  <th className="px-5 py-3 text-right text-slate-500">Free Qty Given</th>
-                  <th className="px-5 py-3 text-right cursor-pointer select-none text-slate-800" onClick={() => toggleMedSort("revenue")}>
-                    <span className="flex items-center justify-end gap-1.5">
-                      Total Revenue <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
-                    </span>
-                  </th>
-                  <th className="px-5 py-3 text-right text-slate-500">GST Generated</th>
-                  <th className="px-5 py-3 text-right text-slate-500">Avg PTR Rate</th>
-                  <th className="px-5 py-3 text-center text-slate-500">No. of Invoices</th>
-                  <th className="px-5 py-3 text-slate-500">Active Batches</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
-                {medicineSales.map((med) => (
-                  <tr key={med.name} className="hover:bg-slate-50/50">
-                    <td className="px-5 py-3 font-bold text-med-navy text-sm">{med.name}</td>
-                    <td className="px-5 py-3 text-right font-bold text-slate-900 font-mono text-sm">{med.quantity}</td>
-                    <td className="px-5 py-3 text-right font-mono text-slate-500">{med.freeQuantity}</td>
-                    <td className="px-5 py-3 text-right font-black text-slate-800 font-mono text-sm">{formatCurrency(med.revenue)}</td>
-                    <td className="px-5 py-3 text-right font-mono text-slate-500">{formatCurrency(med.gst)}</td>
-                    <td className="px-5 py-3 text-right font-mono text-slate-800">{formatCurrency(med.avgRate)}</td>
-                    <td className="px-5 py-3 text-center font-mono text-slate-650 bg-slate-50/40 font-bold">{med.billsCount}</td>
-                    <td className="px-5 py-3 text-slate-500 font-mono max-w-[200px] truncate" title={med.batches}>{med.batches}</td>
+        <div className="no-print animate-fade-in">
+          {/* Desktop: Table view */}
+          <div className="hidden md:block rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500 text-[10px] uppercase tracking-wider">
+                    <th className="px-5 py-3 cursor-pointer select-none text-slate-800" onClick={() => toggleMedSort("name")}>
+                      <span className="flex items-center gap-1.5">
+                        Medicine / Drug Name <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                      </span>
+                    </th>
+                    <th className="px-5 py-3 text-right cursor-pointer select-none text-slate-800" onClick={() => toggleMedSort("qty")}>
+                      <span className="flex items-center justify-end gap-1.5">
+                        Units Sold <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                      </span>
+                    </th>
+                    <th className="px-5 py-3 text-right text-slate-500">Free Qty Given</th>
+                    <th className="px-5 py-3 text-right cursor-pointer select-none text-slate-800" onClick={() => toggleMedSort("revenue")}>
+                      <span className="flex items-center justify-end gap-1.5">
+                        Total Revenue <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                      </span>
+                    </th>
+                    <th className="px-5 py-3 text-right text-slate-500">GST Generated</th>
+                    <th className="px-5 py-3 text-right text-slate-500">Avg PTR Rate</th>
+                    <th className="px-5 py-3 text-center text-slate-500">No. of Invoices</th>
+                    <th className="px-5 py-3 text-slate-500">Active Batches</th>
                   </tr>
-                ))}
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {medicineSales.map((med) => (
+                    <tr key={med.name} className="hover:bg-slate-50/50">
+                      <td className="px-5 py-3 font-bold text-med-navy text-sm">{med.name}</td>
+                      <td className="px-5 py-3 text-right font-bold text-slate-900 font-mono text-sm">{med.quantity}</td>
+                      <td className="px-5 py-3 text-right font-mono text-slate-500">{med.freeQuantity}</td>
+                      <td className="px-5 py-3 text-right font-black text-slate-800 font-mono text-sm">{formatCurrency(med.revenue)}</td>
+                      <td className="px-5 py-3 text-right font-mono text-slate-500">{formatCurrency(med.gst)}</td>
+                      <td className="px-5 py-3 text-right font-mono text-slate-800">{formatCurrency(med.avgRate)}</td>
+                      <td className="px-5 py-3 text-center font-mono text-slate-650 bg-slate-50/40 font-bold">{med.billsCount}</td>
+                      <td className="px-5 py-3 text-slate-500 font-mono max-w-[200px] truncate" title={med.batches}>{med.batches}</td>
+                    </tr>
+                  ))}
 
-                {medicineSales.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="p-8 text-center text-slate-400 font-semibold">
-                      No medicine-wise summaries calculated.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  {medicineSales.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-slate-400 font-semibold">
+                        No medicine-wise summaries calculated.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile: Card view for medicine-wise data */}
+          <div className="md:hidden space-y-2.5">
+            {/* Sort buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Sort:</span>
+              {(["name", "qty", "revenue"] as const).map((key) => (
+                <button key={key} onClick={() => toggleMedSort(key)}
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold border transition-colors ${
+                    medSortKey === key ? "bg-med-navy text-white border-med-navy" : "bg-white border-slate-200 text-slate-500"
+                  }`}
+                >
+                  {key === "name" ? "Name" : key === "qty" ? "Qty" : "Revenue"} {medSortKey === key ? (medSortOrder === "desc" ? "↓" : "↑") : ""}
+                </button>
+              ))}
+            </div>
+
+            {medicineSales.map((med) => (
+              <div key={med.name} className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                <p className="font-bold text-med-navy text-sm leading-tight">{med.name}</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-slate-50 rounded-lg p-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">Sold</p>
+                    <p className="text-sm font-black text-slate-900 font-mono">{med.quantity}</p>
+                  </div>
+                  <div className="bg-slate-50 rounded-lg p-2">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase">Free</p>
+                    <p className="text-sm font-bold text-slate-500 font-mono">{med.freeQuantity}</p>
+                  </div>
+                  <div className="bg-emerald-50 rounded-lg p-2">
+                    <p className="text-[9px] font-bold text-emerald-600 uppercase">Revenue</p>
+                    <p className="text-sm font-black text-emerald-700 font-mono">{formatCurrency(med.revenue)}</p>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500 font-semibold">
+                  <span>GST: <span className="font-mono font-bold text-slate-700">{formatCurrency(med.gst)}</span></span>
+                  <span>Avg PTR: <span className="font-mono font-bold text-slate-700">{formatCurrency(med.avgRate)}</span></span>
+                  <span className="font-mono font-bold text-slate-700">{med.billsCount} bills</span>
+                </div>
+              </div>
+            ))}
+
+            {medicineSales.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-400 font-semibold text-sm">
+                No medicine-wise summaries calculated.
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* ─── REAL-TIME PRINT CONSOLE OVERLAY MODAL ─── */}
       {completedInvoice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-2 sm:p-4 overflow-y-auto">
           <style dangerouslySetInnerHTML={{ __html: `
             @media print {
               body {
@@ -1353,84 +1404,120 @@ export function B2BBillingHistoryClient({
             }
           `}} />
 
-          <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
+          <div className="bg-slate-900 rounded-xl sm:rounded-2xl border border-slate-800 shadow-2xl w-full max-w-4xl max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
             {/* Modal Header */}
-            <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
-              <div>
-                <h3 className="font-display text-base font-black text-white flex items-center gap-2">
-                  <Printer className="h-5 w-5 text-emerald-500 animate-pulse" /> B2B Wholesaler Print Console
+            <div className="px-3 sm:px-6 py-3 sm:py-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="font-display text-sm sm:text-base font-black text-white flex items-center gap-2">
+                  <Printer className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500 animate-pulse shrink-0" /> <span className="truncate">Print Console</span>
                 </h3>
-                <p className="text-xs text-slate-400 font-semibold mt-0.5">Ref No: <code className="font-mono text-slate-350">{completedInvoice.invoiceNo}</code></p>
+                <p className="text-[10px] sm:text-xs text-slate-400 font-semibold mt-0.5">Ref: <code className="font-mono text-slate-350">{completedInvoice.invoiceNo}</code></p>
               </div>
               <button 
                 onClick={() => setCompletedInvoice(null)}
-                className="rounded-lg p-1.5 hover:bg-slate-800 transition-colors text-slate-400 hover:text-white"
+                className="rounded-lg p-1.5 hover:bg-slate-800 transition-colors text-slate-400 hover:text-white shrink-0"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Modal Body / Selector & Preview Panel */}
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-950/40 flex flex-col md:flex-row gap-6">
+            <div className="flex-1 overflow-y-auto p-2 sm:p-4 md:p-6 bg-slate-950/40 flex flex-col md:flex-row gap-3 sm:gap-4 md:gap-6">
               
-              {/* Configuration panel (Left) */}
-              <div className="w-full md:w-64 space-y-4 shrink-0 font-semibold">
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-3.5">
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Select Print Layout</p>
-                  <div className="space-y-2">
+              {/* Config Panel — compact on mobile, vertical sidebar on desktop */}
+              <div className="w-full md:w-64 shrink-0 font-semibold">
+                {/* Mobile: compact horizontal config bar */}
+                <div className="md:hidden bg-slate-900 p-3 rounded-xl border border-slate-800 shadow-md">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Layout</p>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="text-slate-400 font-semibold truncate max-w-[100px]">{completedInvoice.partyName}</span>
+                      <span className="text-emerald-400 font-mono font-black">{formatCurrency(completedInvoice.calculations.totalPaisa)}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
                     <button
                       onClick={() => setPrintFormat("a4")}
-                      className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
+                      className={`flex-1 h-9 rounded-lg font-bold text-xs border flex items-center justify-center gap-1.5 transition-all ${
                         printFormat === "a4"
                           ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
-                          : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
+                          : "bg-slate-800 border-slate-700 text-slate-400"
                       }`}
                     >
-                      <FileText className="h-4 w-4" /> A4 Tax Invoice Sheet
+                      <FileText className="h-3.5 w-3.5" /> A4 Invoice
                     </button>
                     <button
                       onClick={() => setPrintFormat("thermal")}
-                      className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
+                      className={`flex-1 h-9 rounded-lg font-bold text-xs border flex items-center justify-center gap-1.5 transition-all ${
                         printFormat === "thermal"
                           ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
-                          : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
+                          : "bg-slate-800 border-slate-700 text-slate-400"
                       }`}
                     >
-                      <Printer className="h-4 w-4" /> 3" Thermal Receipt
+                      <Printer className="h-3.5 w-3.5" /> Thermal
                     </button>
-                  </div>
-                  
-                  <div className="border-t border-slate-800 pt-3 text-[10px] text-slate-450 leading-relaxed font-semibold">
-                    <span className="text-emerald-700 font-bold block mb-1">💡 Professional Printing:</span>
-                    Trigger the browser layout print dialog, and select "Save as PDF" or route to your physical printer console.
                   </div>
                 </div>
 
-                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-2.5">
-                  <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Bill Financials</p>
-                  <div className="text-xs space-y-1.5 font-semibold text-slate-405 font-medium">
-                    <p className="flex justify-between items-center"><span>Chemist:</span> <span className="text-slate-100 font-bold max-w-[120px] truncate text-right">{completedInvoice.partyName}</span></p>
-                    <p className="flex justify-between items-center">
-                      <span>Payment:</span> 
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
-                        completedInvoice.paymentMode === "credit"
-                          ? "bg-amber-955/85 text-amber-400 border border-amber-800/40"
-                          : "bg-emerald-955/85 text-emerald-400 border border-emerald-800/40"
-                      }`}>
-                        {completedInvoice.paymentMode === "credit" ? "Trade Credit" : completedInvoice.paymentMode}
-                      </span>
-                    </p>
-                    <p className="flex justify-between items-center"><span>Lots Billed:</span> <span className="text-slate-100 font-mono font-bold">{completedInvoice.items.length} items</span></p>
-                    <div className="border-t border-slate-800 pt-2.5 mt-1 font-semibold">
-                      <p className="text-[10px] font-extrabold uppercase text-slate-455 tracking-wider">NET PAYABLE</p>
-                      <p className="text-emerald-400 font-mono font-black text-lg mt-0.5">{formatCurrency(completedInvoice.calculations.totalPaisa)}</p>
+                {/* Desktop: full vertical config panel */}
+                <div className="hidden md:block space-y-4">
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-3.5">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Select Print Layout</p>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setPrintFormat("a4")}
+                        className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
+                          printFormat === "a4"
+                            ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                            : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
+                        }`}
+                      >
+                        <FileText className="h-4 w-4" /> A4 Tax Invoice Sheet
+                      </button>
+                      <button
+                        onClick={() => setPrintFormat("thermal")}
+                        className={`w-full h-10 rounded-lg font-bold text-xs border flex items-center justify-center gap-2 transition-all ${
+                          printFormat === "thermal"
+                            ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                            : "bg-slate-800 border-slate-700 text-slate-350 hover:bg-slate-700 hover:text-white"
+                        }`}
+                      >
+                        <Printer className="h-4 w-4" /> 3" Thermal Receipt
+                      </button>
+                    </div>
+                    
+                    <div className="border-t border-slate-800 pt-3 text-[10px] text-slate-450 leading-relaxed font-semibold">
+                      <span className="text-emerald-700 font-bold block mb-1">💡 Professional Printing:</span>
+                      Trigger the browser layout print dialog, and select "Save as PDF" or route to your physical printer console.
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-md space-y-2.5">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">Bill Financials</p>
+                    <div className="text-xs space-y-1.5 font-semibold text-slate-405 font-medium">
+                      <p className="flex justify-between items-center"><span>Chemist:</span> <span className="text-slate-100 font-bold max-w-[120px] truncate text-right">{completedInvoice.partyName}</span></p>
+                      <p className="flex justify-between items-center">
+                        <span>Payment:</span> 
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${
+                          completedInvoice.paymentMode === "credit"
+                            ? "bg-amber-955/85 text-amber-400 border border-amber-800/40"
+                            : "bg-emerald-955/85 text-emerald-400 border border-emerald-800/40"
+                        }`}>
+                          {completedInvoice.paymentMode === "credit" ? "Trade Credit" : completedInvoice.paymentMode}
+                        </span>
+                      </p>
+                      <p className="flex justify-between items-center"><span>Lots Billed:</span> <span className="text-slate-100 font-mono font-bold">{completedInvoice.items.length} items</span></p>
+                      <div className="border-t border-slate-800 pt-2.5 mt-1 font-semibold">
+                        <p className="text-[10px] font-extrabold uppercase text-slate-455 tracking-wider">NET PAYABLE</p>
+                        <p className="text-emerald-400 font-mono font-black text-lg mt-0.5">{formatCurrency(completedInvoice.calculations.totalPaisa)}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* View Target Frame (Right) */}
-              <div className="flex-1 bg-slate-950 border border-slate-850 rounded-xl p-4 md:p-6 shadow-inner overflow-x-auto overflow-y-visible flex justify-start [background-image:radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px]">
+              {/* Invoice Preview — VISIBLE on ALL screens (mobile + desktop) */}
+              <div className="flex flex-1 bg-slate-950 border border-slate-850 rounded-xl p-2 sm:p-4 md:p-6 shadow-inner overflow-x-auto overflow-y-visible justify-start [background-image:radial-gradient(#334155_1px,transparent_1px)] [background-size:16px_16px] min-h-[300px] md:min-h-0">
                 
                 {/* DYNAMIC DOCUMENT TARGET */}
                 <div 
@@ -1729,105 +1816,124 @@ export function B2BBillingHistoryClient({
               </div>
             </div>
             
-            <div className="px-4 sm:px-6 py-4 bg-slate-900 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 no-print">
-              <button
-                onClick={() => setCompletedInvoice(null)}
-                className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:text-white transition-colors text-xs active:scale-[0.98]"
-              >
-                Close Print Console
-              </button>
-              
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Download PDF */}
+            <div className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 bg-slate-900 border-t border-slate-800 no-print">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                 <button
-                  onClick={async () => {
-                    try {
-                      setSharingPdf(true);
-                      const html2canvas = (await import("html2canvas")).default;
-                      const { jsPDF } = await import("jspdf");
-                      const element = document.getElementById("b2b-print-target");
-                      if (!element) { toast.error("Preview not found."); return; }
-                      element.classList.add("force-b2b-pdf-capture");
-                      const canvas = await html2canvas(element as HTMLElement, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff", windowWidth: 1100 });
-                      element.classList.remove("force-b2b-pdf-capture");
-                      const imgData = canvas.toDataURL("image/jpeg", 0.95);
-                      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-                      const imgWidth = 210; const pageHeight = 297;
-                      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                      pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight);
-                      if (imgHeight > pageHeight) { pdf.addPage(); pdf.addImage(imgData, "JPEG", 0, pageHeight - imgHeight, imgWidth, imgHeight); }
-                      const url = URL.createObjectURL(pdf.output("blob"));
-                      const a = document.createElement("a"); a.href = url; a.download = `B2B_${completedInvoice.invoiceNo}.pdf`;
-                      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                      setTimeout(() => URL.revokeObjectURL(url), 3000);
-                      toast.success("✅ PDF downloaded!");
-                    } catch { toast.error("PDF generation failed."); } finally { setSharingPdf(false); }
-                  }}
-                  disabled={sharingPdf}
-                  className="h-10 px-3 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 text-xs flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98] transition-all"
+                  onClick={() => setCompletedInvoice(null)}
+                  className="h-10 px-4 rounded-xl border border-slate-700 bg-slate-800 font-bold text-slate-300 hover:text-white transition-colors text-xs active:scale-[0.98] order-last sm:order-first"
                 >
-                  {sharingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-                  <span className="hidden sm:inline">Download</span> PDF
+                  Close Console
                 </button>
-
-                {/* WhatsApp Share — NOW GENERATES REAL PDF */}
-                <button
-                  onClick={async () => {
-                    if (!completedInvoice) return;
-                    try {
-                      setSharingPdf(true);
-                      const html2canvas = (await import("html2canvas")).default;
-                      const { jsPDF } = await import("jspdf");
-                      const element = document.getElementById("b2b-print-target");
-                      if (!element) { toast.error("Invoice preview not found."); return; }
-                      element.classList.add("force-b2b-pdf-capture");
-                      const canvas = await html2canvas(element as HTMLElement, { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff", windowWidth: 1100 });
-                      element.classList.remove("force-b2b-pdf-capture");
-                      const imgData = canvas.toDataURL("image/jpeg", 0.95);
-                      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-                      const imgWidth = 210; const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                      pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight);
-                      const blob = pdf.output("blob");
-                      const pdfFile = new File([blob], `B2B_${completedInvoice.invoiceNo}.pdf`, { type: "application/pdf" });
-                      const cleaned = (completedInvoice.partyPhone || "").replace(/\D/g, "");
-                      const phone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
-                      const invoiceUrl = `${window.location.origin}/public/invoice/${completedInvoice.id}`;
-                      const waMsg = encodeURIComponent(
-                        `📦 *B2B Invoice ${completedInvoice.invoiceNo}*\n` +
-                        `🏪 Retailer: *${completedInvoice.partyName}*\n` +
-                        `💰 Net: *₹${(completedInvoice.calculations.totalPaisa/100).toFixed(2)}*\n` +
-                        `🔗 View Online: ${invoiceUrl}\n` +
-                        `_PDF invoice attached._`
-                      );
-                      const waUrl = phone ? `https://wa.me/${phone}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`;
-                      if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-                        await navigator.share({ files: [pdfFile], title: `B2B Invoice ${completedInvoice.invoiceNo}`, text: "B2B invoice PDF attached." });
-                        toast.success("✅ PDF shared on WhatsApp!");
-                      } else {
-                        const url = URL.createObjectURL(blob);
+                
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {/* Download PDF */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        setSharingPdf(true);
+                        const html2canvas = (await import("html2canvas")).default;
+                        const { jsPDF } = await import("jspdf");
+                        const element = document.getElementById("b2b-print-target");
+                        if (!element) { toast.error("Preview not found."); return; }
+                        element.classList.add("force-b2b-pdf-capture");
+                        const canvas = await html2canvas(element as HTMLElement, { scale: 2.5, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff", windowWidth: 1100 });
+                        element.classList.remove("force-b2b-pdf-capture");
+                        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+                        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                        const pdfWidth = 200; const pdfMarginX = 5; const pdfMarginY = 5; const pageHeight = 287;
+                        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+                        let heightLeft = imgHeight; let position = pdfMarginY;
+                        pdf.addImage(imgData, "JPEG", pdfMarginX, position, pdfWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                        while (heightLeft > 0) {
+                          position = -(imgHeight - heightLeft) + pdfMarginY;
+                          pdf.addPage();
+                          pdf.addImage(imgData, "JPEG", pdfMarginX, position, pdfWidth, imgHeight);
+                          heightLeft -= pageHeight;
+                        }
+                        const url = URL.createObjectURL(pdf.output("blob"));
                         const a = document.createElement("a"); a.href = url; a.download = `B2B_${completedInvoice.invoiceNo}.pdf`;
                         document.body.appendChild(a); a.click(); document.body.removeChild(a);
                         setTimeout(() => URL.revokeObjectURL(url), 3000);
-                        setTimeout(() => window.open(waUrl, "_blank", "noopener,noreferrer"), 600);
-                        toast.success("✅ PDF downloaded! Attach it in the WhatsApp window that's opening.", { duration: 8000 });
-                      }
-                    } catch (err: any) {
-                      if (err?.name !== "AbortError") toast.error("PDF share failed.");
-                    } finally { setSharingPdf(false); }
-                  }}
-                  disabled={sharingPdf}
-                  className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-2 shadow-md active:scale-[0.98] transition-all disabled:opacity-60"
-                >
-                  {sharingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-                  {sharingPdf ? "Generating..." : "Share PDF on WhatsApp"}
-                </button>
+                        toast.success("✅ PDF downloaded!");
+                      } catch { toast.error("PDF generation failed."); } finally { setSharingPdf(false); }
+                    }}
+                    disabled={sharingPdf}
+                    className="h-10 px-3 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 text-xs flex items-center gap-1.5 disabled:opacity-50 active:scale-[0.98] transition-all"
+                  >
+                    {sharingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    <span className="hidden sm:inline">Download</span> PDF
+                  </button>
 
-                <button
-                  onClick={() => window.print()}
-                  className="h-10 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white shadow-md active:scale-[0.98] transition-all text-xs flex items-center gap-2"
-                >
-                  <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Trigger</span> Print
-                </button>
+                  {/* WhatsApp Share — NOW GENERATES REAL PDF */}
+                  <button
+                    onClick={async () => {
+                      if (!completedInvoice) return;
+                      try {
+                        setSharingPdf(true);
+                        const html2canvas = (await import("html2canvas")).default;
+                        const { jsPDF } = await import("jspdf");
+                        const element = document.getElementById("b2b-print-target");
+                        if (!element) { toast.error("Invoice preview not found."); return; }
+                        element.classList.add("force-b2b-pdf-capture");
+                        const canvas = await html2canvas(element as HTMLElement, { scale: 2.5, useCORS: true, allowTaint: true, logging: false, backgroundColor: "#ffffff", windowWidth: 1100 });
+                        element.classList.remove("force-b2b-pdf-capture");
+                        const imgData = canvas.toDataURL("image/jpeg", 0.92);
+                        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                        const pdfWidth = 200; const pdfMarginX = 5; const pdfMarginY = 5; const pageHeight = 287;
+                        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+                        let heightLeft = imgHeight; let position = pdfMarginY;
+                        pdf.addImage(imgData, "JPEG", pdfMarginX, position, pdfWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                        while (heightLeft > 0) {
+                          position = -(imgHeight - heightLeft) + pdfMarginY;
+                          pdf.addPage();
+                          pdf.addImage(imgData, "JPEG", pdfMarginX, position, pdfWidth, imgHeight);
+                          heightLeft -= pageHeight;
+                        }
+                        const blob = pdf.output("blob");
+                        const pdfFile = new File([blob], `B2B_${completedInvoice.invoiceNo}.pdf`, { type: "application/pdf" });
+                        const cleaned = (completedInvoice.partyPhone || "").replace(/\D/g, "");
+                        const phone = cleaned.length === 10 ? `91${cleaned}` : cleaned;
+                        const invoiceUrl = `${window.location.origin}/public/invoice/${completedInvoice.id}`;
+                        const waMsg = encodeURIComponent(
+                          `📦 *B2B Invoice ${completedInvoice.invoiceNo}*\n` +
+                          `🏪 Retailer: *${completedInvoice.partyName}*\n` +
+                          `💰 Net: *₹${(completedInvoice.calculations.totalPaisa/100).toFixed(2)}*\n` +
+                          `🔗 View Online: ${invoiceUrl}\n` +
+                          `_PDF invoice attached._`
+                        );
+                        const waUrl = phone ? `https://wa.me/${phone}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`;
+                        if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                          await navigator.share({ files: [pdfFile], title: `B2B Invoice ${completedInvoice.invoiceNo}`, text: "B2B invoice PDF attached." });
+                          toast.success("✅ PDF shared on WhatsApp!");
+                        } else {
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a"); a.href = url; a.download = `B2B_${completedInvoice.invoiceNo}.pdf`;
+                          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                          setTimeout(() => URL.revokeObjectURL(url), 3000);
+                          setTimeout(() => window.open(waUrl, "_blank", "noopener,noreferrer"), 600);
+                          toast.success("✅ PDF downloaded! Attach it in the WhatsApp window that's opening.", { duration: 8000 });
+                        }
+                      } catch (err: any) {
+                        if (err?.name !== "AbortError") toast.error("PDF share failed.");
+                      } finally { setSharingPdf(false); }
+                    }}
+                    disabled={sharingPdf}
+                    className="h-10 px-3 sm:px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white text-xs flex items-center gap-1.5 sm:gap-2 shadow-md active:scale-[0.98] transition-all disabled:opacity-60"
+                  >
+                    {sharingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                    <span className="hidden sm:inline">{sharingPdf ? "Generating..." : "Share PDF on WhatsApp"}</span>
+                    <span className="sm:hidden">{sharingPdf ? "..." : "WhatsApp"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => window.print()}
+                    className="h-10 px-3 sm:px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-bold text-white shadow-md active:scale-[0.98] transition-all text-xs flex items-center gap-1.5 sm:gap-2"
+                  >
+                    <Printer className="h-4 w-4" /> <span className="hidden sm:inline">Trigger</span> Print
+                  </button>
+                </div>
               </div>
             </div>
           </div>

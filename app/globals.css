@@ -553,12 +553,44 @@ input[type=number] {
   border: none !important;
   border-radius: 0 !important;
   overflow: visible !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  position: relative !important;
+  /* Better text rendering for PDF capture */
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
 }
 
 .force-b2b-pdf-capture * {
   box-shadow: none !important;
   animation: none !important;
   transition: none !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure grid layouts render correctly in PDF capture */
+.force-b2b-pdf-capture .grid {
+  display: grid !important;
+}
+
+.force-b2b-pdf-capture table {
+  border-collapse: collapse !important;
+}
+
+/* Mobile: Print modal optimizations */
+@media (max-width: 767px) {
+  /* Ensure the print modal fills the mobile screen properly */
+  .fixed.inset-0.z-50 {
+    padding: 0 !important;
+  }
+  
+  /* Allow horizontal scroll on invoice preview on mobile */
+  #b2b-print-target {
+    transform-origin: top left;
+  }
 }
 
 @media print {
